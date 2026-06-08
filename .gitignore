@@ -1,0 +1,15 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Compilados
+obj/
+bin/
+
+# Credenciales — NUNCA subir esto
+appsettings.Development.json
+
+# Node (para cuando se agregue el frontend)
+node_modules/
+.env
