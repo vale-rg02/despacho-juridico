@@ -1,0 +1,6 @@
+@DespachoJuridico.API_HostAddress = http://localhost:5274
+
+GET {{DespachoJuridico.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
