@@ -184,6 +184,31 @@ public class ExpedientesController : ControllerBase
         return Ok(new { mensaje = "Prioridad actualizada", prioridad = expediente.Prioridad.ToString() });
     }
 
+    // GET /api/expedientes/5/bitacora
+    [HttpGet("{id}/bitacora")]
+    public async Task<IActionResult> GetBitacora(int id)
+    {
+        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
+        if (!existe)
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var bitacora = await _context.BitacoraCambios
+            .Include(b => b.Usuario)
+            .Where(b => b.ExpedienteId == id)
+            .OrderByDescending(b => b.Fecha)
+            .Select(b => new BitacoraResponse
+            {
+                Id = b.Id,
+                Accion = b.Accion,
+                Detalle = b.Detalle,
+                Fecha = b.Fecha,
+                UsuarioNombre = b.Usuario.Nombre
+            })
+            .ToListAsync();
+
+        return Ok(bitacora);
+    }
+
     // ───────────── Helpers privados ─────────────
 
     private static ExpedienteResponse MapToResponse(Expediente e) => new()

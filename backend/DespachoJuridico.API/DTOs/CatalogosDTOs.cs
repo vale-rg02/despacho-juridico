@@ -15,3 +15,12 @@ public class UsuarioResponse
     public string Email { get; set; } = string.Empty;
     public string Rol { get; set; } = string.Empty;
 }
+
+public class BitacoraResponse
+{
+    public int Id { get; set; }
+    public string Accion { get; set; } = string.Empty;
+    public string? Detalle { get; set; }
+    public DateTime Fecha { get; set; }
+    public string UsuarioNombre { get; set; } = string.Empty;
+}
