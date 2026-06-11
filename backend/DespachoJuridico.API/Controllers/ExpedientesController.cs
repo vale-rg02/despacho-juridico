@@ -1,4 +1,5 @@
-﻿using DespachoJuridico.API.Data;
+﻿using Microsoft.AspNetCore.Authorization;
+using DespachoJuridico.API.Data;
 using DespachoJuridico.API.DTOs;
 using DespachoJuridico.API.Models;
 using DespachoJuridico.API.Models.Enums;
@@ -10,6 +11,7 @@ namespace DespachoJuridico.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ExpedientesController : ControllerBase
 {
     private readonly AppDbContext _context;

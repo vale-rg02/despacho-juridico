@@ -1,4 +1,5 @@
-﻿using DespachoJuridico.API.Data;
+﻿using Microsoft.AspNetCore.Authorization;
+using DespachoJuridico.API.Data;
 using DespachoJuridico.API.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ namespace DespachoJuridico.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class BancosController : ControllerBase
 {
     private readonly AppDbContext _context;
