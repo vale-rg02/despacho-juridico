@@ -1,36 +1,79 @@
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Badge from '../components/Badge'
 import Navbar from '../components/Navbar'
-
-const expedientesMock = [
-  { id: 1, numero: "673/2019", parte: "Juan García López", juzgado: "1ro Civil", materia: "Hipotecario", estado: "Abierto", prioridad: "Urgente", banco: "HSBC", notas: "Cliente con antecedentes de pagos tardíos." },
-  { id: 2, numero: "412/2021", parte: "BBVA México", juzgado: "1ro Oral Mercantil", materia: "Mercantil", estado: "Abierto", prioridad: "Normal", banco: "BBVA", notas: "" },
-  { id: 3, numero: "891/2020", parte: "María Rodríguez", juzgado: "2do Civil", materia: "Hipotecario", estado: "Abierto", prioridad: "Prioritario", banco: "Santander", notas: "Pendiente recibir documentos." },
-  { id: 4, numero: "234/2022", parte: "Banco Azteca", juzgado: "2do Oral Mercantil", materia: "Mercantil", estado: "Cerrado", prioridad: "Normal", banco: "Banco Azteca", notas: "" },
-]
+import { getExpedienteById, getBitacora } from '../services/expedientes'
+import { getUsuario } from '../services/auth'
+import { formatearFecha } from '../utils/formato'
 
 function DetalleExpediente() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const exp = expedientesMock.find(e => e.id === parseInt(id))
+  const usuario = getUsuario()
 
-  if (!exp) return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="text-center">
-        <p className="text-gray-500 mb-4">Expediente no encontrado</p>
-        <button
-          onClick={() => navigate('/expedientes')}
-          className="text-blue-600 hover:underline text-sm"
-        >
-          Volver a expedientes
-        </button>
+  const [expediente, setExpediente] = useState(null)
+  const [bitacora, setBitacora] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    cargarDatos()
+  }, [id])
+
+  async function cargarDatos() {
+    setCargando(true)
+    setError('')
+    try {
+      const dataExpediente = await getExpedienteById(id)
+      setExpediente(dataExpediente)
+
+      // La bitácora solo se carga si el usuario es Socio
+      if (usuario?.rol === 'Socio') {
+        const dataBitacora = await getBitacora(id)
+        setBitacora(dataBitacora)
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setError('Expediente no encontrado')
+      } else {
+        setError('No se pudo cargar el expediente')
+      }
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-6 py-8 text-center text-gray-400">
+          Cargando expediente...
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (error || !expediente) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-6 py-8 text-center">
+          <p className="text-gray-500 mb-4">{error || 'Expediente no encontrado'}</p>
+          <button
+            onClick={() => navigate('/expedientes')}
+            className="text-blue-600 hover:underline text-sm"
+          >
+            ← Volver a expedientes
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar usuario="Carlos López" />
+      <Navbar />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Botón volver */}
@@ -44,51 +87,97 @@ function DetalleExpediente() {
         {/* Encabezado */}
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">{exp.numero}</h2>
-            <p className="text-gray-500 mt-1">{exp.parte}</p>
+            <h2 className="text-2xl font-bold text-gray-800">{expediente.numeroExpediente}</h2>
+            <p className="text-gray-500 mt-1">{expediente.parteDemandada}</p>
           </div>
           <div className="flex gap-2">
-            <Badge texto={exp.estado} />
-            <Badge texto={exp.prioridad} />
+            <Badge texto={expediente.estado} />
+            <Badge texto={expediente.prioridad} />
           </div>
         </div>
 
         {/* Datos del expediente */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
-            Información del expediente
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase">
+              Información del expediente
+            </h3>
+            <button className="text-sm text-blue-600 hover:underline">
+              Editar
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400">Juzgado</p>
-              <p className="text-sm text-gray-800 font-medium">{exp.juzgado}</p>
+              <p className="text-sm text-gray-800 font-medium">{expediente.juzgado ?? '—'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-400">Materia</p>
-              <p className="text-sm text-gray-800 font-medium">{exp.materia}</p>
+              <p className="text-sm text-gray-800 font-medium">{expediente.materia ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Tipo de juicio</p>
+              <p className="text-sm text-gray-800 font-medium">{expediente.tipoJuicio ?? '—'}</p>
             </div>
             <div>
               <p className="text-xs text-gray-400">Banco</p>
-              <p className="text-sm text-gray-800 font-medium">{exp.banco}</p>
+              <p className="text-sm text-gray-800 font-medium">{expediente.bancoNombre ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Asignado a</p>
+              <p className="text-sm text-gray-800 font-medium">{expediente.usuarioAsignadoNombre ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Última actualización</p>
+              <p className="text-sm text-gray-800 font-medium">{formatearFecha(expediente.actualizadoEn)}</p>
             </div>
           </div>
-          {exp.notas && (
+          {expediente.notas && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Notas</p>
-              <p className="text-sm text-gray-700">{exp.notas}</p>
+              <p className="text-sm text-gray-700">{expediente.notas}</p>
             </div>
           )}
         </div>
 
-        {/* Historial de etapas — placeholder */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        {/* Historial de etapas — placeholder hasta Sprint 3 */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
             Historial de etapas
           </h3>
           <p className="text-sm text-gray-400 text-center py-4">
-            El historial de etapas estará disponible cuando el backend esté listo
+            Disponible próximamente
           </p>
         </div>
+
+        {/* Bitácora — solo visible para el rol Socio */}
+        {usuario?.rol === 'Socio' && (
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
+              Bitácora de cambios
+            </h3>
+            {bitacora.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">
+                Sin registros todavía
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {bitacora.map(item => (
+                  <div key={item.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-sm font-medium text-gray-800 capitalize">
+                        {item.accion.replace('_', ' ')}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatearFecha(item.fecha)}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{item.detalle}</p>
+                    <p className="text-xs text-gray-400 mt-1">por {item.usuarioNombre}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
