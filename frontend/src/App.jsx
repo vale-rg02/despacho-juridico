@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Expedientes from './pages/Expedientes'
 import DetalleExpediente from './pages/DetalleExpediente'
 import NuevoExpediente from './pages/NuevoExpediente'
+import EditarExpediente from './pages/EditarExpediente'
 import RutaProtegida from './components/RutaProtegida'
 
 function App() {
@@ -15,6 +16,9 @@ function App() {
       } />
       <Route path="/expedientes/nuevo" element={
         <RutaProtegida><NuevoExpediente /></RutaProtegida>
+      } />
+      <Route path="/expedientes/:id/editar" element={
+        <RutaProtegida><EditarExpediente /></RutaProtegida>
       } />
       <Route path="/expedientes/:id" element={
         <RutaProtegida><DetalleExpediente /></RutaProtegida>

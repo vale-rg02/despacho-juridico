@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Badge from '../components/Badge'
 import Navbar from '../components/Navbar'
-import { getExpedienteById, getBitacora } from '../services/expedientes'
+import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad } from '../services/expedientes'
 import { getUsuario } from '../services/auth'
-import { formatearFecha } from '../utils/formato'
+import { ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero, formatearFecha } from '../utils/formato'
 
 function DetalleExpediente() {
   const { id } = useParams()
@@ -71,6 +71,26 @@ function DetalleExpediente() {
     )
   }
 
+  async function handleCambiarEstado(e) {
+  const nuevoEstado = Number(e.target.value)
+  try {
+    await cambiarEstado(id, nuevoEstado)
+    await cargarDatos()
+  } catch {
+    setErrorGeneral('No se pudo cambiar el estado')
+  }
+  }
+
+async function handleCambiarPrioridad(e) {
+  const nuevaPrioridad = Number(e.target.value)
+  try {
+    await cambiarPrioridad(id, nuevaPrioridad)
+    await cargarDatos()
+  } catch {
+    setErrorGeneral('No se pudo cambiar la prioridad')
+  }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
@@ -85,16 +105,46 @@ function DetalleExpediente() {
         </button>
 
         {/* Encabezado */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800">{expediente.numeroExpediente}</h2>
-            <p className="text-gray-500 mt-1">{expediente.parteDemandada}</p>
-          </div>
-          <div className="flex gap-2">
-            <Badge texto={expediente.estado} />
-            <Badge texto={expediente.prioridad} />
-          </div>
-        </div>
+<div className="flex justify-between items-start mb-6">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-800">{expediente.numeroExpediente}</h2>
+    <p className="text-gray-500 mt-1">{expediente.parteDemandada}</p>
+  </div>
+  <button
+    onClick={() => navigate(`/expedientes/${id}/editar`)}
+    className="text-sm text-blue-600 hover:underline"
+  >
+    Editar
+  </button>
+</div>
+
+{/* Selectores rápidos de estado y prioridad */}
+<div className="flex gap-4 mb-6">
+  <div>
+    <label className="block text-xs text-gray-400 mb-1">Estado</label>
+    <select
+      value={estadoANumero(expediente.estado)}
+      onChange={handleCambiarEstado}
+      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+    >
+      {ESTADOS.map(e => (
+        <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
+      ))}
+    </select>
+  </div>
+  <div>
+    <label className="block text-xs text-gray-400 mb-1">Prioridad</label>
+    <select
+      value={prioridadANumero(expediente.prioridad)}
+      onChange={handleCambiarPrioridad}
+      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+    >
+      {PRIORIDADES.map(p => (
+        <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
+      ))}
+    </select>
+  </div>
+</div>
 
         {/* Datos del expediente */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
