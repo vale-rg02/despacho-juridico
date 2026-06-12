@@ -69,6 +69,9 @@ public class ExpedientesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ExpedienteCreateRequest request)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var usuarioId = ObtenerUsuarioId();
 
         var expediente = new Expediente
@@ -106,6 +109,9 @@ public class ExpedientesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] ExpedienteUpdateRequest request)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var expediente = await _context.Expedientes.FindAsync(id);
         if (expediente == null)
             return NotFound(new { mensaje = "Expediente no encontrado" });
@@ -115,10 +121,30 @@ public class ExpedientesController : ControllerBase
 
         if (expediente.NumeroExpediente != request.NumeroExpediente)
             cambios.Add($"Número: '{expediente.NumeroExpediente}' → '{request.NumeroExpediente}'");
+
         if (expediente.ParteDemandada != request.ParteDemandada)
             cambios.Add($"Parte demandada: '{expediente.ParteDemandada}' → '{request.ParteDemandada}'");
+
         if (expediente.Juzgado != request.Juzgado)
-            cambios.Add($"Juzgado: '{expediente.Juzgado}' → '{request.Juzgado}'");
+            cambios.Add($"Juzgado: '{expediente.Juzgado ?? "—"}' → '{request.Juzgado ?? "—"}'");
+
+        if (expediente.Materia != request.Materia)
+            cambios.Add($"Materia: '{expediente.Materia ?? "—"}' → '{request.Materia ?? "—"}'");
+
+        if (expediente.TipoJuicio != request.TipoJuicio)
+            cambios.Add($"Tipo de juicio: '{expediente.TipoJuicio ?? "—"}' → '{request.TipoJuicio ?? "—"}'");
+
+        if (expediente.BancoId != request.BancoId)
+            cambios.Add($"Banco: '{expediente.BancoId?.ToString() ?? "—"}' → '{request.BancoId?.ToString() ?? "—"}'");
+
+        if (expediente.UsuarioAsignadoId != request.UsuarioAsignadoId)
+            cambios.Add($"Usuario asignado: '{expediente.UsuarioAsignadoId?.ToString() ?? "—"}' → '{request.UsuarioAsignadoId?.ToString() ?? "—"}'");
+
+        if (expediente.ExpedienteRelacionadoId != request.ExpedienteRelacionadoId)
+            cambios.Add($"Expediente relacionado: '{expediente.ExpedienteRelacionadoId?.ToString() ?? "—"}' → '{request.ExpedienteRelacionadoId?.ToString() ?? "—"}'");
+
+        if (expediente.Notas != request.Notas)
+            cambios.Add("Notas actualizadas");
 
         expediente.NumeroExpediente = request.NumeroExpediente;
         expediente.ParteDemandada = request.ParteDemandada;
