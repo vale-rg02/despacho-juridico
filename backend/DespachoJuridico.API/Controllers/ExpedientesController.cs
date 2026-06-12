@@ -6,6 +6,8 @@ using DespachoJuridico.API.Models.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using DespachoJuridico.API.Services;
+
 
 namespace DespachoJuridico.API.Controllers;
 
@@ -15,11 +17,14 @@ namespace DespachoJuridico.API.Controllers;
 public class ExpedientesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ICalculadorFechasService _calculador;
 
-    public ExpedientesController(AppDbContext context)
+    public ExpedientesController(AppDbContext context, ICalculadorFechasService calculador)
     {
         _context = context;
+        _calculador = calculador;
     }
+
 
     // GET /api/expedientes?estado=Abierto&busqueda=673
     [HttpGet]
@@ -235,6 +240,131 @@ public class ExpedientesController : ControllerBase
             .ToListAsync();
 
         return Ok(bitacora);
+    }
+
+    // GET /api/expedientes/5/etapas
+    [HttpGet("{id}/etapas")]
+    public async Task<IActionResult> GetEtapas(int id)
+    {
+        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
+        if (!existe)
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var etapas = await _context.HistorialEtapas
+            .Include(h => h.EtapaCatalogo)
+            .Include(h => h.RegistradoPor)
+            .Where(h => h.ExpedienteId == id)
+            .OrderByDescending(h => h.FechaInicio)
+            .Select(h => new EtapaHistorialResponse
+            {
+                Id = h.Id,
+                EtapaCatalogoId = h.EtapaCatalogoId,
+                EtapaNombre = h.EtapaCatalogo != null ? h.EtapaCatalogo.Nombre : null,
+                FechaInicio = h.FechaInicio,
+                FechaLimite = h.FechaLimite,
+                FechaCompletada = h.FechaCompletada,
+                Atendido = h.Atendido,
+                Notas = h.Notas,
+                RegistradoPorNombre = h.RegistradoPor.Nombre
+            })
+            .ToListAsync();
+
+        return Ok(etapas);
+    }
+
+    // POST /api/expedientes/5/etapas
+    [HttpPost("{id}/etapas")]
+    public async Task<IActionResult> RegistrarEtapa(int id, [FromBody] RegistrarEtapaRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null)
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
+        if (etapaCatalogo == null)
+            return BadRequest(new { mensaje = "La etapa del catálogo no existe" });
+
+        // Si no viene fecha límite explícita, se calcula con el catálogo
+        // Normalizamos la fecha de inicio a UTC (PostgreSQL lo exige para timestamptz)
+        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+
+        // Si no viene fecha límite explícita, se calcula con el catálogo
+        var fechaLimiteCalculada = request.FechaLimite
+            ?? _calculador.CalcularFechaLimite(fechaInicioUtc, etapaCatalogo.TerminoDias, etapaCatalogo.EsDiasHabiles);
+
+        DateTime? fechaLimiteUtc = fechaLimiteCalculada.HasValue
+            ? DateTime.SpecifyKind(fechaLimiteCalculada.Value.Date, DateTimeKind.Utc)
+            : null;
+
+        var usuarioId = ObtenerUsuarioId();
+
+        var historial = new HistorialEtapa
+        {
+            ExpedienteId = id,
+            EtapaCatalogoId = etapaCatalogo.Id,
+            FechaInicio = fechaInicioUtc,
+            FechaLimite = fechaLimiteUtc,
+            Notas = request.Notas,
+            RegistradoPorId = usuarioId
+        };
+
+        _context.HistorialEtapas.Add(historial);
+
+        expediente.ActualizadoEn = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(id, usuarioId, "etapa_nueva",
+        $"Etapa '{etapaCatalogo.Nombre}' iniciada el {fechaInicioUtc:yyyy-MM-dd}" +
+        (fechaLimiteUtc != null ? $", fecha límite: {fechaLimiteUtc:yyyy-MM-dd}" : ""));
+
+        await _context.Entry(historial).Reference(h => h.RegistradoPor).LoadAsync();
+
+        var response = new EtapaHistorialResponse
+        {
+            Id = historial.Id,
+            EtapaCatalogoId = historial.EtapaCatalogoId,
+            EtapaNombre = etapaCatalogo.Nombre,
+            FechaInicio = historial.FechaInicio,
+            FechaLimite = historial.FechaLimite,
+            FechaCompletada = historial.FechaCompletada,
+            Atendido = historial.Atendido,
+            Notas = historial.Notas,
+            RegistradoPorNombre = historial.RegistradoPor.Nombre
+        };
+
+        return CreatedAtAction(nameof(GetEtapas), new { id }, response);
+    }
+
+    // PUT /api/expedientes/5/etapas/12
+    [HttpPut("{id}/etapas/{etapaId}")]
+    public async Task<IActionResult> CompletarEtapa(int id, int etapaId, [FromBody] CompletarEtapaRequest request)
+    {
+        var historial = await _context.HistorialEtapas
+            .Include(h => h.EtapaCatalogo)
+            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
+
+        if (historial == null)
+            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
+
+        historial.FechaCompletada = request.FechaCompletada.HasValue
+            ? DateTime.SpecifyKind(request.FechaCompletada.Value.Date, DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        await RegistrarBitacora(id, usuarioId, "etapa_completada",
+            $"Etapa '{historial.EtapaCatalogo?.Nombre}' marcada como completada");
+
+        return Ok(new
+        {
+            mensaje = "Etapa marcada como completada",
+            fechaCompletada = historial.FechaCompletada
+        });
     }
 
     // ───────────── Helpers privados ─────────────
