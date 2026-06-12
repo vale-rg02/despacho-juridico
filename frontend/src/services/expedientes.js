@@ -18,3 +18,8 @@ export async function getBitacora(id) {
   const response = await api.get(`/expedientes/${id}/bitacora`)
   return response.data
 }
+
+export async function createExpediente(datos) {
+  const response = await api.post('/expedientes', datos)
+  return response.data
+}
