@@ -1,4 +1,5 @@
 using DespachoJuridico.API.Data;
+using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +13,8 @@ builder.Services.AddControllers();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<ICalculadorFechasService, CalculadorFechasService>();
+
 
 // CORS para React en desarrollo
 builder.Services.AddCors(options =>

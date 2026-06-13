@@ -24,3 +24,13 @@ public class BitacoraResponse
     public DateTime Fecha { get; set; }
     public string UsuarioNombre { get; set; } = string.Empty;
 }
+
+public class EtapaCatalogoResponse
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string? TipoJuicio { get; set; }
+    public int? TerminoDias { get; set; }
+    public bool EsDiasHabiles { get; set; }
+    public int Orden { get; set; }
+}
