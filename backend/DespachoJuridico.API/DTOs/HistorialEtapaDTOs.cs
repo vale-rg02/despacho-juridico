@@ -33,3 +33,14 @@ public class CompletarEtapaRequest
 {
     public DateTime? FechaCompletada { get; set; }
 }
+
+public class AlertaResponse
+{
+    public int EtapaHistorialId { get; set; }
+    public int ExpedienteId { get; set; }
+    public string NumeroExpediente { get; set; } = string.Empty;
+    public string? EtapaNombre { get; set; }
+    public DateTime FechaLimite { get; set; }
+    public int DiasRestantes { get; set; }
+    public bool Vencida { get; set; }
+}

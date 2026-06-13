@@ -367,6 +367,27 @@ public class ExpedientesController : ControllerBase
         });
     }
 
+    // PATCH /api/expedientes/5/etapas/12/atendido
+    [HttpPatch("{id}/etapas/{etapaId}/atendido")]
+    public async Task<IActionResult> MarcarEtapaAtendida(int id, int etapaId)
+    {
+        var historial = await _context.HistorialEtapas
+            .Include(h => h.EtapaCatalogo)
+            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
+
+        if (historial == null)
+            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
+
+        historial.Atendido = true;
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        await RegistrarBitacora(id, usuarioId, "etapa_atendida",
+            $"Alerta de '{historial.EtapaCatalogo?.Nombre}' marcada como atendida");
+
+        return Ok(new { mensaje = "Alerta marcada como atendida" });
+    }
+
     // ───────────── Helpers privados ─────────────
 
     private static ExpedienteResponse MapToResponse(Expediente e) => new()
