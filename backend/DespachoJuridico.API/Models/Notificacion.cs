@@ -5,6 +5,8 @@ namespace DespachoJuridico.API.Models;
 public class Notificacion
 {
     public int Id { get; set; }
+    public int DiasAnticipacion { get; set; }
+
     public int ExpedienteId { get; set; }
     public int? HistorialEtapaId { get; set; }
     public string Mensaje { get; set; } = string.Empty;
