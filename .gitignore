@@ -2,6 +2,7 @@
 .vs/
 *.user
 *.suo
+*.backup
 
 # Compilados
 obj/
