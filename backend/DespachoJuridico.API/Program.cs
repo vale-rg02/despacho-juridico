@@ -10,7 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Servicios
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
-
+builder.Services.AddHostedService<RevisionFechasService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<ICalculadorFechasService, CalculadorFechasService>();
