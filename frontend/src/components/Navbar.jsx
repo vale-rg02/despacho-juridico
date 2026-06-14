@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { logout, getUsuario } from '../services/auth'
+import PanelAlertas from './PanelAlertas'
 
 function Navbar() {
   const navigate = useNavigate()
@@ -19,6 +20,7 @@ function Navbar() {
         Despacho Jurídico
       </h1>
       <div className="flex items-center gap-4">
+        <PanelAlertas />
         <span className="text-sm text-gray-500">{usuario?.nombre ?? "Usuario"}</span>
         <button
           onClick={handleLogout}
