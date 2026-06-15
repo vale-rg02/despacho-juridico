@@ -1,12 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import {
+  ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
+  ClipboardList, User, Landmark
+} from 'lucide-react'
+import Topbar from '../components/Topbar'
+import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad } from '../services/expedientes'
 import { getHistorialEtapas, completarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
 import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
+
+const estadoConfig = {
+  Abierto: { bg: 'bg-emerald-50', text: 'text-emerald-800' },
+  Pausado: { bg: 'bg-amber-50',   text: 'text-amber-800'   },
+  Cerrado: { bg: 'bg-stone-100',  text: 'text-stone-600'   },
+}
+
+const prioridadConfig = {
+  Urgente:     { color: 'text-red-700',   symbol: '▲' },
+  Prioritario: { color: 'text-amber-700', symbol: '●' },
+  Normal:      { color: 'text-stone-500', symbol: '▼' },
+}
 
 function DetalleExpediente() {
   const { id } = useParams()
@@ -35,7 +52,6 @@ function DetalleExpediente() {
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
 
-      // La bitácora solo se carga si el usuario es Socio
       if (usuario?.rol === 'Socio') {
         const dataBitacora = await getBitacora(id)
         setBitacora(dataBitacora)
@@ -82,24 +98,24 @@ function DetalleExpediente() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
-        <div className="max-w-4xl mx-auto px-6 py-8 text-center text-gray-400">
+      <div className="min-h-screen bg-background">
+        <Topbar />
+        <div className="max-w-screen-xl mx-auto px-6 py-8 text-center text-muted-foreground">
           Cargando expediente...
         </div>
       </div>
     )
   }
 
-  if (error || !expediente) {
+  if (error && !expediente) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
-        <div className="max-w-4xl mx-auto px-6 py-8 text-center">
-          <p className="text-gray-500 mb-4">{error || 'Expediente no encontrado'}</p>
+      <div className="min-h-screen bg-background">
+        <Topbar />
+        <div className="max-w-screen-xl mx-auto px-6 py-8 text-center">
+          <p className="text-muted-foreground mb-4">{error}</p>
           <button
             onClick={() => navigate('/expedientes')}
-            className="text-blue-600 hover:underline text-sm"
+            className="text-accent hover:underline text-sm"
           >
             ← Volver a expedientes
           </button>
@@ -108,117 +124,135 @@ function DetalleExpediente() {
     )
   }
 
+  const cfgEstado = estadoConfig[expediente.estado] ?? estadoConfig.Abierto
+  const cfgPrioridad = prioridadConfig[expediente.prioridad] ?? prioridadConfig.Normal
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Botón volver */}
-        <button
-          onClick={() => navigate('/expedientes')}
-          className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1"
-        >
-          ← Volver a expedientes
-        </button>
-
-        {/* Encabezado */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800">{expediente.numeroExpediente}</h2>
-            <p className="text-gray-500 mt-1">{expediente.parteDemandada}</p>
+    <div className="min-h-screen bg-background">
+      <Topbar
+        breadcrumb={
+          <div className="flex items-center gap-2 text-sm">
+            <button
+              onClick={() => navigate('/expedientes')}
+              className="text-primary-foreground/55 hover:text-primary-foreground transition flex items-center gap-1"
+            >
+              <ArrowLeft size={13} />
+              Expedientes
+            </button>
+            <span className="text-primary-foreground/25">/</span>
+            <span className="text-primary-foreground/75" style={{ fontFamily: "'DM Mono', monospace" }}>
+              {expediente.numeroExpediente}
+            </span>
           </div>
-          <button
-            onClick={() => navigate(`/expedientes/${id}/editar`)}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Editar
-          </button>
-        </div>
+        }
+      />
 
-        {/* Selectores rápidos de estado y prioridad */}
-        <div className="flex gap-4 mb-6">
+      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-8">
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Estado</label>
+            <div className="flex items-center gap-2 mb-1">
+              <FileText size={14} className="text-accent" />
+              <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                {expediente.numeroExpediente}
+              </span>
+            </div>
+            <h1
+              className="text-2xl text-foreground leading-snug"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {expediente.parteDemandada}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">{expediente.materia ?? '—'}</p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
             <select
               value={estadoANumero(expediente.estado)}
               onChange={handleCambiarEstado}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className={`appearance-none px-3 py-1 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${cfgEstado.bg} ${cfgEstado.text}`}
             >
               {ESTADOS.map(e => (
                 <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Prioridad</label>
+
             <select
               value={prioridadANumero(expediente.prioridad)}
               onChange={handleCambiarPrioridad}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className={`appearance-none bg-card border border-border px-2 py-1 rounded text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${cfgPrioridad.color}`}
+              style={{ fontFamily: "'DM Mono', monospace" }}
             >
               {PRIORIDADES.map(p => (
-                <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
+                <option key={p.valor} value={p.valor}>
+                  {prioridadConfig[p.etiqueta]?.symbol} {p.etiqueta}
+                </option>
               ))}
             </select>
+
+            <button
+              onClick={() => navigate(`/expedientes/${id}/editar`)}
+              className="text-xs text-accent hover:underline font-medium ml-1"
+            >
+              Editar
+            </button>
           </div>
         </div>
 
-        {/* Mensaje de error (cambios de estado/prioridad/etapas) */}
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        {/* Datos del expediente */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
+        {/* Info grid */}
+        <section>
+          <h2
+            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
             Información del expediente
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-400">Juzgado</p>
-              <p className="text-sm text-gray-800 font-medium">{expediente.juzgado ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Materia</p>
-              <p className="text-sm text-gray-800 font-medium">{expediente.materia ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Tipo de juicio</p>
-              <p className="text-sm text-gray-800 font-medium">{expediente.tipoJuicio ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Banco</p>
-              <p className="text-sm text-gray-800 font-medium">{expediente.bancoNombre ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Asignado a</p>
-              <p className="text-sm text-gray-800 font-medium">{expediente.usuarioAsignadoNombre ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Última actualización</p>
-              <p className="text-sm text-gray-800 font-medium">{formatearFecha(expediente.actualizadoEn)}</p>
-            </div>
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
+            <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
+            <InfoCard icon={User}     label="Asignado a"           value={expediente.usuarioAsignadoNombre ?? '—'} />
+            <InfoCard icon={BookOpen} label="Materia"              value={expediente.materia ?? '—'} />
+            <InfoCard icon={Landmark} label="Banco"                value={expediente.bancoNombre ?? '—'} />
+            <InfoCard icon={Clock}    label="Última actualización" value={formatearFecha(expediente.actualizadoEn)} />
           </div>
-          {expediente.notas && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Notas</p>
-              <p className="text-sm text-gray-700">{expediente.notas}</p>
-            </div>
-          )}
-        </div>
 
-        {/* Historial de etapas */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase">
-              Historial de etapas
-            </h3>
+          {/* Notas */}
+          <div className="mt-3 bg-card border border-border rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <StickyNote size={14} className="text-accent" />
+              <span
+                className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+                style={{ fontFamily: "'DM Mono', monospace" }}
+              >
+                Notas del expediente
+              </span>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              {expediente.notas || 'Sin notas registradas.'}
+            </p>
+          </div>
+        </section>
+
+        {/* Etapas */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2
+              className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              Historial de etapas procesales
+            </h2>
             {!mostrarFormEtapa && (
               <button
                 onClick={() => setMostrarFormEtapa(true)}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-xs text-accent hover:underline font-medium"
               >
                 + Registrar etapa
               </button>
@@ -226,49 +260,87 @@ function DetalleExpediente() {
           </div>
 
           {mostrarFormEtapa && (
-            <FormularioEtapa
-              expedienteId={id}
-              tipoJuicio={expediente.tipoJuicio}
-              onGuardado={() => {
-                setMostrarFormEtapa(false)
-                cargarDatos()
-              }}
-              onCancelar={() => setMostrarFormEtapa(false)}
-            />
+            <div className="mb-3">
+              <FormularioEtapa
+                expedienteId={id}
+                tipoJuicio={expediente.tipoJuicio}
+                onGuardado={() => {
+                  setMostrarFormEtapa(false)
+                  cargarDatos()
+                }}
+                onCancelar={() => setMostrarFormEtapa(false)}
+              />
+            </div>
           )}
 
-          <HistorialEtapas etapas={etapas} onCompletar={handleCompletarEtapa} />
-        </div>
-
-        {/* Bitácora — solo visible para el rol Socio */}
-        {usuario?.rol === 'Socio' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
-              Bitácora de cambios
-            </h3>
-            {bitacora.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">
-                Sin registros todavía
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {bitacora.map(item => (
-                  <div key={item.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-sm font-medium text-gray-800 capitalize">
-                        {item.accion.replace('_', ' ')}
-                      </span>
-                      <span className="text-xs text-gray-400">{formatearFecha(item.fecha)}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">{item.detalle}</p>
-                    <p className="text-xs text-gray-400 mt-1">por {item.usuarioNombre}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <HistorialEtapas etapas={etapas} onCompletar={handleCompletarEtapa} />
           </div>
+        </section>
+
+        {/* Bitácora — solo Socio */}
+        {usuario?.rol === 'Socio' && (
+          <section>
+            <h2
+              className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              <ClipboardList size={13} />
+              Bitácora de cambios
+            </h2>
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              {bitacora.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Sin registros todavía
+                </p>
+              ) : (
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-secondary/60 border-b border-border">
+                      {['Acción', 'Usuario', 'Fecha y hora', 'Detalle'].map(col => (
+                        <th
+                          key={col}
+                          className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bitacora.map((item, i) => (
+                      <tr key={item.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="flex items-center gap-1.5 text-foreground font-medium text-xs capitalize">
+                            <Clock size={11} className="text-accent" />
+                            {item.accion.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{item.usuarioNombre}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          {formatearFecha(item.fecha)}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{item.detalle}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
         )}
-      </div>
+
+        <div className="pb-4">
+          <button
+            onClick={() => navigate('/expedientes')}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
+          >
+            <ArrowLeft size={14} />
+            Volver al listado
+          </button>
+        </div>
+      </main>
     </div>
   )
 }

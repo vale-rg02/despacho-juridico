@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import { ArrowLeft } from 'lucide-react'
+import Topbar from '../components/Topbar'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios } from '../services/catalogos'
 
@@ -11,6 +12,9 @@ const PRIORIDADES = [
   { valor: 1, etiqueta: 'Prioritario' },
   { valor: 2, etiqueta: 'Urgente' },
 ]
+
+const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
+const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
 function NuevoExpediente() {
   const navigate = useNavigate()
@@ -47,7 +51,7 @@ function NuevoExpediente() {
       ])
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
-    } catch (err) {
+    } catch {
       setErrorGeneral('No se pudieron cargar los catálogos de bancos y usuarios')
     } finally {
       setCargandoCatalogos(false)
@@ -64,7 +68,6 @@ function NuevoExpediente() {
     setErrores({})
     setErrorGeneral('')
 
-    // Validación básica antes de enviar
     const erroresLocales = {}
     if (!form.numeroExpediente.trim()) {
       erroresLocales.numeroExpediente = 'El número de expediente es obligatorio'
@@ -95,7 +98,6 @@ function NuevoExpediente() {
       navigate(`/expedientes/${expedienteCreado.id}`)
     } catch (err) {
       if (err.response?.status === 400 && err.response.data) {
-        // ModelState errors: { "NumeroExpediente": ["mensaje"], ... }
         const erroresBackend = {}
         for (const [campo, mensajes] of Object.entries(err.response.data.errors ?? err.response.data)) {
           const campoNormalizado = campo.charAt(0).toLowerCase() + campo.slice(1)
@@ -111,18 +113,21 @@ function NuevoExpediente() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
+    <div className="min-h-screen bg-background">
+      <Topbar />
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate('/expedientes')}
-          className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1"
+          className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
         >
-          ← Volver a expedientes
+          <ArrowLeft size={14} />
+          Volver a expedientes
         </button>
 
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Nuevo expediente</h2>
+        <h1 className="text-2xl text-foreground mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
+          Nuevo expediente
+        </h1>
 
         {errorGeneral && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -130,12 +135,11 @@ function NuevoExpediente() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            {/* Número de expediente */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Número de expediente *
               </label>
               <input
@@ -144,18 +148,15 @@ function NuevoExpediente() {
                 value={form.numeroExpediente}
                 onChange={handleChange}
                 placeholder="Ej. 673/2019"
-                className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errores.numeroExpediente ? 'border-red-400' : 'border-gray-300'
-                }`}
+                className={`${inputBase} ${errores.numeroExpediente ? 'ring-1 ring-red-400' : ''}`}
               />
               {errores.numeroExpediente && (
                 <p className="text-xs text-red-500 mt-1">{errores.numeroExpediente}</p>
               )}
             </div>
 
-            {/* Parte demandada */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Parte demandada *
               </label>
               <input
@@ -164,41 +165,33 @@ function NuevoExpediente() {
                 value={form.parteDemandada}
                 onChange={handleChange}
                 placeholder="Nombre completo"
-                className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errores.parteDemandada ? 'border-red-400' : 'border-gray-300'
-                }`}
+                className={`${inputBase} ${errores.parteDemandada ? 'ring-1 ring-red-400' : ''}`}
               />
               {errores.parteDemandada && (
                 <p className="text-xs text-red-500 mt-1">{errores.parteDemandada}</p>
               )}
             </div>
 
-            {/* Juzgado */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Juzgado
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado</label>
               <input
                 type="text"
                 name="juzgado"
                 value={form.juzgado}
                 onChange={handleChange}
                 placeholder="Ej. 1ro Civil"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputBase}
               />
             </div>
 
-            {/* Banco */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Banco
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Banco</label>
               <select
                 name="bancoId"
                 value={form.bancoId}
                 onChange={handleChange}
                 disabled={cargandoCatalogos}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Sin banco —</option>
                 {bancos.map(b => (
@@ -207,16 +200,13 @@ function NuevoExpediente() {
               </select>
             </div>
 
-            {/* Materia */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Materia
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
               <select
                 name="materia"
                 value={form.materia}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Selecciona —</option>
                 {MATERIAS.map(m => (
@@ -225,16 +215,13 @@ function NuevoExpediente() {
               </select>
             </div>
 
-            {/* Tipo de juicio */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de juicio
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
               <select
                 name="tipoJuicio"
                 value={form.tipoJuicio}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Selecciona —</option>
                 {TIPOS_JUICIO.map(t => (
@@ -243,16 +230,13 @@ function NuevoExpediente() {
               </select>
             </div>
 
-            {/* Prioridad */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prioridad
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
               <select
                 name="prioridad"
                 value={form.prioridad}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 {PRIORIDADES.map(p => (
                   <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
@@ -260,17 +244,14 @@ function NuevoExpediente() {
               </select>
             </div>
 
-            {/* Usuario asignado */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Asignado a
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
               <select
                 name="usuarioAsignadoId"
                 value={form.usuarioAsignadoId}
                 onChange={handleChange}
                 disabled={cargandoCatalogos}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Sin asignar —</option>
                 {usuarios.map(u => (
@@ -279,41 +260,37 @@ function NuevoExpediente() {
               </select>
             </div>
 
-            {/* Notas */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas
-              </label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
               <textarea
                 name="notas"
                 value={form.notas}
                 onChange={handleChange}
                 rows={3}
                 placeholder="Información adicional relevante..."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputBase}
               />
             </div>
           </div>
 
-          {/* Botones */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
             <button
               type="button"
               onClick={() => navigate('/expedientes')}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={guardando}
-              className="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+              className="bg-accent text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar expediente'}
             </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   )
 }

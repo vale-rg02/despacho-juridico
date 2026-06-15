@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import { ArrowLeft } from 'lucide-react'
+import Topbar from '../components/Topbar'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios } from '../services/catalogos'
 
 const MATERIAS = ['Hipotecario', 'Mercantil', 'Arrendamiento', 'Familiar']
 const TIPOS_JUICIO = ['Civil', 'Oral Mercantil', 'Familiar', 'Arrendamiento']
+
+const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
+const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
 function EditarExpediente() {
   const { id } = useParams()
@@ -56,7 +60,7 @@ function EditarExpediente() {
 
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
-    } catch (err) {
+    } catch {
       setErrorGeneral('No se pudo cargar el expediente')
     } finally {
       setCargando(false)
@@ -118,9 +122,9 @@ function EditarExpediente() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
-        <div className="max-w-3xl mx-auto px-6 py-8 text-center text-gray-400">
+      <div className="min-h-screen bg-background">
+        <Topbar />
+        <div className="max-w-screen-xl mx-auto px-6 py-8 text-center text-muted-foreground">
           Cargando...
         </div>
       </div>
@@ -128,18 +132,21 @@ function EditarExpediente() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
+    <div className="min-h-screen bg-background">
+      <Topbar />
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate(`/expedientes/${id}`)}
-          className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1"
+          className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
         >
-          ← Volver al expediente
+          <ArrowLeft size={14} />
+          Volver al expediente
         </button>
 
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Editar expediente</h2>
+        <h1 className="text-2xl text-foreground mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
+          Editar expediente
+        </h1>
 
         {errorGeneral && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -147,11 +154,11 @@ function EditarExpediente() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Número de expediente *
               </label>
               <input
@@ -159,9 +166,7 @@ function EditarExpediente() {
                 name="numeroExpediente"
                 value={form.numeroExpediente}
                 onChange={handleChange}
-                className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errores.numeroExpediente ? 'border-red-400' : 'border-gray-300'
-                }`}
+                className={`${inputBase} ${errores.numeroExpediente ? 'ring-1 ring-red-400' : ''}`}
               />
               {errores.numeroExpediente && (
                 <p className="text-xs text-red-500 mt-1">{errores.numeroExpediente}</p>
@@ -169,7 +174,7 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Parte demandada *
               </label>
               <input
@@ -177,9 +182,7 @@ function EditarExpediente() {
                 name="parteDemandada"
                 value={form.parteDemandada}
                 onChange={handleChange}
-                className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errores.parteDemandada ? 'border-red-400' : 'border-gray-300'
-                }`}
+                className={`${inputBase} ${errores.parteDemandada ? 'ring-1 ring-red-400' : ''}`}
               />
               {errores.parteDemandada && (
                 <p className="text-xs text-red-500 mt-1">{errores.parteDemandada}</p>
@@ -187,23 +190,23 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Juzgado</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado</label>
               <input
                 type="text"
                 name="juzgado"
                 value={form.juzgado}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputBase}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Banco</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Banco</label>
               <select
                 name="bancoId"
                 value={form.bancoId}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Sin banco —</option>
                 {bancos.map(b => (
@@ -213,12 +216,12 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Materia</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
               <select
                 name="materia"
                 value={form.materia}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Selecciona —</option>
                 {MATERIAS.map(m => (
@@ -228,12 +231,12 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de juicio</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
               <select
                 name="tipoJuicio"
                 value={form.tipoJuicio}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Selecciona —</option>
                 {TIPOS_JUICIO.map(t => (
@@ -243,12 +246,12 @@ function EditarExpediente() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Asignado a</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
               <select
                 name="usuarioAsignadoId"
                 value={form.usuarioAsignadoId}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Sin asignar —</option>
                 {usuarios.map(u => (
@@ -258,35 +261,35 @@ function EditarExpediente() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
               <textarea
                 name="notas"
                 value={form.notas}
                 onChange={handleChange}
                 rows={3}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputBase}
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
             <button
               type="button"
               onClick={() => navigate(`/expedientes/${id}`)}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={guardando}
-              className="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+              className="bg-accent text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   )
 }

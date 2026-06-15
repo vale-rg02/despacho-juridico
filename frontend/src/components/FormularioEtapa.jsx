@@ -33,7 +33,6 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
     }
   }
 
-  // Cuando cambia la etapa o la fecha de inicio, recalculamos la sugerencia
   useEffect(() => {
     if (!etapaCatalogoId) return
     const etapa = catalogo.find(e => e.id === Number(etapaCatalogoId))
@@ -61,7 +60,7 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         notas: notas || null,
       })
       onGuardado()
-    } catch (err) {
+    } catch {
       setError('No se pudo registrar la etapa')
     } finally {
       setGuardando(false)
@@ -70,8 +69,11 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
+  const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+    <form onSubmit={handleSubmit} className="bg-secondary/40 border border-border rounded-lg p-4">
       {error && (
         <div className="mb-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
           {error}
@@ -80,12 +82,12 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Etapa *</label>
+          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
           <select
             value={etapaCatalogoId}
             onChange={e => setEtapaCatalogoId(e.target.value)}
             disabled={cargandoCatalogo}
-            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className={`${inputClass} cursor-pointer`}
           >
             <option value="">— Selecciona —</option>
             {catalogo.map(e => (
@@ -95,43 +97,42 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de inicio *</label>
+          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
           <input
             type="date"
             value={fechaInicio}
             onChange={e => setFechaInicio(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={inputClass}
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
             Fecha límite
             {etapaSeleccionada?.terminoDias != null && (
-              <span className="text-gray-400 font-normal"> (sugerida)</span>
+              <span className="text-muted-foreground/60 font-normal"> (sugerida)</span>
             )}
           </label>
           <input
             type="date"
             value={fechaLimite}
             onChange={e => setFechaLimite(e.target.value)}
-            placeholder={etapaSeleccionada?.terminoDias == null ? 'Sin plazo definido' : ''}
-            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={inputClass}
           />
           {etapaSeleccionada?.terminoDias == null && etapaCatalogoId && (
-            <p className="text-xs text-gray-400 mt-1">Esta etapa no tiene plazo definido aún. Captúralo manualmente si lo conoces.</p>
+            <p className="text-xs text-muted-foreground mt-1">Sin plazo definido aún. Captúralo manualmente si lo conoces.</p>
           )}
         </div>
       </div>
 
       <div className="mb-3">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notas</label>
+        <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
         <input
           type="text"
           value={notas}
           onChange={e => setNotas(e.target.value)}
           placeholder="Información adicional (opcional)"
-          className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={inputClass}
         />
       </div>
 
@@ -139,14 +140,14 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         <button
           type="button"
           onClick={onCancelar}
-          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+          className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={guardando}
-          className="bg-blue-600 text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+          className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
         >
           {guardando ? 'Guardando...' : 'Registrar etapa'}
         </button>
