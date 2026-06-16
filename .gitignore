@@ -3,6 +3,8 @@
 *.user
 *.suo
 *.backup
+*.xlsx
+*.xls
 
 # Compilados
 obj/
