@@ -16,6 +16,8 @@ public class Expediente
     public int? UsuarioAsignadoId { get; set; }
     public int? ExpedienteRelacionadoId { get; set; }
     public string? Notas { get; set; }
+    public string? EtapaActual { get; set; }
+    public string? AccionPendiente { get; set; }
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
     public DateTime ActualizadoEn { get; set; } = DateTime.UtcNow;
     public int CreadoPorId { get; set; }
