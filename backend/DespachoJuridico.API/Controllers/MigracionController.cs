@@ -58,8 +58,8 @@ public class MigracionController : ControllerBase
         }
         finally
         {
-            if (File.Exists(rutaTmp))
-                File.Delete(rutaTmp);
+            if (System.IO.File.Exists(rutaTmp))
+                System.IO.File.Delete(rutaTmp);
         }
     }
 }

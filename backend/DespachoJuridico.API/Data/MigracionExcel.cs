@@ -8,6 +8,33 @@ namespace DespachoJuridico.API.Data;
 
 public static class MigracionExcel
 {
+    private static readonly (string Columna, string NombreEtapa, int Orden)[] EtapasProceso =
+    [
+        ("DEMANDA",                        "Demanda",                        1),
+    ("RADICACIÓN",                     "Radicación",                     2),
+    ("Término",                        "Término",                        3),
+    ("EMPLAZAMIENTO",                  "Emplazamiento",                  4),
+    ("CONTESTACIÓN ",                  "Contestación",                   5),
+    ("ACUSAR REBELDÍA ",               "Acusar Rebeldía",                6),
+    ("REBELDIA ",                      "Rebeldía",                       7),
+    ("PRUEBAS",                        "Pruebas",                        8),
+    ("ALEGATOS ",                      "Alegatos",                       9),
+    ("Audiencia Preeliminar",          "Audiencia Preliminar",          10),
+    ("Audiencia de Juicio",            "Audiencia de Juicio",           11),
+    ("Audiencia de sentencia",         "Audiencia de Sentencia",        12),
+    ("SENTENCIA",                      "Sentencia",                     13),
+    ("Término para amparo",            "Término para Amparo",           14),
+    ("AMPARO",                         "Amparo",                        15),
+    ("COSA JUZGADA",                   "Cosa Juzgada",                  16),
+    ("CERTIFICADO DE GRAVAMEN ",       "Certificado de Gravamen",       17),
+    ("AVALUOS ",                       "Avalúos",                       18),
+    ("DILIGENCIA DE REMATE ",          "Diligencia de Remate",          19),
+    ("AUTO APROBATORIO",               "Auto Aprobatorio",              20),
+    ("AUTO QUE DECLARA FIRME REMATE ", "Auto que declara firme remate", 21),
+    ("ESCRITURA DE ADJUDICACIÓN ",     "Escritura de adjudicación",     22),
+    ("LANZAMIENTO",                    "Lanzamiento",                   23),
+];
+
     public static async Task<MigracionResultado> ImportarAsync(
         AppDbContext context,
         string rutaExcel,
@@ -16,7 +43,6 @@ public static class MigracionExcel
     {
         var resultado = new MigracionResultado();
 
-        // Necesario para ExcelDataReader en .NET Core
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
         using var stream = File.Open(rutaExcel, FileMode.Open, FileAccess.Read);
@@ -29,119 +55,154 @@ public static class MigracionExcel
             }
         });
 
-        // Tomamos la primera hoja
         var hoja = dataset.Tables[0];
         var ahora = DateTime.UtcNow;
 
-        // Cargar bancos existentes para hacer match por nombre
-        var bancosExistentes = context.Bancos.ToList();
+        var numerosExistentes = context.Expedientes
+            .Select(e => e.NumeroExpediente)
+            .ToHashSet();
+
+        var catalogosExistentes = context.EtapasCatalogo.ToList();
+
+        int numeroFila = 1;
 
         foreach (DataRow fila in hoja.Rows)
         {
+            numeroFila++;
+            string? numero = null;
+
             try
             {
-                var numero = fila["Número de Expediente"]?.ToString()?.Trim();
-                var parte = fila["Parte Demandada"]?.ToString()?.Trim();
+                numero = fila["EXP"]?.ToString()?.Trim();
+                var parte = fila["PARTE"]?.ToString()?.Trim();
 
-                // Si no tiene número ni parte, saltamos la fila
                 if (string.IsNullOrWhiteSpace(numero) && string.IsNullOrWhiteSpace(parte))
                 {
                     resultado.FilasSaltadas++;
                     continue;
                 }
 
-                // Si soloAbiertos=true, solo importamos los que no estén Cerrados
-                var estadoTexto = fila.Table.Columns.Contains("Estado")
-                    ? fila["Estado"]?.ToString()?.Trim()
-                    : null;
-
-                if (soloAbiertos && estadoTexto?.ToLower() == "cerrado")
-                {
-                    resultado.FilasSaltadas++;
-                    continue;
-                }
-
-                // Verificar si ya existe (por número de expediente)
-                if (!string.IsNullOrWhiteSpace(numero) &&
-                    context.Expedientes.Any(e => e.NumeroExpediente == numero))
+                if (!string.IsNullOrWhiteSpace(numero) && numerosExistentes.Contains(numero))
                 {
                     resultado.Duplicados++;
-                    resultado.Errores.Add($"Duplicado: {numero}");
+                    resultado.Errores.Add($"Duplicado (fila {numeroFila}): {numero}");
                     continue;
                 }
 
-                // Resolver banco
-                int? bancoId = null;
-                var bancoNombre = fila.Table.Columns.Contains("Banco")
-                    ? fila["Banco"]?.ToString()?.Trim()
+                var juzgado = fila.Table.Columns.Contains("JUZGADO")
+                    ? fila["JUZGADO"]?.ToString()?.Trim()
                     : null;
 
-                if (!string.IsNullOrWhiteSpace(bancoNombre))
-                {
-                    var banco = bancosExistentes.FirstOrDefault(b =>
-                        b.Nombre.Equals(bancoNombre, StringComparison.OrdinalIgnoreCase));
-
-                    if (banco == null)
-                    {
-                        banco = new Banco { Nombre = bancoNombre, CreadoEn = ahora };
-                        context.Bancos.Add(banco);
-                        await context.SaveChangesAsync();
-                        bancosExistentes.Add(banco);
-                    }
-
-                    bancoId = banco.Id;
-                }
-
-                // Resolver estado
-                var estado = estadoTexto?.ToLower() switch
-                {
-                    "cerrado" => EstadoExpediente.Cerrado,
-                    "pausado" => EstadoExpediente.Pausado,
-                    _ => EstadoExpediente.Abierto
-                };
-
-                // Resolver materia
-                var materia = fila.Table.Columns.Contains("Materia")
-                    ? fila["Materia"]?.ToString()?.Trim()
+                var notas = fila.Table.Columns.Contains("NOTAS")
+                    ? fila["NOTAS"]?.ToString()?.Trim()
                     : null;
 
-                // Resolver juzgado
-                var juzgado = fila.Table.Columns.Contains("Juzgado")
-                    ? fila["Juzgado"]?.ToString()?.Trim()
+                var materia = fila.Table.Columns.Contains("MATERIA")
+                    ? fila["MATERIA"]?.ToString()?.Trim()
                     : null;
 
-                // Resolver notas
-                var notas = fila.Table.Columns.Contains("Notas")
-                    ? fila["Notas"]?.ToString()?.Trim()
+                var etapaActual = fila.Table.Columns.Contains("ETAPA")
+                    ? fila["ETAPA"]?.ToString()?.Trim()
                     : null;
 
-                // Resolver tipo de juicio
-                var tipoJuicio = fila.Table.Columns.Contains("Tipo de Juicio")
-                    ? fila["Tipo de Juicio"]?.ToString()?.Trim()
+                var accionColumna = fila.Table.Columns
+                    .Cast<DataColumn>()
+                    .FirstOrDefault(c => c.ColumnName.Trim().ToLower()
+                        .Replace("ó", "o").Replace("á", "a") == "accion")
+                    ?.ColumnName;
+
+                // Buscar Acción por posición (columna 4, índice base 0) 
+                // porque el encoding del Excel no coincide con el string literal
+                var accionActual = hoja.Columns.Count > 4
+                    ? fila[4]?.ToString()?.Trim()
                     : null;
 
                 var expediente = new Expediente
                 {
                     NumeroExpediente = numero ?? $"IMP-{resultado.Importados + 1}",
                     ParteDemandada = parte ?? "Sin especificar",
-                    BancoId = bancoId,
                     Juzgado = string.IsNullOrWhiteSpace(juzgado) ? null : juzgado,
                     Materia = string.IsNullOrWhiteSpace(materia) ? null : materia,
-                    TipoJuicio = string.IsNullOrWhiteSpace(tipoJuicio) ? null : tipoJuicio,
-                    Estado = estado,
+                    Estado = EstadoExpediente.Abierto,
                     Prioridad = Prioridad.Normal,
                     Notas = string.IsNullOrWhiteSpace(notas) ? null : notas,
+                    EtapaActual = string.IsNullOrWhiteSpace(etapaActual) ? null : etapaActual,
+                    AccionPendiente = string.IsNullOrWhiteSpace(accionActual) ? null : accionActual,
                     CreadoPorId = creadoPorUsuarioId,
                     CreadoEn = ahora,
                     ActualizadoEn = ahora
                 };
 
+                foreach (var (columna, nombreEtapa, orden) in EtapasProceso)
+                {
+                    if (!fila.Table.Columns.Contains(columna))
+                        continue;
+
+                    var valorCelda = fila[columna]?.ToString()?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(valorCelda))
+                        continue;
+
+                    if (valorCelda.ToLower().Contains("n/a") ||
+                        valorCelda.ToLower().Contains("no tuvo"))
+                        continue;
+
+                    var catalogo = catalogosExistentes.FirstOrDefault(c =>
+                        c.Nombre.Equals(nombreEtapa, StringComparison.OrdinalIgnoreCase));
+
+                    if (catalogo == null)
+                    {
+                        catalogo = new EtapaCatalogo
+                        {
+                            Nombre = nombreEtapa,
+                            Orden = orden,
+                            EsDiasHabiles = true
+                        };
+                        context.EtapasCatalogo.Add(catalogo);
+                        catalogosExistentes.Add(catalogo);
+                    }
+
+                    DateTime? fechaCompletada = null;
+                    string? notasEtapa = null;
+
+                    if (DateTime.TryParseExact(valorCelda, "dd/MM/yyyy",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var fechaParseada))
+                    {
+                        fechaCompletada = DateTime.SpecifyKind(fechaParseada, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        notasEtapa = $"Valor original del Excel: {valorCelda}";
+                    }
+
+                    expediente.Historial.Add(new HistorialEtapa
+                    {
+                        EtapaCatalogo = catalogo,
+                        FechaInicio = fechaCompletada ?? ahora,
+                        FechaCompletada = fechaCompletada,
+                        FechaLimite = null,
+                        Atendido = fechaCompletada.HasValue,
+                        RegistradoPorId = creadoPorUsuarioId,
+                        Notas = notasEtapa
+                    });
+                }
+
                 context.Expedientes.Add(expediente);
+
+                if (!string.IsNullOrWhiteSpace(numero))
+                    numerosExistentes.Add(numero);
+
                 resultado.Importados++;
             }
             catch (Exception ex)
             {
-                resultado.Errores.Add($"Error en fila: {ex.Message}");
+                var referencia = !string.IsNullOrWhiteSpace(numero)
+                    ? $"expediente {numero}"
+                    : $"fila {numeroFila}";
+
+                resultado.Errores.Add($"Error en {referencia}: {ex.Message}");
             }
         }
 
