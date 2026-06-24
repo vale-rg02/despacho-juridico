@@ -25,9 +25,12 @@ builder.Services.AddScoped<ICalculadorFechasService, CalculadorFechasService>();
 // CORS para React en desarrollo
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DesarrolloLocal", policy =>
+    options.AddPolicy("CorsPolicy", policy =>
     {
-        policy.WithOrigins("frontend-production-ad29c.up.railway.app")
+        policy.WithOrigins(
+                  "http://localhost:5173",
+                  "https://frontend-production-ad29c.up.railway.app"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -74,7 +77,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors("DesarrolloLocal");
+app.UseCors("CorsPolicy");
 if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();

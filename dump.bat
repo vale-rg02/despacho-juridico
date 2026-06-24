@@ -1,0 +1,1 @@
+pg_dump -U postgres -d despacho_juridico --no-owner --no-acl > backup_final2.sql
