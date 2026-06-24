@@ -388,6 +388,23 @@ public class ExpedientesController : ControllerBase
         return Ok(new { mensaje = "Alerta marcada como atendida" });
     }
 
+    // DELETE /api/expedientes/5
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Eliminar(int id)
+    {
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null)
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var usuarioId = ObtenerUsuarioId();
+        var numeroExpediente = expediente.NumeroExpediente;
+
+        _context.Expedientes.Remove(expediente);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     // ───────────── Helpers privados ─────────────
 
     private static ExpedienteResponse MapToResponse(Expediente e) => new()
