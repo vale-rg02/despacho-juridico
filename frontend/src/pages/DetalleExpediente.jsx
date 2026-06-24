@@ -124,6 +124,16 @@ function DetalleExpediente() {
     )
   }
 
+async function handleEliminar() {
+  if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
+  try {
+    await eliminarExpediente(id)
+    navigate('/expedientes')
+  } catch {
+    setError('No se pudo eliminar el expediente')
+  }
+}
+
   const cfgEstado = estadoConfig[expediente.estado] ?? estadoConfig.Abierto
   const cfgPrioridad = prioridadConfig[expediente.prioridad] ?? prioridadConfig.Normal
 
