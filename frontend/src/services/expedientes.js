@@ -38,3 +38,7 @@ export async function cambiarPrioridad(id, prioridad) {
   const response = await api.patch(`/expedientes/${id}/prioridad`, { prioridad })
   return response.data
 }
+
+export async function eliminarExpediente(id) {
+  await api.delete(`/expedientes/${id}`)
+}

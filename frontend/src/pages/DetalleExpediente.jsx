@@ -12,6 +12,7 @@ import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad } from 
 import { getHistorialEtapas, completarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
 import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
+import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-emerald-50', text: 'text-emerald-800' },
@@ -124,6 +125,16 @@ function DetalleExpediente() {
     )
   }
 
+  async function handleEliminar() {
+  if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
+  try {
+    await eliminarExpediente(id)
+    navigate('/expedientes')
+  } catch {
+    setError('No se pudo eliminar el expediente')
+  }
+}
+  
   const cfgEstado = estadoConfig[expediente.estado] ?? estadoConfig.Abierto
   const cfgPrioridad = prioridadConfig[expediente.prioridad] ?? prioridadConfig.Normal
 
@@ -203,6 +214,13 @@ function DetalleExpediente() {
             >
               Editar
             </button>
+
+            <button
+              onClick={handleEliminar}
+              className="text-xs text-red-500 hover:underline font-medium ml-1"
+            >
+              Eliminar
+</button>
           </div>
         </div>
 
