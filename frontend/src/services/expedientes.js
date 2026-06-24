@@ -42,3 +42,5 @@ export async function cambiarPrioridad(id, prioridad) {
 export async function eliminarExpediente(id) {
   await api.delete(`/expedientes/${id}`)
 }
+
+*Eliminar expediente:*
