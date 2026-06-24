@@ -27,7 +27,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DesarrolloLocal", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("frontend-production-ad29c.up.railway.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
