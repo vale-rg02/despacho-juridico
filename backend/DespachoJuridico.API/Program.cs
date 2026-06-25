@@ -9,9 +9,10 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}"); 
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Servicios
+builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHostedService<RevisionFechasService>();
