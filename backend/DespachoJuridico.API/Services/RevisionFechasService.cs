@@ -68,11 +68,6 @@ public class RevisionFechasService : BackgroundService
         foreach (var historial in etapasActivas)
         {
             var diasRestantes = (historial.FechaLimite!.Value.Date - hoy).Days;
-            _logger.LogInformation("Expediente {Numero}: FechaLimite={FechaLimite}, Hoy={Hoy}, DiasRestantes={Dias}",
-                historial.Expediente.NumeroExpediente,
-                historial.FechaLimite.Value.Date,
-                hoy,
-                diasRestantes);
             if (!UmbralesDias.Contains(diasRestantes))
                 continue;
 
