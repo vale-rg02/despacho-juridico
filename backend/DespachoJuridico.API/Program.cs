@@ -30,7 +30,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                   "http://localhost:5173",
-                  "https://frontend-production-ad29c.up.railway.app"
+                  "https://frontend-production-ad29c.up.railway.app",
+                  "https://app.acedoehijos.com"
               )
               .AllowAnyHeader()
               .AllowAnyMethod();
