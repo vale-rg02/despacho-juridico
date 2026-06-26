@@ -88,7 +88,7 @@ function Topbar({ breadcrumb }) {
             className="text-primary-foreground text-base tracking-wide"
             style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
           >
-            Despacho
+            Despacho Jurídico Acedo e Hijos
           </span>
         </div>
 

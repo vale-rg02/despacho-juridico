@@ -45,7 +45,7 @@ function Login() {
             className="text-2xl text-foreground"
             style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
           >
-            Despacho Jurídico
+            Despacho Jurídico Acedo e Hijos
           </h1>
           <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
             Sistema de Gestión de Expedientes
@@ -94,7 +94,7 @@ function Login() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground mt-6" style={{ fontFamily: "'DM Mono', monospace" }}>
-          Despacho & Asociados · {new Date().getFullYear()}
+          Despacho Jurídico Acedo e Hijos · {new Date().getFullYear()}
         </p>
       </div>
     </div>

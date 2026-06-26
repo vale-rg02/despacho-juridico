@@ -265,7 +265,7 @@ function Expedientes() {
               {expedientesOrdenados.length} expediente{expedientesOrdenados.length !== 1 ? 's' : ''}
             </span>
             <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-              Despacho Jurídico · {new Date().getFullYear()}
+              Despacho Jurídico Acedo e Hijos · {new Date().getFullYear()}
             </span>
           </div>
         </div>
