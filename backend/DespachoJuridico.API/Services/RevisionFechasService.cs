@@ -49,7 +49,8 @@ public class RevisionFechasService : BackgroundService
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
-        var hoy = DateTime.UtcNow.Date;
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var hoy = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria).Date;
 
         var etapasActivas = await context.HistorialEtapas
             .Include(h => h.Expediente).ThenInclude(e => e.UsuarioAsignado)
@@ -69,6 +70,7 @@ public class RevisionFechasService : BackgroundService
             var diasRestantes = (historial.FechaLimite!.Value.Date - hoy).Days;
             if (!UmbralesDias.Contains(diasRestantes))
                 continue;
+
 
             var expediente = historial.Expediente;
             var etapaNombre = historial.EtapaCatalogo?.Nombre ?? "Etapa";

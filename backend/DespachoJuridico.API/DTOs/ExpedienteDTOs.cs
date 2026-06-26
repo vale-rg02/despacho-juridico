@@ -93,3 +93,13 @@ public class CambiarPrioridadRequest
 {
     public Prioridad Prioridad { get; set; }
 }
+
+public class EtapaCatalogoCreateRequest
+{
+    [Required]
+    public string Nombre { get; set; } = string.Empty;
+    public string? TipoJuicio { get; set; }
+    public int? TerminoDias { get; set; }
+    public bool EsDiasHabiles { get; set; } = true;
+    public int Orden { get; set; }
+}

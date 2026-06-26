@@ -1,6 +1,6 @@
-﻿using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
+﻿using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace DespachoJuridico.API.Services;
 
@@ -13,34 +13,40 @@ public class EmailService : IEmailService
 {
     private readonly IConfiguration _config;
     private readonly ILogger<EmailService> _logger;
+    private readonly HttpClient _httpClient;
 
-    public EmailService(IConfiguration config, ILogger<EmailService> logger)
+    public EmailService(IConfiguration config, ILogger<EmailService> logger, IHttpClientFactory httpClientFactory)
     {
         _config = config;
         _logger = logger;
+        _httpClient = httpClientFactory.CreateClient();
     }
 
     public async Task EnviarAsync(string destinatarioEmail, string destinatarioNombre, string asunto, string cuerpoHtml)
     {
-        var mensaje = new MimeMessage();
-        mensaje.From.Add(new MailboxAddress(_config["Email:FromName"], _config["Email:From"]));
-        mensaje.To.Add(new MailboxAddress(destinatarioNombre, destinatarioEmail));
-        mensaje.Subject = asunto;
-        mensaje.Body = new TextPart("html") { Text = cuerpoHtml };
+        var apiKey = _config["Email:ResendApiKey"];
 
-        using var client = new SmtpClient();
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-        await client.ConnectAsync(
-            _config["Email:Host"],
-            _config.GetValue<int>("Email:Port"),
-            SecureSocketOptions.StartTls);
+        var payload = new
+        {
+            from = $"{_config["Email:FromName"]} <{_config["Email:From"]}>",
+            to = new[] { destinatarioEmail },
+            subject = asunto,
+            html = cuerpoHtml
+        };
 
-        await client.AuthenticateAsync(
-            _config["Email:Username"],
-            _config["Email:Password"]);
+        var json = JsonSerializer.Serialize(payload);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        await client.SendAsync(mensaje);
-        await client.DisconnectAsync(true);
+        var response = await _httpClient.PostAsync("https://api.resend.com/emails", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Error al enviar correo a {Email}: {Error}", destinatarioEmail, error);
+            throw new Exception($"Resend error: {error}");
+        }
 
         _logger.LogInformation("Correo enviado a {Email}: {Asunto}", destinatarioEmail, asunto);
     }

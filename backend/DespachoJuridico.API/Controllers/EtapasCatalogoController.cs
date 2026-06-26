@@ -1,5 +1,6 @@
 ﻿using DespachoJuridico.API.Data;
 using DespachoJuridico.API.DTOs;
+using DespachoJuridico.API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -44,4 +45,35 @@ public class EtapasCatalogoController : ControllerBase
 
         return Ok(etapas);
     }
+
+    // POST /api/etapas-catalogo
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] EtapaCatalogoCreateRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var etapa = new EtapaCatalogo
+        {
+            Nombre = request.Nombre,
+            TipoJuicio = request.TipoJuicio,
+            TerminoDias = request.TerminoDias,
+            EsDiasHabiles = request.EsDiasHabiles,
+            Orden = request.Orden
+        };
+
+        _context.EtapasCatalogo.Add(etapa);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetAll), new { tipoJuicio = etapa.TipoJuicio }, new EtapaCatalogoResponse
+        {
+            Id = etapa.Id,
+            Nombre = etapa.Nombre,
+            TipoJuicio = etapa.TipoJuicio,
+            TerminoDias = etapa.TerminoDias,
+            EsDiasHabiles = etapa.EsDiasHabiles,
+            Orden = etapa.Orden
+        });
+    }
+
 }

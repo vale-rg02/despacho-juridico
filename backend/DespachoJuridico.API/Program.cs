@@ -9,9 +9,10 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}"); 
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Servicios
+builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHostedService<RevisionFechasService>();
@@ -29,7 +30,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                   "http://localhost:5173",
-                  "https://frontend-production-ad29c.up.railway.app"
+                  "https://frontend-production-ad29c.up.railway.app",
+                  "https://app.acedoehijos.com"
               )
               .AllowAnyHeader()
               .AllowAnyMethod();
