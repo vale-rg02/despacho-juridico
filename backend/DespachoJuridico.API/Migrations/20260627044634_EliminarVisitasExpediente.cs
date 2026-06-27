@@ -12,18 +12,12 @@ namespace DespachoJuridico.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "AccionPendiente",
-                table: "Expedientes",
-                type: "text",
-                nullable: true);
+            migrationBuilder.DropTable(
+                name: "VisitasExpediente");
+        }
 
-            migrationBuilder.AddColumn<string>(
-                name: "EtapaActual",
-                table: "Expedientes",
-                type: "text",
-                nullable: true);
-
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "VisitasExpediente",
                 columns: table => new
@@ -50,31 +44,6 @@ namespace DespachoJuridico.API.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_VisitasExpediente_ExpedienteId",
-                table: "VisitasExpediente",
-                column: "ExpedienteId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_VisitasExpediente_UsuarioId",
-                table: "VisitasExpediente",
-                column: "UsuarioId");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "VisitasExpediente");
-
-            migrationBuilder.DropColumn(
-                name: "AccionPendiente",
-                table: "Expedientes");
-
-            migrationBuilder.DropColumn(
-                name: "EtapaActual",
-                table: "Expedientes");
         }
     }
 }
