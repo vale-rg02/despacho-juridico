@@ -181,18 +181,23 @@ function Topbar({ breadcrumb }) {
 
           <span className="h-5 w-px bg-white/15" />
 
-          {/* User */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center shrink-0">
-              <span className="text-accent text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
-                {iniciales(usuario?.nombre)}
-              </span>
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-xs font-medium text-primary-foreground">{usuario?.nombre ?? 'Usuario'}</p>
-              <p className="text-[10px] text-primary-foreground/45">{usuario?.rol ?? ''}</p>
-            </div>
-          </div>
+{/* User */}
+<button
+  onClick={() => navigate('/perfil')}
+  className="flex items-center gap-2.5 px-2 py-1 rounded hover:bg-white/10 transition"
+>
+  <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center shrink-0">
+    <span className="text-accent text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
+      {iniciales(usuario?.nombre)}
+    </span>
+  </div>
+  <div className="hidden sm:block leading-tight text-left">
+    <p className="text-xs font-medium text-primary-foreground">{usuario?.nombre ?? 'Usuario'}</p>
+    <p className="text-[10px] text-primary-foreground/45">
+      {usuario?.id === 1 ? 'Socio Principal' : usuario?.rol ?? ''}
+    </p>
+  </div>
+</button>
 
           <button
             onClick={handleLogout}

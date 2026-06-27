@@ -5,6 +5,7 @@ import DetalleExpediente from './pages/DetalleExpediente'
 import NuevoExpediente from './pages/NuevoExpediente'
 import EditarExpediente from './pages/EditarExpediente'
 import RutaProtegida from './components/RutaProtegida'
+import Perfil from './pages/Perfil'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
       <Route path="/expedientes/:id" element={
         <RutaProtegida><DetalleExpediente /></RutaProtegida>
       } />
+      <Route path="/perfil" element={<Perfil />} />
     </Routes>
   )
 }
