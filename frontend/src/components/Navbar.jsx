@@ -17,7 +17,7 @@ function Navbar() {
         className="text-xl font-bold text-gray-800 cursor-pointer"
         onClick={() => navigate('/expedientes')}
       >
-        Despacho Jurídico
+        Despacho Jurídico Acedo e Hijos
       </h1>
       <div className="flex items-center gap-4">
         <PanelAlertas />
