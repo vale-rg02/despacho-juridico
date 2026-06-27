@@ -1,40 +1,76 @@
-﻿using DespachoJuridico.API.Data;
-using DespachoJuridico.API.DTOs;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using DespachoJuridico.API.Models.Enums;
 
+namespace DespachoJuridico.API.Services;
 
-namespace DespachoJuridico.API.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-[Authorize]
-public class UsuariosController : ControllerBase
+public interface ICalculadorFechasService
 {
-    private readonly AppDbContext _context;
+    bool EsDiaHabil(DateTime fecha);
+    DateTime SumarDiasHabiles(DateTime fechaInicio, int dias);
+    DateTime SumarDiasNaturales(DateTime fechaInicio, int dias);
+    DateTime? CalcularFechaLimite(DateTime fechaInicio, int? terminoDias, bool esDiasHabiles);
+}
 
-    public UsuariosController(AppDbContext context)
+public class CalculadorFechasService : ICalculadorFechasService
+{
+    public bool EsDiaHabil(DateTime fecha)
     {
-        _context = context;
+        if (fecha.DayOfWeek == DayOfWeek.Saturday || fecha.DayOfWeek == DayOfWeek.Sunday)
+            return false;
+        var festivos = ObtenerFestivos(fecha.Year);
+        return !festivos.Contains(fecha.Date);
     }
 
-    // GET /api/usuarios
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public DateTime SumarDiasHabiles(DateTime fechaInicio, int dias)
     {
-        var usuarios = await _context.Usuarios
-            .Where(u => u.Activo)
-            .OrderBy(u => u.Nombre)
-            .Select(u => new UsuarioResponse
-            {
-                Id = u.Id,
-                Nombre = u.Nombre,
-                Email = u.Email,
-                Rol = u.Rol.ToString()
-            })
-            .ToListAsync();
+        var fecha = fechaInicio.Date;
+        var diasSumados = 0;
+        while (diasSumados < dias)
+        {
+            fecha = fecha.AddDays(1);
+            if (EsDiaHabil(fecha)) diasSumados++;
+        }
+        return fecha;
+    }
 
-        return Ok(usuarios);
+    public DateTime SumarDiasNaturales(DateTime fechaInicio, int dias)
+    {
+        return fechaInicio.Date.AddDays(dias);
+    }
+
+    public DateTime? CalcularFechaLimite(DateTime fechaInicio, int? terminoDias, bool esDiasHabiles)
+    {
+        if (terminoDias == null) return null;
+        return esDiasHabiles
+            ? SumarDiasHabiles(fechaInicio, terminoDias.Value)
+            : SumarDiasNaturales(fechaInicio, terminoDias.Value);
+    }
+
+    private static HashSet<DateTime> ObtenerFestivos(int año)
+    {
+        var festivos = new HashSet<DateTime>
+        {
+            new DateTime(año, 1, 1),
+            new DateTime(año, 5, 1),
+            new DateTime(año, 9, 16),
+            new DateTime(año, 12, 25),
+        };
+        festivos.Add(PrimerLunesDelMes(año, 2));
+        festivos.Add(TercerLunesDelMes(año, 3));
+        festivos.Add(TercerLunesDelMes(año, 11));
+        return festivos;
+    }
+
+    private static DateTime PrimerLunesDelMes(int año, int mes)
+    {
+        var fecha = new DateTime(año, mes, 1);
+        while (fecha.DayOfWeek != DayOfWeek.Monday)
+            fecha = fecha.AddDays(1);
+        return fecha;
+    }
+
+    private static DateTime TercerLunesDelMes(int año, int mes)
+    {
+        var primerLunes = PrimerLunesDelMes(año, mes);
+        return primerLunes.AddDays(14);
     }
 }

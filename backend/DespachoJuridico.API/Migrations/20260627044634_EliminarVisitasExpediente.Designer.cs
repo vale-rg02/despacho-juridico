@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DespachoJuridico.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260616200908_AgregarEtapaActualYAccionPendiente")]
-    partial class AgregarEtapaActualYAccionPendiente
+    [Migration("20260627044634_EliminarVisitasExpediente")]
+    partial class EliminarVisitasExpediente
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -310,6 +310,32 @@ namespace DespachoJuridico.API.Migrations
                     b.ToTable("Usuarios");
                 });
 
+            modelBuilder.Entity("DespachoJuridico.API.Models.VisitaExpediente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ExpedienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("FechaVisita")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("VisitasExpediente");
+                });
+
             modelBuilder.Entity("DespachoJuridico.API.Models.BitacoraCambio", b =>
                 {
                     b.HasOne("DespachoJuridico.API.Models.Expediente", "Expediente")
@@ -400,6 +426,25 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("Expediente");
 
                     b.Navigation("HistorialEtapa");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.VisitaExpediente", b =>
+                {
+                    b.HasOne("DespachoJuridico.API.Models.Expediente", "Expediente")
+                        .WithMany()
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DespachoJuridico.API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Expediente");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.Banco", b =>

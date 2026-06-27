@@ -6,6 +6,7 @@ namespace DespachoJuridico.API.Data;
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public DbSet<VisitaExpediente> VisitasExpediente { get; set; }
 
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Banco> Bancos => Set<Banco>();

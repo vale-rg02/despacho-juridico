@@ -67,6 +67,16 @@ public class ExpedientesController : ControllerBase
         if (expediente == null)
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
+        // Registrar visita
+        var usuarioId = ObtenerUsuarioId();
+        _context.VisitasExpediente.Add(new VisitaExpediente
+        {
+            ExpedienteId = id,
+            UsuarioId = usuarioId,
+            FechaVisita = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
         return Ok(MapToResponse(expediente));
     }
 
