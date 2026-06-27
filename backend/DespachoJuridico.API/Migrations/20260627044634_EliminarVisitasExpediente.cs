@@ -12,8 +12,7 @@ namespace DespachoJuridico.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "VisitasExpediente");
+            // La tabla VisitasExpediente nunca fue creada en producción
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
