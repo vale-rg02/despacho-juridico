@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -14,15 +14,118 @@ import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero }
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 
 const estadoConfig = {
-  Abierto: { bg: 'bg-emerald-50', text: 'text-emerald-800' },
-  Pausado: { bg: 'bg-amber-50',   text: 'text-amber-800'   },
-  Cerrado: { bg: 'bg-stone-100',  text: 'text-stone-600'   },
+  Abierto: {
+    bg: 'bg-emerald-50', text: 'text-emerald-800',
+    dot: 'bg-emerald-500', optionBg: 'hover:bg-emerald-50', optionText: 'text-emerald-800'
+  },
+  Pausado: {
+    bg: 'bg-amber-50', text: 'text-amber-800',
+    dot: 'bg-amber-400', optionBg: 'hover:bg-amber-50', optionText: 'text-amber-800'
+  },
+  Cerrado: {
+    bg: 'bg-stone-100', text: 'text-stone-600',
+    dot: 'bg-stone-400', optionBg: 'hover:bg-stone-100', optionText: 'text-stone-600'
+  },
 }
 
 const prioridadConfig = {
-  Urgente:     { color: 'text-red-700',   symbol: '▲' },
-  Prioritario: { color: 'text-amber-700', symbol: '●' },
-  Normal:      { color: 'text-stone-500', symbol: '▼' },
+  Urgente:     { color: 'text-red-700',    border: 'border-red-300',    symbol: '▲', optionBg: 'hover:bg-red-50',    optionText: 'text-red-700'    },
+  Prioritario: { color: 'text-amber-700',  border: 'border-amber-300',  symbol: '●', optionBg: 'hover:bg-amber-50',  optionText: 'text-amber-700'  },
+  Normal:      { color: 'text-muted-foreground', border: 'border-border', symbol: '▼', optionBg: 'hover:bg-secondary', optionText: 'text-muted-foreground' },
+}
+
+function DropdownEstado({ valor, onChange }) {
+  const [abierto, setAbierto] = useState(false)
+  const ref = useRef(null)
+  const cfg = estadoConfig[valor] ?? estadoConfig.Abierto
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAbierto(v => !v)}
+        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30`}
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+        {valor}
+        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[120px]">
+          {Object.entries(estadoConfig).map(([etiqueta, c]) => (
+            <button
+              key={etiqueta}
+              onClick={() => {
+                onChange(estadoANumero(etiqueta))
+                setAbierto(false)
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'opacity-100 font-semibold' : 'opacity-80'}`}
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DropdownPrioridad({ valor, onChange }) {
+  const [abierto, setAbierto] = useState(false)
+  const ref = useRef(null)
+  const cfg = prioridadConfig[valor] ?? prioridadConfig.Normal
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAbierto(v => !v)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 ${cfg.color} ${cfg.border}`}
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        <span>{cfg.symbol}</span>
+        {valor}
+        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[130px]">
+          {Object.entries(prioridadConfig).map(([etiqueta, c]) => (
+            <button
+              key={etiqueta}
+              onClick={() => {
+                onChange(prioridadANumero(etiqueta))
+                setAbierto(false)
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'font-semibold' : 'opacity-80'}`}
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              <span>{c.symbol}</span>
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function DetalleExpediente() {
@@ -67,8 +170,7 @@ function DetalleExpediente() {
     }
   }
 
-  async function handleCambiarEstado(e) {
-    const nuevoEstado = Number(e.target.value)
+  async function handleCambiarEstado(nuevoEstado) {
     try {
       await cambiarEstado(id, nuevoEstado)
       await cargarDatos()
@@ -77,8 +179,7 @@ function DetalleExpediente() {
     }
   }
 
-  async function handleCambiarPrioridad(e) {
-    const nuevaPrioridad = Number(e.target.value)
+  async function handleCambiarPrioridad(nuevaPrioridad) {
     try {
       await cambiarPrioridad(id, nuevaPrioridad)
       await cargarDatos()
@@ -134,9 +235,6 @@ function DetalleExpediente() {
     )
   }
 
-  const cfgEstado = estadoConfig[expediente.estado] ?? estadoConfig.Abierto
-  const cfgPrioridad = prioridadConfig[expediente.prioridad] ?? prioridadConfig.Normal
-
   return (
     <div className="min-h-screen bg-background">
       <Topbar
@@ -185,42 +283,15 @@ function DetalleExpediente() {
 
           <div className="flex items-center gap-2 shrink-0">
 
-            {/* Badge de Estado */}
-            <div className="relative">
-              <select
-                value={estadoANumero(expediente.estado)}
-                onChange={handleCambiarEstado}
-                className="appearance-none pl-6 pr-3 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/30 border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
-                {ESTADOS.map(e => (
-                  <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
-                ))}
-              </select>
-              <span className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                expediente.estado === 'Abierto' ? 'bg-emerald-500' :
-                expediente.estado === 'Pausado' ? 'bg-amber-400' :
-                'bg-stone-400'
-              }`} />
-            </div>
+            <DropdownEstado
+              valor={expediente.estado}
+              onChange={handleCambiarEstado}
+            />
 
-            {/* Select de Prioridad */}
-            <select
-              value={prioridadANumero(expediente.prioridad)}
+            <DropdownPrioridad
+              valor={expediente.prioridad}
               onChange={handleCambiarPrioridad}
-              className={`appearance-none px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/30 border bg-secondary transition-colors hover:bg-muted ${
-                expediente.prioridad === 'Urgente'     ? 'border-red-300 text-red-700' :
-                expediente.prioridad === 'Prioritario' ? 'border-amber-300 text-amber-700' :
-                'border-border text-muted-foreground'
-              }`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              {PRIORIDADES.map(p => (
-                <option key={p.valor} value={p.valor}>
-                  {prioridadConfig[p.etiqueta]?.symbol} {p.etiqueta}
-                </option>
-              ))}
-            </select>
+            />
 
             {/* Botón Editar */}
             <button
