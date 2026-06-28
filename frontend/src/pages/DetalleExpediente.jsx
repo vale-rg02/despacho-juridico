@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark
+  ClipboardList, User, Landmark, Pencil, Trash2
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -96,6 +96,16 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleEliminar() {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
+    try {
+      await eliminarExpediente(id)
+      navigate('/expedientes')
+    } catch {
+      setError('No se pudo eliminar el expediente')
+    }
+  }
+
   if (cargando) {
     return (
       <div className="min-h-screen bg-background">
@@ -124,16 +134,6 @@ function DetalleExpediente() {
     )
   }
 
-  async function handleEliminar() {
-  if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
-  try {
-    await eliminarExpediente(id)
-    navigate('/expedientes')
-  } catch {
-    setError('No se pudo eliminar el expediente')
-  }
-}
-  
   const cfgEstado = estadoConfig[expediente.estado] ?? estadoConfig.Abierto
   const cfgPrioridad = prioridadConfig[expediente.prioridad] ?? prioridadConfig.Normal
 
@@ -184,20 +184,35 @@ function DetalleExpediente() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <select
-              value={estadoANumero(expediente.estado)}
-              onChange={handleCambiarEstado}
-              className={`appearance-none px-3 py-1 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${cfgEstado.bg} ${cfgEstado.text}`}
-            >
-              {ESTADOS.map(e => (
-                <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
-              ))}
-            </select>
 
+            {/* Badge de Estado */}
+            <div className="relative">
+              <select
+                value={estadoANumero(expediente.estado)}
+                onChange={handleCambiarEstado}
+                className="appearance-none pl-6 pr-3 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/30 border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
+                style={{ fontFamily: "'DM Mono', monospace" }}
+              >
+                {ESTADOS.map(e => (
+                  <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
+                ))}
+              </select>
+              <span className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
+                expediente.estado === 'Abierto' ? 'bg-emerald-500' :
+                expediente.estado === 'Pausado' ? 'bg-amber-400' :
+                'bg-stone-400'
+              }`} />
+            </div>
+
+            {/* Select de Prioridad */}
             <select
               value={prioridadANumero(expediente.prioridad)}
               onChange={handleCambiarPrioridad}
-              className={`appearance-none bg-card border border-border px-2 py-1 rounded text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/50 ${cfgPrioridad.color}`}
+              className={`appearance-none px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/30 border bg-secondary transition-colors hover:bg-muted ${
+                expediente.prioridad === 'Urgente'     ? 'border-red-300 text-red-700' :
+                expediente.prioridad === 'Prioritario' ? 'border-amber-300 text-amber-700' :
+                'border-border text-muted-foreground'
+              }`}
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
               {PRIORIDADES.map(p => (
@@ -207,19 +222,24 @@ function DetalleExpediente() {
               ))}
             </select>
 
+            {/* Botón Editar */}
             <button
               onClick={() => navigate(`/expedientes/${id}/editar`)}
-              className="text-xs text-accent hover:underline font-medium ml-1"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent hover:bg-accent hover:text-accent-foreground transition-colors"
             >
+              <Pencil size={11} />
               Editar
             </button>
 
+            {/* Botón Eliminar */}
             <button
               onClick={handleEliminar}
-              className="text-xs text-red-500 hover:underline font-medium ml-1"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
             >
+              <Trash2 size={11} />
               Eliminar
-</button>
+            </button>
+
           </div>
         </div>
 
