@@ -7,15 +7,15 @@ import { getExpedientes } from '../services/expedientes'
 const ESTADOS = ['Abierto', 'Pausado', 'Cerrado']
 
 const estadoConfig = {
-  Abierto: { bg: 'bg-emerald-50', text: 'text-emerald-800', dot: 'bg-emerald-500' },
-  Pausado: { bg: 'bg-amber-50',   text: 'text-amber-800',   dot: 'bg-amber-500'  },
-  Cerrado: { bg: 'bg-stone-100',  text: 'text-stone-600',   dot: 'bg-stone-400'  },
+  Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
+  Pausado: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-amber-400'  },
+  Cerrado: { bg: 'bg-secondary', text: 'text-muted-foreground', dot: 'bg-stone-400' },
 }
 
 const prioridadConfig = {
-  Urgente:     { color: 'text-red-700',   symbol: '▲' },
-  Prioritario: { color: 'text-amber-700', symbol: '●' },
-  Normal:      { color: 'text-stone-500', symbol: '▼' },
+  Urgente:     { color: 'text-red-700',          border: 'border-red-300',    bg: 'bg-red-50',    symbol: '▲' },
+  Prioritario: { color: 'text-amber-700',        border: 'border-amber-300',  bg: 'bg-amber-50',  symbol: '●' },
+  Normal:      { color: 'text-muted-foreground', border: 'border-border',     bg: 'bg-secondary', symbol: '▼' },
 }
 
 const COLUMNAS = [
@@ -242,15 +242,24 @@ function Expedientes() {
                       </td>
                       <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{exp.juzgado ?? '—'}</td>
                       <td className="px-4 py-3.5 text-foreground whitespace-nowrap">{exp.materia ?? '—'}</td>
+
+                      {/* Badge Estado */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${estadoConfig[exp.estado]?.bg} ${estadoConfig[exp.estado]?.text}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${estadoConfig[exp.estado]?.dot}`} />
+                        <span className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-0.5 rounded-full text-xs font-medium border border-border ${estadoConfig[exp.estado]?.bg} ${estadoConfig[exp.estado]?.text}`}
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${estadoConfig[exp.estado]?.dot}`} />
                           {exp.estado}
                         </span>
                       </td>
+
+                      {/* Badge Prioridad */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className={`text-xs font-medium ${prioridadConfig[exp.prioridad]?.color}`} style={{ fontFamily: "'DM Mono', monospace" }}>
-                          {prioridadConfig[exp.prioridad]?.symbol} {exp.prioridad}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${prioridadConfig[exp.prioridad]?.color} ${prioridadConfig[exp.prioridad]?.border} ${prioridadConfig[exp.prioridad]?.bg}`}
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        >
+                          <span>{prioridadConfig[exp.prioridad]?.symbol}</span>
+                          {exp.prioridad}
                         </span>
                       </td>
                     </tr>
