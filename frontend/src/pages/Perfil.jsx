@@ -11,6 +11,7 @@ function Perfil() {
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === SOCIO_PRINCIPAL_ID
+  const puedeVerAdmin = usuario?.rol === 'Socio'
 
   const [seccion, setSeccion] = useState('info')
 
@@ -171,7 +172,7 @@ function Perfil() {
           <nav className="space-y-1">
             {btnSeccion('info', User, 'Mi información')}
             {btnSeccion('password', Lock, 'Cambiar contraseña')}
-            {esSocioPrincipal && (
+            {puedeVerAdmin && (
               <>
                 <div className="h-px bg-border my-2" />
                 {btnSeccion('admin', ShieldCheck, 'Panel admin')}
@@ -232,7 +233,7 @@ function Perfil() {
           )}
 
           {/* Panel admin */}
-          {seccion === 'admin' && esSocioPrincipal && (
+          {seccion === 'admin' && puedeVerAdmin && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Panel de actividad</h2>
@@ -284,7 +285,7 @@ function Perfil() {
           )}
 
           {/* Gestión de usuarios */}
-          {seccion === 'usuarios' && esSocioPrincipal && (
+          {seccion === 'usuarios' && puedeVerAdmin && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
@@ -392,7 +393,7 @@ function Perfil() {
           )}
 
           {/* Respaldo */}
-          {seccion === 'respaldo' && esSocioPrincipal && (
+          {seccion === 'respaldo' && puedeVerAdmin && (
             <div className="space-y-4">
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Respaldo de datos</h2>
 

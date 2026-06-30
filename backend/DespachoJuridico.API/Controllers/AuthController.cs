@@ -29,12 +29,12 @@ public class AuthController : ControllerBase
     {
         // Buscar usuario por email
         var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Email == request.Email && u.Activo);
+    .FirstOrDefaultAsync(u => u.Email == request.Email && u.Activo);
 
         if (usuario == null)
             return Unauthorized(new { mensaje = "Credenciales incorrectas" });
 
-        // Verificar contraseña
+        // Verificar contraseï¿½a
         if (!BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
             return Unauthorized(new { mensaje = "Credenciales incorrectas" });
 
