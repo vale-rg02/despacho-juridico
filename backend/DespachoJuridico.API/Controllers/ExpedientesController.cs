@@ -367,30 +367,6 @@ public class ExpedientesController : ControllerBase
         });
     }
 
-    // DELETE /api/expedientes/{id}/etapas/{etapaId}/completar
-    [HttpDelete("{id}/etapas/{etapaId}/completar")]
-    public async Task<IActionResult> RevertirEtapa(int id, int etapaId)
-    {
-        var historial = await _context.HistorialEtapas
-            .Include(h => h.EtapaCatalogo)
-            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
-
-        if (historial == null)
-            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
-
-        if (historial.FechaCompletada == null)
-            return BadRequest(new { mensaje = "La etapa no está marcada como completada" });
-
-        historial.FechaCompletada = null;
-        await _context.SaveChangesAsync();
-
-        var usuarioId = ObtenerUsuarioId();
-        await RegistrarBitacora(id, usuarioId, "etapa_revertida",
-            $"Etapa '{historial.EtapaCatalogo?.Nombre}' revertida a pendiente");
-
-        return Ok(new { mensaje = "Etapa revertida correctamente" });
-    }
-
     // PATCH /api/expedientes/5/etapas/12/atendido
     [HttpPatch("{id}/etapas/{etapaId}/atendido")]
     public async Task<IActionResult> MarcarEtapaAtendida(int id, int etapaId)
