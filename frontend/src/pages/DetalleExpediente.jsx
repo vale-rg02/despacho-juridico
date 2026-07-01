@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+<<<<<<< HEAD
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
   ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown
@@ -12,127 +12,24 @@ import { getHistorialEtapas, completarEtapa, revertirEtapa } from '../services/e
 import { getUsuario } from '../services/auth'
 import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
+=======
+import Badge from '../components/Badge'
+import Navbar from '../components/Navbar'
+>>>>>>> 38afbdde94b151062207509024510456e03590e3
 
-const estadoConfig = {
-  Abierto: {
-    bg: 'bg-emerald-50', text: 'text-emerald-800',
-    dot: 'bg-emerald-500', optionBg: 'hover:bg-emerald-50', optionText: 'text-emerald-800'
-  },
-  Pausado: {
-    bg: 'bg-amber-50', text: 'text-amber-800',
-    dot: 'bg-amber-400', optionBg: 'hover:bg-amber-50', optionText: 'text-amber-800'
-  },
-  Cerrado: {
-    bg: 'bg-stone-100', text: 'text-stone-600',
-    dot: 'bg-stone-400', optionBg: 'hover:bg-stone-100', optionText: 'text-stone-600'
-  },
-}
-
-const prioridadConfig = {
-  Urgente:     { color: 'text-red-700',    border: 'border-red-300',    symbol: '▲', optionBg: 'hover:bg-red-50',    optionText: 'text-red-700'    },
-  Prioritario: { color: 'text-amber-700',  border: 'border-amber-300',  symbol: '●', optionBg: 'hover:bg-amber-50',  optionText: 'text-amber-700'  },
-  Normal:      { color: 'text-muted-foreground', border: 'border-border', symbol: '▼', optionBg: 'hover:bg-secondary', optionText: 'text-muted-foreground' },
-}
-
-function DropdownEstado({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
-  const cfg = estadoConfig[valor] ?? estadoConfig.Abierto
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[120px]">
-          {Object.entries(estadoConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(estadoANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'opacity-100 font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DropdownPrioridad({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
-  const cfg = prioridadConfig[valor] ?? prioridadConfig.Normal
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 ${cfg.color} ${cfg.border}`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span>{cfg.symbol}</span>
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[130px]">
-          {Object.entries(prioridadConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(prioridadANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span>{c.symbol}</span>
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+const expedientesMock = [
+  { id: 1, numero: "673/2019", parte: "Juan García López", juzgado: "1ro Civil", materia: "Hipotecario", estado: "Abierto", prioridad: "Urgente", banco: "HSBC", notas: "Cliente con antecedentes de pagos tardíos." },
+  { id: 2, numero: "412/2021", parte: "BBVA México", juzgado: "1ro Oral Mercantil", materia: "Mercantil", estado: "Abierto", prioridad: "Normal", banco: "BBVA", notas: "" },
+  { id: 3, numero: "891/2020", parte: "María Rodríguez", juzgado: "2do Civil", materia: "Hipotecario", estado: "Abierto", prioridad: "Prioritario", banco: "Santander", notas: "Pendiente recibir documentos." },
+  { id: 4, numero: "234/2022", parte: "Banco Azteca", juzgado: "2do Oral Mercantil", materia: "Mercantil", estado: "Cerrado", prioridad: "Normal", banco: "Banco Azteca", notas: "" },
+]
 
 function DetalleExpediente() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const usuario = getUsuario()
+  const exp = expedientesMock.find(e => e.id === parseInt(id))
 
+<<<<<<< HEAD
   const [expediente, setExpediente] = useState(null)
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
@@ -223,172 +120,73 @@ function DetalleExpediente() {
         <div className="max-w-screen-xl mx-auto px-6 py-8 text-center text-muted-foreground">
           Cargando expediente...
         </div>
+=======
+  if (!exp) return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-gray-500 mb-4">Expediente no encontrado</p>
+        <button
+          onClick={() => navigate('/expedientes')}
+          className="text-blue-600 hover:underline text-sm"
+        >
+          Volver a expedientes
+        </button>
+>>>>>>> 38afbdde94b151062207509024510456e03590e3
       </div>
-    )
-  }
-
-  if (error && !expediente) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Topbar />
-        <div className="max-w-screen-xl mx-auto px-6 py-8 text-center">
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <button
-            onClick={() => navigate('/expedientes')}
-            className="text-accent hover:underline text-sm"
-          >
-            ← Volver a expedientes
-          </button>
-        </div>
-      </div>
-    )
-  }
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-background">
-      <Topbar
-        breadcrumb={
-          <div className="flex items-center gap-2 text-sm">
-            <button
-              onClick={() => navigate('/expedientes')}
-              className="text-primary-foreground/55 hover:text-primary-foreground transition flex items-center gap-1"
-            >
-              <ArrowLeft size={13} />
-              Expedientes
-            </button>
-            <span className="text-primary-foreground/25">/</span>
-            <span className="text-primary-foreground/75" style={{ fontFamily: "'DM Mono', monospace" }}>
-              {expediente.numeroExpediente}
-            </span>
-          </div>
-        }
-      />
+    <div className="min-h-screen bg-gray-100">
+      <Navbar usuario="Carlos López" />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Botón volver */}
+        <button
+          onClick={() => navigate('/expedientes')}
+          className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1"
+        >
+          ← Volver a expedientes
+        </button>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Encabezado */}
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <FileText size={14} className="text-accent" />
-              <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-                {expediente.numeroExpediente}
-              </span>
-            </div>
-            <h1
-              className="text-2xl text-foreground leading-snug"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              {expediente.parteDemandada}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">{expediente.materia ?? '—'}</p>
+            <h2 className="text-2xl font-bold text-gray-800">{exp.numero}</h2>
+            <p className="text-gray-500 mt-1">{exp.parte}</p>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-
-            <DropdownEstado
-              valor={expediente.estado}
-              onChange={handleCambiarEstado}
-            />
-
-            <DropdownPrioridad
-              valor={expediente.prioridad}
-              onChange={handleCambiarPrioridad}
-            />
-
-            {/* Botón Editar */}
-            <button
-              onClick={() => navigate(`/expedientes/${id}/editar`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <Pencil size={11} />
-              Editar
-            </button>
-
-            {/* Botón Eliminar */}
-            <button
-              onClick={handleEliminar}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-            >
-              <Trash2 size={11} />
-              Eliminar
-            </button>
-
+          <div className="flex gap-2">
+            <Badge texto={exp.estado} />
+            <Badge texto={exp.prioridad} />
           </div>
         </div>
 
-        {/* Info grid */}
-        <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
+        {/* Datos del expediente */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
             Información del expediente
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
-            <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
-            <InfoCard icon={User}     label="Asignado a"           value={expediente.usuarioAsignadoNombre ?? '—'} />
-            <InfoCard icon={BookOpen} label="Materia"              value={expediente.materia ?? '—'} />
-            <InfoCard icon={Landmark} label="Banco"                value={expediente.bancoNombre ?? '—'} />
-            <InfoCard icon={Clock}    label="Última actualización" value={formatearFecha(expediente.actualizadoEn)} />
-          </div>
-
-          {/* Notas */}
-          <div className="mt-3 bg-card border border-border rounded-lg p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <StickyNote size={14} className="text-accent" />
-              <span
-                className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
-                Notas del expediente
-              </span>
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-400">Juzgado</p>
+              <p className="text-sm text-gray-800 font-medium">{exp.juzgado}</p>
             </div>
-            <p className="text-sm text-foreground leading-relaxed">
-              {expediente.notas || 'Sin notas registradas.'}
-            </p>
+            <div>
+              <p className="text-xs text-gray-400">Materia</p>
+              <p className="text-sm text-gray-800 font-medium">{exp.materia}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Banco</p>
+              <p className="text-sm text-gray-800 font-medium">{exp.banco}</p>
+            </div>
           </div>
-        </section>
-
-        {/* Etapas */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2
-              className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              Historial de etapas procesales
-            </h2>
-            {!mostrarFormEtapa && (
-              <button
-                onClick={() => setMostrarFormEtapa(true)}
-                className="text-xs text-accent hover:underline font-medium"
-              >
-                + Registrar etapa
-              </button>
-            )}
-          </div>
-
-          {mostrarFormEtapa && (
-            <div className="mb-3">
-              <FormularioEtapa
-                expedienteId={id}
-                tipoJuicio={expediente.tipoJuicio}
-                onGuardado={() => {
-                  setMostrarFormEtapa(false)
-                  cargarDatos()
-                }}
-                onCancelar={() => setMostrarFormEtapa(false)}
-              />
+          {exp.notas && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Notas</p>
+              <p className="text-sm text-gray-700">{exp.notas}</p>
             </div>
           )}
+<<<<<<< HEAD
 
           <div className="bg-card border border-border rounded-lg p-4">
             <HistorialEtapas 
@@ -460,8 +258,20 @@ function DetalleExpediente() {
             <ArrowLeft size={14} />
             Volver al listado
           </button>
+=======
+>>>>>>> 38afbdde94b151062207509024510456e03590e3
         </div>
-      </main>
+
+        {/* Historial de etapas — placeholder */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase mb-4">
+            Historial de etapas
+          </h3>
+          <p className="text-sm text-gray-400 text-center py-4">
+            El historial de etapas estará disponible cuando el backend esté listo
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
