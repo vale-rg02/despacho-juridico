@@ -21,3 +21,8 @@ export async function completarEtapa(expedienteId, etapaId, datos = {}) {
   const response = await api.put(`/expedientes/${expedienteId}/etapas/${etapaId}`, datos)
   return response.data
 }
+
+export async function revertirEtapa(expedienteId, etapaId) {
+  const response = await api.delete(`/expedientes/${expedienteId}/etapas/${etapaId}/completar`)
+  return response.data
+}

@@ -8,7 +8,7 @@ import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
-import { getHistorialEtapas, completarEtapa } from '../services/etapas'
+import { getHistorialEtapas, completarEtapa, revertirEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
 import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
@@ -197,6 +197,15 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleRevertirEtapa(etapaId) {
+  try {
+    await revertirEtapa(id, etapaId)
+    await cargarDatos()
+  } catch {
+    setError('No se pudo revertir la etapa')
+  }
+}
+
   async function handleEliminar() {
     if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
     try {
@@ -382,7 +391,11 @@ function DetalleExpediente() {
           )}
 
           <div className="bg-card border border-border rounded-lg p-4">
-            <HistorialEtapas etapas={etapas} onCompletar={handleCompletarEtapa} />
+            <HistorialEtapas 
+  etapas={etapas} 
+  onCompletar={handleCompletarEtapa} 
+  onRevertir={handleRevertirEtapa} 
+/>
           </div>
         </section>
 

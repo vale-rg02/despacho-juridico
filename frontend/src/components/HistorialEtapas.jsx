@@ -39,7 +39,7 @@ function EstadoFecha({ etapa }) {
   return <span className="text-xs text-muted-foreground">Vence en {dias} días</span>
 }
 
-function HistorialEtapas({ etapas, onCompletar }) {
+function HistorialEtapas({ etapas, onCompletar, onRevertir }) {
   if (etapas.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-4">
@@ -73,12 +73,19 @@ function HistorialEtapas({ etapas, onCompletar }) {
             {etapa.notas && (
               <p className="text-sm text-foreground/80 mt-1">{etapa.notas}</p>
             )}
-            {activa && (
+            {activa ? (
               <button
                 onClick={() => onCompletar(etapa.id)}
                 className="text-xs text-accent hover:underline mt-2 font-medium"
               >
                 Marcar como completada
+              </button>
+            ) : (
+              <button
+                onClick={() => onRevertir(etapa.id)}
+                className="text-xs text-red-400 hover:underline mt-2 font-medium"
+              >
+                Revertir a pendiente
               </button>
             )}
           </div>
