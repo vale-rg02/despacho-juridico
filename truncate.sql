@@ -1,1 +1,0 @@
-TRUNCATE "BitacoraCambios", "Notificaciones", "HistorialEtapas", "Expedientes", "Bancos", "EtapasCatalogo", "Usuarios" RESTART IDENTITY CASCADE;
