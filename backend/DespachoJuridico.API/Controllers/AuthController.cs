@@ -66,6 +66,8 @@ private string GenerarToken(Usuario usuario)
         new Claim(ClaimTypes.Email,          usuario.Email),
         new Claim(ClaimTypes.Name,           usuario.Nombre),
         new Claim(ClaimTypes.Role,           usuario.Rol.ToString()),
+        new Claim("NivelAcceso", usuario.NivelAcceso.ToString())
+
     };
 
         var token = new JwtSecurityToken(

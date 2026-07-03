@@ -382,6 +382,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(new { mensaje = "La etapa no está marcada como completada" });
 
         historial.FechaCompletada = null;
+        historial.Atendido = false;
         await _context.SaveChangesAsync();
 
         var usuarioId = ObtenerUsuarioId();

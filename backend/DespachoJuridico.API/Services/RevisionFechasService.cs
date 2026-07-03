@@ -12,7 +12,7 @@ public class RevisionFechasService : BackgroundService
     private readonly TimeSpan _intervalo;
 
     // Umbrales de notificación en días
-    private static readonly int[] UmbralesDias = { 15, 7, 3 };
+    private static readonly int[] UmbralesDias = { 15, 7, 3, 1};
 
     public RevisionFechasService(
         IServiceScopeFactory scopeFactory,

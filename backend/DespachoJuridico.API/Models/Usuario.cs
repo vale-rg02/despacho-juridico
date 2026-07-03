@@ -12,6 +12,8 @@ public class Usuario
     public bool Activo { get; set; } = true;
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
 
+    public NivelAcceso NivelAcceso { get; set; } = NivelAcceso.Estandar;
+
     public ICollection<Expediente> ExpedientesAsignados { get; set; } = [];
     public ICollection<Expediente> ExpedientesCreados { get; set; } = [];
     public ICollection<HistorialEtapa> HistorialRegistrado { get; set; } = [];

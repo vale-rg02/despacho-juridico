@@ -32,7 +32,8 @@ public class UsuariosController : ControllerBase
                 Id = u.Id,
                 Nombre = u.Nombre,
                 Email = u.Email,
-                Rol = u.Rol.ToString()
+                Rol = u.Rol.ToString(),
+                NivelAcceso = u.NivelAcceso.ToString()
             })
             .ToListAsync();
 
@@ -73,6 +74,7 @@ public class UsuariosController : ControllerBase
             Nombre = usuario.Nombre,
             Email = usuario.Email,
             Rol = usuario.Rol.ToString(),
+            NivelAcceso = usuario.NivelAcceso.ToString(),
             Activo = usuario.Activo
         });
     }
@@ -101,12 +103,13 @@ public class UsuariosController : ControllerBase
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync();
 
-        return Ok(new UsuarioResponse
+        return Ok(new   UsuarioResponse
         {
             Id = usuario.Id,
             Nombre = usuario.Nombre,
             Email = usuario.Email,
             Rol = usuario.Rol.ToString(),
+            NivelAcceso = usuario.NivelAcceso.ToString(),
             Activo = usuario.Activo
         });
     }
@@ -130,6 +133,7 @@ public class UsuariosController : ControllerBase
             Nombre = usuario.Nombre,
             Email = usuario.Email,
             Rol = usuario.Rol.ToString(),
+            NivelAcceso = usuario.NivelAcceso.ToString(),
             Activo = usuario.Activo
         });
     }
