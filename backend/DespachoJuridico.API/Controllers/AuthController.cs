@@ -49,7 +49,8 @@ public class AuthController : ControllerBase
                 id = usuario.Id,
                 nombre = usuario.Nombre,
                 email = usuario.Email,
-                rol = usuario.Rol.ToString()
+                rol = usuario.Rol.ToString(),
+                nivelAcceso = usuario.NivelAcceso.ToString()
             }
         });
     }
