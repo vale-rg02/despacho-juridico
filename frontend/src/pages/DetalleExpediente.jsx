@@ -140,6 +140,7 @@ function DetalleExpediente() {
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [exito, setExito] = useState('')
 
   useEffect(() => {
     cargarDatos()
@@ -198,13 +199,15 @@ function DetalleExpediente() {
   }
 
   async function handleRevertirEtapa(etapaId) {
-  try {
-    await revertirEtapa(id, etapaId)
-    await cargarDatos()
-  } catch {
-    setError('No se pudo revertir la etapa')
+    try {
+      await revertirEtapa(id, etapaId)
+      await cargarDatos()
+      setExito('Etapa revertida a pendiente correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo revertir la etapa')
+    }
   }
-}
 
   async function handleEliminar() {
     if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
@@ -269,6 +272,12 @@ function DetalleExpediente() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}
+          </div>
+        )}
+
+        {exito && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-md px-3 py-2">
+            {exito}
           </div>
         )}
 
@@ -391,11 +400,11 @@ function DetalleExpediente() {
           )}
 
           <div className="bg-card border border-border rounded-lg p-4">
-            <HistorialEtapas 
-  etapas={etapas} 
-  onCompletar={handleCompletarEtapa} 
-  onRevertir={handleRevertirEtapa} 
-/>
+            <HistorialEtapas
+              etapas={etapas}
+              onCompletar={handleCompletarEtapa}
+              onRevertir={handleRevertirEtapa}
+            />
           </div>
         </section>
 

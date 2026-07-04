@@ -11,7 +11,7 @@ function Perfil() {
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === SOCIO_PRINCIPAL_ID
-  const puedeVerAdmin = usuario?.rol === 'Socio'
+  const puedeVerAdmin = usuario?.nivelAcceso === 'Administrativo' || usuario?.nivelAcceso === 'Superior'
 
   const [seccion, setSeccion] = useState('info')
 

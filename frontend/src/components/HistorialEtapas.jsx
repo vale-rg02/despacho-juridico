@@ -80,14 +80,18 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir }) {
               >
                 Marcar como completada
               </button>
-            ) : (
-              <button
-                onClick={() => onRevertir(etapa.id)}
-                className="text-xs text-red-400 hover:underline mt-2 font-medium"
-              >
-                Revertir a pendiente
-              </button>
-            )}
+) : (
+  <button
+    onClick={() => {
+      if (window.confirm('¿Estás seguro de que deseas revertir esta etapa a pendiente?')) {
+        onRevertir(etapa.id)
+      }
+    }}
+    className="text-xs text-red-400 hover:underline mt-2 font-medium"
+  >
+    Revertir a pendiente
+  </button>
+)}
           </div>
         )
       })}

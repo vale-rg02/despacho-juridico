@@ -194,7 +194,9 @@ function Topbar({ breadcrumb }) {
   <div className="hidden sm:block leading-tight text-left">
     <p className="text-xs font-medium text-primary-foreground">{usuario?.nombre ?? 'Usuario'}</p>
     <p className="text-[10px] text-primary-foreground/45">
-      {usuario?.id === 1 ? 'Socio Principal' : usuario?.rol ?? ''}
+      {usuario?.nivelAcceso === 'Superior' ? 'Socio Principal' : 
+ usuario?.nivelAcceso === 'Administrativo' ? 'Administrador Operativo' : 
+ usuario?.rol ?? ''}
     </p>
   </div>
 </button>
