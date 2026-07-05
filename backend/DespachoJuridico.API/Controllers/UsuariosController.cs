@@ -125,6 +125,8 @@ public class UsuariosController : ControllerBase
         usuario.Nombre = request.Nombre;
         usuario.Email = request.Email;
         usuario.Rol = request.Rol;
+        usuario.NivelAcceso = request.NivelAcceso;
+
         await _context.SaveChangesAsync();
 
         return Ok(new UsuarioResponse
