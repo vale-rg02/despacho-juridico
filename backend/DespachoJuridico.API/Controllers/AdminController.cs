@@ -8,6 +8,7 @@ namespace DespachoJuridico.API.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize]
+[Authorize(Policy = "AccesoAdmin")]
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;

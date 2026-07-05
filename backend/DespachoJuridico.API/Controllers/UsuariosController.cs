@@ -62,6 +62,7 @@ public class UsuariosController : ControllerBase
 
     // GET /api/usuarios/{id}
     [HttpGet("{id}")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> GetById(int id)
     {
         var usuario = await _context.Usuarios.FindAsync(id);
@@ -81,6 +82,7 @@ public class UsuariosController : ControllerBase
 
     // POST /api/usuarios
     [HttpPost]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Create([FromBody] CrearUsuarioRequest request)
     {
         if (!ModelState.IsValid)
@@ -116,6 +118,7 @@ public class UsuariosController : ControllerBase
 
     // PUT /api/usuarios/{id}
     [HttpPut("{id}")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Update(int id, [FromBody] EditarUsuarioRequest request)
     {
         var usuario = await _context.Usuarios.FindAsync(id);
@@ -125,6 +128,8 @@ public class UsuariosController : ControllerBase
         usuario.Nombre = request.Nombre;
         usuario.Email = request.Email;
         usuario.Rol = request.Rol;
+        usuario.NivelAcceso = request.NivelAcceso;
+
         await _context.SaveChangesAsync();
 
         return Ok(new UsuarioResponse
@@ -140,6 +145,7 @@ public class UsuariosController : ControllerBase
 
     // PATCH /api/usuarios/{id}/activo
     [HttpPatch("{id}/activo")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> CambiarActivo(int id, [FromBody] CambiarActivoRequest request)
     {
         var usuario = await _context.Usuarios.FindAsync(id);

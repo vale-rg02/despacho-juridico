@@ -62,8 +62,11 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
-
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AccesoAdmin", policy =>
+        policy.RequireClaim("NivelAcceso", "Administrativo", "Superior"));
+});
 
 var app = builder.Build();
 
