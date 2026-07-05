@@ -7,6 +7,24 @@ import api from '../services/api'
 
 const SOCIO_PRINCIPAL_ID = 1
 
+const NIVEL_ACCESO_OPCIONES = [
+  { valor: 0, etiqueta: 'Estándar' },
+  { valor: 1, etiqueta: 'Administrador Operativo' },
+  { valor: 2, etiqueta: 'Superior' },
+]
+
+function nivelAccesoEtiqueta(nivelAcceso) {
+  if (nivelAcceso === 'Superior') return 'Socio Principal'
+  if (nivelAcceso === 'Administrativo') return 'Administrador Operativo'
+  return 'Estándar'
+}
+
+function nivelAccesoANumero(nivelAcceso) {
+  if (nivelAcceso === 'Superior') return 2
+  if (nivelAcceso === 'Administrativo') return 1
+  return 0
+}
+
 function Perfil() {
   const navigate = useNavigate()
   const usuario = getUsuario()
@@ -30,8 +48,8 @@ function Perfil() {
   // Estado gestión de usuarios
   const [usuarios, setUsuarios] = useState([])
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false)
-  const [modalUsuario, setModalUsuario] = useState(null) // null | 'crear' | {id, nombre, email, rol, activo}
-  const [formUsuario, setFormUsuario] = useState({ nombre: '', email: '', password: '', rol: 'Litigante' })
+  const [modalUsuario, setModalUsuario] = useState(null)
+  const [formUsuario, setFormUsuario] = useState({ nombre: '', email: '', password: '', rol: 'Litigante', nivelAcceso: 0 })
   const [errorUsuario, setErrorUsuario] = useState('')
   const [msgUsuario, setMsgUsuario] = useState('')
   const [guardandoUsuario, setGuardandoUsuario] = useState(false)
@@ -84,14 +102,20 @@ function Perfil() {
   }
 
   function abrirCrear() {
-    setFormUsuario({ nombre: '', email: '', password: '', rol: 'Litigante' })
+    setFormUsuario({ nombre: '', email: '', password: '', rol: 'Litigante', nivelAcceso: 0 })
     setErrorUsuario('')
     setMsgUsuario('')
     setModalUsuario('crear')
   }
 
   function abrirEditar(u) {
-    setFormUsuario({ nombre: u.nombre, email: u.email, password: '', rol: u.rol })
+    setFormUsuario({
+      nombre: u.nombre,
+      email: u.email,
+      password: '',
+      rol: u.rol,
+      nivelAcceso: nivelAccesoANumero(u.nivelAcceso)
+    })
     setErrorUsuario('')
     setMsgUsuario('')
     setModalUsuario(u)
@@ -106,14 +130,16 @@ function Perfil() {
           nombre: formUsuario.nombre,
           email: formUsuario.email,
           password: formUsuario.password,
-          rol: formUsuario.rol === 'Socio' ? 1 : 0
+          rol: formUsuario.rol === 'Socio' ? 1 : 0,
+          nivelAcceso: formUsuario.nivelAcceso
         })
         setMsgUsuario('Usuario creado correctamente')
       } else {
         await api.put(`/usuarios/${modalUsuario.id}`, {
           nombre: formUsuario.nombre,
           email: formUsuario.email,
-          rol: formUsuario.rol === 'Socio' ? 1 : 0
+          rol: formUsuario.rol === 'Socio' ? 1 : 0,
+          nivelAcceso: formUsuario.nivelAcceso
         })
         setMsgUsuario('Usuario actualizado correctamente')
       }
@@ -289,10 +315,12 @@ function Perfil() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
-                <button onClick={abrirCrear}
-                  className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition">
-                  <Plus size={13} /> Nuevo usuario
-                </button>
+                {esSocioPrincipal && (
+                  <button onClick={abrirCrear}
+                    className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition">
+                    <Plus size={13} /> Nuevo usuario
+                  </button>
+                )}
               </div>
               {cargandoUsuarios ? (
                 <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
@@ -301,7 +329,7 @@ function Perfil() {
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-secondary/40 border-b border-border">
-                        {['Nombre', 'Correo', 'Rol', 'Estado', ''].map(h => (
+                        {['Nombre', 'Correo', 'Rol', esSocioPrincipal ? 'Nivel de Permisos' : null, 'Estado', esSocioPrincipal ? '' : null].filter(Boolean).map(h => (
                           <th key={h} className="text-left px-4 py-2.5 text-xs text-muted-foreground font-medium uppercase tracking-wider" style={monoStyle}>{h}</th>
                         ))}
                       </tr>
@@ -312,28 +340,35 @@ function Perfil() {
                           <td className="px-4 py-3 text-foreground font-medium">{u.nombre}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs" style={monoStyle}>{u.email}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">{u.id === SOCIO_PRINCIPAL_ID ? 'Socio Principal' : u.rol}</td>
+                          {esSocioPrincipal && (
+                            <td className="px-4 py-3 text-muted-foreground text-xs">
+                              {u.id === SOCIO_PRINCIPAL_ID ? '—' : nivelAccesoEtiqueta(u.nivelAcceso)}
+                            </td>
+                          )}
                           <td className="px-4 py-3">
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
                               {u.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2 justify-end">
-                              {u.id !== SOCIO_PRINCIPAL_ID && (
-                                <>
-                                  <button onClick={() => abrirEditar(u)}
-                                    className="text-muted-foreground hover:text-foreground transition" title="Editar">
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button onClick={() => handleToggleActivo(u)}
-                                    className={`transition text-xs ${u.activo ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
-                                    title={u.activo ? 'Desactivar' : 'Activar'}>
-                                    {u.activo ? <X size={13} /> : <Check size={13} />}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
+                          {esSocioPrincipal && (
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2 justify-end">
+                                {u.id !== SOCIO_PRINCIPAL_ID && (
+                                  <>
+                                    <button onClick={() => abrirEditar(u)}
+                                      className="text-muted-foreground hover:text-foreground transition" title="Editar">
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button onClick={() => handleToggleActivo(u)}
+                                      className={`transition text-xs ${u.activo ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
+                                      title={u.activo ? 'Desactivar' : 'Activar'}>
+                                      {u.activo ? <X size={13} /> : <Check size={13} />}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -341,8 +376,8 @@ function Perfil() {
                 </div>
               )}
 
-              {/* Modal crear/editar */}
-              {modalUsuario && (
+              {/* Modal crear/editar — solo Socio Principal */}
+              {modalUsuario && esSocioPrincipal && (
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
                   <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
                     <h3 className="text-base font-medium text-foreground" style={serifStyle}>
@@ -374,6 +409,15 @@ function Perfil() {
                           <option value="Socio">Socio</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
+                        <select value={formUsuario.nivelAcceso} onChange={e => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(e.target.value) }))}
+                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50">
+                          {NIVEL_ACCESO_OPCIONES.map(op => (
+                            <option key={op.valor} value={op.valor}>{op.etiqueta}</option>
+                          ))}
+                        </select>
+                      </div>
                       {errorUsuario && <p className="text-red-500 text-xs">{errorUsuario}</p>}
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
@@ -396,7 +440,6 @@ function Perfil() {
           {seccion === 'respaldo' && puedeVerAdmin && (
             <div className="space-y-4">
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Respaldo de datos</h2>
-
               <div className="bg-card border border-border rounded-lg p-6 space-y-3">
                 <h3 className="text-sm font-medium text-foreground">Exportar expedientes</h3>
                 <p className="text-xs text-muted-foreground">Descarga un archivo Excel con todos los expedientes registrados en el sistema.</p>
@@ -406,7 +449,6 @@ function Perfil() {
                   Descargar Excel
                 </button>
               </div>
-
               <div className="bg-card border border-border rounded-lg p-6 space-y-3">
                 <h3 className="text-sm font-medium text-foreground">Respaldo completo de base de datos</h3>
                 <p className="text-xs text-muted-foreground">
