@@ -329,7 +329,7 @@ function Perfil() {
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-secondary/40 border-b border-border">
-                        {['Nombre', 'Correo', 'Rol', esSocioPrincipal ? 'Nivel de Permisos' : null, 'Estado', esSocioPrincipal ? '' : null].filter(Boolean).map(h => (
+                        {['Nombre', 'Correo', 'Rol', puedeVerAdmin ? 'Nivel de Permisos' : null, 'Estado', puedeVerAdmin ? '' : null].filter(Boolean).map(h => (
                           <th key={h} className="text-left px-4 py-2.5 text-xs text-muted-foreground font-medium uppercase tracking-wider" style={monoStyle}>{h}</th>
                         ))}
                       </tr>
@@ -340,7 +340,7 @@ function Perfil() {
                           <td className="px-4 py-3 text-foreground font-medium">{u.nombre}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs" style={monoStyle}>{u.email}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">{u.id === SOCIO_PRINCIPAL_ID ? 'Socio Principal' : u.rol}</td>
-                          {esSocioPrincipal && (
+                          {puedeVerAdmin && (
                             <td className="px-4 py-3 text-muted-foreground text-xs">
                               {u.id === SOCIO_PRINCIPAL_ID ? '—' : nivelAccesoEtiqueta(u.nivelAcceso)}
                             </td>
