@@ -315,7 +315,7 @@ function Perfil() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
-                {esSocioPrincipal && (
+                {puedeVerAdmin && (
                   <button onClick={abrirCrear}
                     className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition">
                     <Plus size={13} /> Nuevo usuario
@@ -350,7 +350,7 @@ function Perfil() {
                               {u.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </td>
-                          {esSocioPrincipal && (
+                          {puedeVerAdmin && (
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2 justify-end">
                                 {u.id !== SOCIO_PRINCIPAL_ID && (
@@ -377,7 +377,7 @@ function Perfil() {
               )}
 
               {/* Modal crear/editar — solo Socio Principal */}
-              {modalUsuario && esSocioPrincipal && (
+              {modalUsuario && puedeVerAdmin && (
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
                   <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
                     <h3 className="text-base font-medium text-foreground" style={serifStyle}>
