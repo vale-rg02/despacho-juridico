@@ -61,24 +61,24 @@ public class UsuariosController : ControllerBase
     }
 
     // GET /api/usuarios/{id}
-    [HttpGet("{id}")]
-    [Authorize(Policy = "AccesoAdmin")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        var usuario = await _context.Usuarios.FindAsync(id);
-        if (usuario == null)
-            return NotFound(new { mensaje = "Usuario no encontrado" });
-
-        return Ok(new UsuarioResponse
+    [HttpGet]
+public async Task<IActionResult> GetAll()
+{
+    var usuarios = await _context.Usuarios
+        .OrderBy(u => u.Nombre)
+        .Select(u => new UsuarioResponse
         {
-            Id = usuario.Id,
-            Nombre = usuario.Nombre,
-            Email = usuario.Email,
-            Rol = usuario.Rol.ToString(),
-            NivelAcceso = usuario.NivelAcceso.ToString(),
-            Activo = usuario.Activo
-        });
-    }
+            Id = u.Id,
+            Nombre = u.Nombre,
+            Email = u.Email,
+            Rol = u.Rol.ToString(),
+            NivelAcceso = u.NivelAcceso.ToString(),
+            Activo = u.Activo
+        })
+        .ToListAsync();
+
+    return Ok(usuarios);
+}
 
     // POST /api/usuarios
     [HttpPost]
