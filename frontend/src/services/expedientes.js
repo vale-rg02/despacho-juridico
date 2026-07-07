@@ -4,18 +4,14 @@ export async function getExpedientes(filtros = {}) {
   const params = {}
   if (filtros.estado && filtros.estado !== 'Todos') params.estado = filtros.estado
   if (filtros.busqueda) params.busqueda = filtros.busqueda
+  if (filtros.usuarioId !== undefined && filtros.usuarioId !== null) params.usuarioId = filtros.usuarioId
 
   const response = await api.get('/expedientes', { params })
   return response.data
 }
 
-export async function getExpedientes(filtros = {}) {
-  const params = {}
-  if (filtros.estado && filtros.estado !== 'Todos') params.estado = filtros.estado
-  if (filtros.busqueda) params.busqueda = filtros.busqueda
-  if (filtros.usuarioId !== undefined && filtros.usuarioId !== null) params.usuarioId = filtros.usuarioId
-
-  const response = await api.get('/expedientes', { params })
+export async function getExpedienteById(id) {
+  const response = await api.get(`/expedientes/${id}`)
   return response.data
 }
 
