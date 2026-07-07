@@ -27,16 +27,14 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        // Buscar usuario por email
         var usuario = await _context.Usuarios
-    .FirstOrDefaultAsync(u => u.Email == request.Email && u.Activo);
+            .FirstOrDefaultAsync(u => u.Email == request.Email);
 
-        if (usuario == null)
+        if (usuario == null || !BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
             return Unauthorized(new { mensaje = "Credenciales incorrectas" });
 
-        // Verificar contrase�a
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
-            return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+        if (!usuario.Activo)
+            return Unauthorized(new { mensaje = "Tu cuenta está desactivada. Contacta al administrador." });
 
         // Generar JWT
         var token = GenerarToken(usuario);
