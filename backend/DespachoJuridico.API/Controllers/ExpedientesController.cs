@@ -467,7 +467,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         return Forbid();
 
     var usuarios = await _context.Usuarios
-        .Where(u => u.Activo)
+        .Where(u => u.Activo && !u.EsCuentaSoporte)
         .OrderBy(u => u.Nombre)
         .ToListAsync();
 
