@@ -4,6 +4,7 @@ export async function getExpedientes(filtros = {}) {
   const params = {}
   if (filtros.estado && filtros.estado !== 'Todos') params.estado = filtros.estado
   if (filtros.busqueda) params.busqueda = filtros.busqueda
+  if (filtros.usuarioId !== undefined && filtros.usuarioId !== null) params.usuarioId = filtros.usuarioId
 
   const response = await api.get('/expedientes', { params })
   return response.data
@@ -41,4 +42,11 @@ export async function cambiarPrioridad(id, prioridad) {
 
 export async function eliminarExpediente(id) {
   await api.delete(`/expedientes/${id}`)
+}
+
+export async function getExpedientesPorUsuario(busqueda = '') {
+  const params = {}
+  if (busqueda) params.busqueda = busqueda
+  const response = await api.get('/expedientes/por-usuario', { params })
+  return response.data
 }

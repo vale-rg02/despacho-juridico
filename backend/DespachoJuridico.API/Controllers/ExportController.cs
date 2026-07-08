@@ -9,6 +9,8 @@ namespace DespachoJuridico.API.Controllers;
 [ApiController]
 [Route("api/export")]
 [Authorize]
+[Authorize(Policy = "AccesoAdmin")]
+
 public class ExportController : ControllerBase
 {
     private readonly AppDbContext _context;

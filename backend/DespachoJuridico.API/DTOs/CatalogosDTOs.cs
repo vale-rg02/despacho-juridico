@@ -18,6 +18,7 @@ public class UsuarioResponse
     public string Email { get; set; } = string.Empty;
     public string Rol { get; set; } = string.Empty;
     public bool Activo { get; set; }
+    public string NivelAcceso { get; set; } = string.Empty;
 
 }
 
@@ -54,6 +55,8 @@ public class EditarUsuarioRequest
     [Required] public string Nombre { get; set; } = string.Empty;
     [Required] public string Email { get; set; } = string.Empty;
     public RolUsuario Rol { get; set; } = RolUsuario.Litigante;
+    public NivelAcceso NivelAcceso { get; set; } = NivelAcceso.Estandar;
+
 }
 
 public class CambiarActivoRequest

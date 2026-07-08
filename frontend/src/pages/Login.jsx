@@ -24,12 +24,12 @@ function Login() {
       await login(email, password)
       navigate('/expedientes')
     } catch (err) {
-      if (err.response?.status === 401) {
-        setError('Correo o contraseña incorrectos')
-      } else {
-        setError('Error de conexión con el servidor')
-      }
-    } finally {
+  if (err.response?.status === 401) {
+    setError(err.response?.data?.mensaje ?? 'Correo o contraseña incorrectos')
+  } else {
+    setError('Error de conexión con el servidor')
+  }
+} finally {
       setCargando(false)
     }
   }

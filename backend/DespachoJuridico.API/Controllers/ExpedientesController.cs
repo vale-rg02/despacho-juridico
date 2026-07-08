@@ -26,14 +26,42 @@ public class ExpedientesController : ControllerBase
     }
 
 
-    // GET /api/expedientes?estado=Abierto&busqueda=673
+    // GET /api/expedientes?estado=Abierto&busqueda=673&usuarioId=2
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? estado, [FromQuery] string? busqueda)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? estado,
+        [FromQuery] string? busqueda,
+        [FromQuery] int? usuarioId)
     {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var nivelAcceso = User.FindFirst("NivelAcceso")?.Value;
+        var esSocioPrincipal = usuarioIdActual == 1;
+
         var query = _context.Expedientes
             .Include(e => e.Banco)
             .Include(e => e.UsuarioAsignado)
             .AsQueryable();
+
+        // Filtro por usuario según rol
+        if (esSocioPrincipal)
+        {
+            // Socio Principal: si selecciona un usuario específico lo filtra,
+            // si no, muestra solo los suyos por default
+            var filtroUsuario = usuarioId ?? usuarioIdActual;
+            if (usuarioId.HasValue && usuarioId.Value == 0)
+            {
+                // usuarioId=0 significa "todos" — no aplica filtro
+            }
+            else
+            {
+                query = query.Where(e => e.UsuarioAsignadoId == filtroUsuario);
+            }
+        }
+        else
+        {
+            // Litigantes y Administradores Operativos: solo sus expedientes
+            query = query.Where(e => e.UsuarioAsignadoId == usuarioIdActual);
+        }
 
         if (!string.IsNullOrWhiteSpace(estado) && Enum.TryParse<EstadoExpediente>(estado, true, out var estadoEnum))
         {
@@ -382,6 +410,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(new { mensaje = "La etapa no está marcada como completada" });
 
         historial.FechaCompletada = null;
+        historial.Atendido = false;
         await _context.SaveChangesAsync();
 
         var usuarioId = ObtenerUsuarioId();
@@ -428,6 +457,47 @@ public class ExpedientesController : ControllerBase
 
         return NoContent();
     }
+
+    // GET /api/expedientes/por-usuario
+[HttpGet("por-usuario")]
+public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
+{
+    var usuarioIdActual = ObtenerUsuarioId();
+    if (usuarioIdActual != 1)
+        return Forbid();
+
+    var usuarios = await _context.Usuarios
+        .Where(u => u.Activo && !u.EsCuentaSoporte)
+        .OrderBy(u => u.Nombre)
+        .ToListAsync();
+
+    var resultado = new List<object>();
+
+    foreach (var u in usuarios)
+    {
+        var query = _context.Expedientes
+            .Include(e => e.Banco)
+            .Include(e => e.UsuarioAsignado)
+            .Where(e => e.UsuarioAsignadoId == u.Id && e.Estado != EstadoExpediente.Cerrado);
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+            query = query.Where(e => e.NumeroExpediente.Contains(busqueda) || e.ParteDemandada.Contains(busqueda));
+
+        var expedientes = await query
+            .OrderByDescending(e => e.ActualizadoEn)
+            .Select(e => MapToResponse(e))
+            .ToListAsync();
+
+        resultado.Add(new
+        {
+            usuarioId = u.Id,
+            usuarioNombre = u.Nombre,
+            expedientes
+        });
+    }
+
+    return Ok(resultado);
+}
 
     // ───────────── Helpers privados ─────────────
 

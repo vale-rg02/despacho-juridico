@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import Topbar from '../components/Topbar'
-import { getExpedientes } from '../services/expedientes'
-
-const ESTADOS = ['Abierto', 'Pausado', 'Cerrado']
+import { getExpedientes, getExpedientesPorUsuario } from '../services/expedientes'
+import { getUsuario } from '../services/auth'
+import api from '../services/api'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
-  Pausado: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-amber-400'  },
+  Pausado: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-amber-400' },
   Cerrado: { bg: 'bg-secondary', text: 'text-muted-foreground', dot: 'bg-stone-400' },
 }
 
@@ -27,34 +27,180 @@ const COLUMNAS = [
   { key: 'prioridad',        label: 'Prioridad' },
 ]
 
+function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir, onSort }) {
+  function SortIcon({ col }) {
+    if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
+    return sortDir === 'asc'
+      ? <ArrowUp size={13} className="ml-1 inline text-accent" />
+      : <ArrowDown size={13} className="ml-1 inline text-accent" />
+  }
+
+  if (cargando) {
+    return (
+      <div className="text-center py-10 text-muted-foreground text-sm">Cargando expedientes...</div>
+    )
+  }
+
+  if (expedientes.length === 0) {
+    return (
+      <div className="text-center py-10 text-muted-foreground text-sm">No se encontraron expedientes.</div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="border-b border-border bg-secondary/60">
+            {COLUMNAS.map(col => (
+              <th
+                key={col.key}
+                onClick={() => onSort(col.key)}
+                className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition whitespace-nowrap"
+                style={{ fontFamily: "'DM Mono', monospace" }}
+              >
+                {col.label}
+                <SortIcon col={col.key} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {expedientes.map((exp, i) => (
+            <tr
+              key={exp.id}
+              onClick={() => onRowClick(exp.id)}
+              className={`border-b border-border last:border-0 hover:bg-accent/5 hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
+            >
+              <td className="px-4 py-3.5 whitespace-nowrap">
+                <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
+                  {exp.numeroExpediente}
+                </span>
+              </td>
+              <td className="px-4 py-3.5">
+                <span className="text-foreground font-medium">{exp.parteDemandada}</span>
+              </td>
+              <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{exp.juzgado ?? '—'}</td>
+              <td className="px-4 py-3.5 text-foreground whitespace-nowrap">{exp.materia ?? '—'}</td>
+              <td className="px-4 py-3.5 whitespace-nowrap">
+                <span className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-0.5 rounded-full text-xs font-medium border border-border ${estadoConfig[exp.estado]?.bg} ${estadoConfig[exp.estado]?.text}`}
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${estadoConfig[exp.estado]?.dot}`} />
+                  {exp.estado}
+                </span>
+              </td>
+              <td className="px-4 py-3.5 whitespace-nowrap">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${prioridadConfig[exp.prioridad]?.color} ${prioridadConfig[exp.prioridad]?.border} ${prioridadConfig[exp.prioridad]?.bg}`}
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span>{prioridadConfig[exp.prioridad]?.symbol}</span>
+                  {exp.prioridad}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, sortDir, onSort, defaultAbierto = true }) {
+  const [abierto, setAbierto] = useState(defaultAbierto)
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm mb-4">
+      <button
+        onClick={() => setAbierto(a => !a)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/30 transition"
+      >
+        <div className="flex items-center gap-3">
+          <ChevronRight
+            size={16}
+            className={`text-accent transition-transform ${abierto ? 'rotate-90' : ''}`}
+          />
+          <span className="text-sm font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            {titulo}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+          {expedientes.length} expediente{expedientes.length !== 1 ? 's' : ''}
+        </span>
+      </button>
+      {abierto && (
+        <div className="border-t border-border">
+          <TablaExpedientes
+            expedientes={expedientes}
+            cargando={cargando}
+            onRowClick={onRowClick}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onSort}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Expedientes() {
   const navigate = useNavigate()
+  const usuario = getUsuario()
+  const esSocioPrincipal = usuario?.id === 1
+
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('Todos')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [filtroUsuarioId, setFiltroUsuarioId] = useState(esSocioPrincipal ? 0 : (usuario?.id ?? null))
+  const [dropdownUsuarioOpen, setDropdownUsuarioOpen] = useState(false)
   const [sortKey, setSortKey] = useState('numeroExpediente')
   const [sortDir, setSortDir] = useState('asc')
-  const [expedientes, setExpedientes] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    cargarExpedientes()
-  }, [filtroEstado])
+  const [expedientesActivos, setExpedientesActivos] = useState([])
+  const [expedientesMuertos, setExpedientesMuertos] = useState([])
+  const [expedientesPorUsuario, setExpedientesPorUsuario] = useState([])
+
+  const [usuarios, setUsuarios] = useState([])
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      cargarExpedientes()
-    }, 400)
+    if (esSocioPrincipal) cargarUsuarios()
+  }, [])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => cargarExpedientes(), 400)
     return () => clearTimeout(timeout)
-  }, [busqueda])
+  }, [busqueda, filtroUsuarioId])
+
+  async function cargarUsuarios() {
+    try {
+      const res = await api.get('/usuarios')
+      setUsuarios(res.data.filter(u => u.activo))
+    } catch {
+      // silencioso
+    }
+  }
 
   async function cargarExpedientes() {
     setCargando(true)
     setError('')
     try {
-      const data = await getExpedientes({ estado: filtroEstado, busqueda })
-      setExpedientes(data)
+      if (esSocioPrincipal && filtroUsuarioId === 0) {
+        const [porUsuario, cerrados] = await Promise.all([
+          getExpedientesPorUsuario(busqueda),
+          getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: 0 }),
+        ])
+        setExpedientesPorUsuario(porUsuario)
+        setExpedientesActivos([])
+        setExpedientesMuertos(cerrados)
+      } else {
+        const [abiertos, pausados, cerrados] = await Promise.all([
+          getExpedientes({ estado: 'Abierto', busqueda, usuarioId: filtroUsuarioId }),
+          getExpedientes({ estado: 'Pausado', busqueda, usuarioId: filtroUsuarioId }),
+          getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: filtroUsuarioId }),
+        ])
+        setExpedientesActivos([...abiertos, ...pausados])
+        setExpedientesMuertos(cerrados)
+        setExpedientesPorUsuario([])
+      }
     } catch {
       setError('No se pudieron cargar los expedientes')
     } finally {
@@ -71,22 +217,31 @@ function Expedientes() {
     }
   }
 
-  const expedientesOrdenados = useMemo(() => {
-    const list = [...expedientes]
+  function ordenar(lista) {
+    const list = [...lista]
     list.sort((a, b) => {
       const av = (a[sortKey] ?? '').toString()
       const bv = (b[sortKey] ?? '').toString()
       return sortDir === 'asc' ? av.localeCompare(bv, 'es') : bv.localeCompare(av, 'es')
     })
     return list
-  }, [expedientes, sortKey, sortDir])
-
-  function SortIcon({ col }) {
-    if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
-    return sortDir === 'asc'
-      ? <ArrowUp size={13} className="ml-1 inline text-accent" />
-      : <ArrowDown size={13} className="ml-1 inline text-accent" />
   }
+
+  const nombreFiltroUsuario = useMemo(() => {
+    if (!esSocioPrincipal) return null
+    if (filtroUsuarioId === 0) return 'Todos los usuarios'
+    if (filtroUsuarioId === usuario?.id) return 'Mis expedientes'
+    const u = usuarios.find(u => u.id === filtroUsuarioId)
+    return u ? `Expedientes de ${u.nombre}` : 'Todos los usuarios'
+  }, [filtroUsuarioId, usuarios])
+
+  const tituloBloque = useMemo(() => {
+    if (!esSocioPrincipal) return `Expedientes de ${usuario?.nombre}`
+    if (filtroUsuarioId === 0) return null
+    if (filtroUsuarioId === usuario?.id) return 'Mis expedientes'
+    const u = usuarios.find(u => u.id === filtroUsuarioId)
+    return u ? `Expedientes de ${u.nombre}` : 'Expedientes'
+  }, [filtroUsuarioId, usuarios])
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,179 +260,111 @@ function Expedientes() {
               className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
             />
             {busqueda && (
-              <button
-                onClick={() => setBusqueda('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-              >
+              <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition">
                 <X size={12} />
               </button>
             )}
           </div>
 
-          <div className="relative ml-auto">
-            <button
-              onClick={() => setDropdownOpen(o => !o)}
-              className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
-            >
-              <Filter size={12} className="text-muted-foreground" />
-              <span>{filtroEstado === 'Todos' ? 'Todos los estados' : filtroEstado}</span>
-              <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-1.5 w-48 bg-card border border-border rounded shadow-lg z-50 overflow-hidden">
-                <button
-                  onClick={() => { setFiltroEstado('Todos'); setDropdownOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroEstado === 'Todos' ? 'font-medium text-accent' : 'text-foreground'}`}
-                >
-                  Todos los estados
-                </button>
-                {ESTADOS.map(e => (
+          {/* Filtro de usuario — solo Socio Principal */}
+          {esSocioPrincipal && (
+            <div className="relative">
+              <button
+                onClick={() => setDropdownUsuarioOpen(o => !o)}
+                className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+              >
+                <Filter size={12} className="text-muted-foreground" />
+                <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
+                <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdownUsuarioOpen && (
+                <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
                   <button
-                    key={e}
-                    onClick={() => { setFiltroEstado(e); setDropdownOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-secondary transition ${filtroEstado === e ? 'font-medium text-accent' : 'text-foreground'}`}
+                    onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${estadoConfig[e]?.dot}`} />
-                    {e}
+                    Todos los usuarios
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                  <button
+                    onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                  >
+                    Mis expedientes
+                  </button>
+                  <div className="border-t border-border" />
+                  {usuarios.filter(u => u.id !== usuario?.id).map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                    >
+                      {u.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => navigate('/expedientes/nuevo')}
+            className="ml-auto bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition"
+          >
+            + Nuevo expediente
+          </button>
         </div>
       </div>
-      {dropdownOpen && (
-        <div className="fixed inset-0 z-20" onClick={() => setDropdownOpen(false)} />
+
+      {dropdownUsuarioOpen && (
+        <div className="fixed inset-0 z-20" onClick={() => setDropdownUsuarioOpen(false)} />
       )}
 
       <main className="max-w-screen-xl mx-auto px-6 py-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl text-foreground leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Expedientes
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {expedientesOrdenados.length} expediente{expedientesOrdenados.length !== 1 ? 's' : ''}
-              {filtroEstado !== 'Todos' ? ` · ${filtroEstado}` : ''}
-              {busqueda ? ` · "${busqueda}"` : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {filtroEstado !== 'Todos' && (
-              <button
-                onClick={() => setFiltroEstado('Todos')}
-                className="flex items-center gap-1.5 text-xs bg-accent/10 text-accent border border-accent/20 px-2.5 py-1 rounded-full hover:bg-accent/20 transition"
-              >
-                {filtroEstado} <X size={11} />
-              </button>
-            )}
-            {busqueda && (
-              <button
-                onClick={() => setBusqueda('')}
-                className="flex items-center gap-1.5 text-xs bg-accent/10 text-accent border border-accent/20 px-2.5 py-1 rounded-full hover:bg-accent/20 transition"
-              >
-                "{busqueda}" <X size={11} />
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/expedientes/nuevo')}
-              className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition"
-            >
-              + Nuevo expediente
-            </button>
-          </div>
-        </div>
-
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-secondary/60">
-                  {COLUMNAS.map(col => (
-                    <th
-                      key={col.key}
-                      onClick={() => handleSort(col.key)}
-                      className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition whitespace-nowrap"
-                      style={{ fontFamily: "'DM Mono', monospace" }}
-                    >
-                      {col.label}
-                      <SortIcon col={col.key} />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cargando ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
-                      Cargando expedientes...
-                    </td>
-                  </tr>
-                ) : expedientesOrdenados.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-16 text-muted-foreground text-sm">
-                      No se encontraron expedientes con los filtros aplicados.
-                    </td>
-                  </tr>
-                ) : (
-                  expedientesOrdenados.map((exp, i) => (
-                    <tr
-                      key={exp.id}
-                      onClick={() => navigate(`/expedientes/${exp.id}`)}
-                      className={`border-b border-border last:border-0 hover:bg-accent/5 hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
-                    >
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
-                          {exp.numeroExpediente}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="text-foreground font-medium">{exp.parteDemandada}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{exp.juzgado ?? '—'}</td>
-                      <td className="px-4 py-3.5 text-foreground whitespace-nowrap">{exp.materia ?? '—'}</td>
+        {/* Bloques por usuario cuando Socio Principal selecciona Todos */}
+        {esSocioPrincipal && filtroUsuarioId === 0 ? (
+          expedientesPorUsuario.map(grupo => (
+            <BloqueExpandible
+              key={grupo.usuarioId}
+              titulo={`Expedientes de ${grupo.usuarioNombre}`}
+              expedientes={ordenar(grupo.expedientes)}
+              cargando={cargando}
+              onRowClick={id => navigate(`/expedientes/${id}`)}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              defaultAbierto={true}
+            />
+          ))
+        ) : (
+          <BloqueExpandible
+            titulo={tituloBloque ?? 'Expedientes'}
+            expedientes={ordenar(expedientesActivos)}
+            cargando={cargando}
+            onRowClick={id => navigate(`/expedientes/${id}`)}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            defaultAbierto={true}
+          />
+        )}
 
-                      {/* Badge Estado */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-0.5 rounded-full text-xs font-medium border border-border ${estadoConfig[exp.estado]?.bg} ${estadoConfig[exp.estado]?.text}`}
-                          style={{ fontFamily: "'DM Mono', monospace" }}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${estadoConfig[exp.estado]?.dot}`} />
-                          {exp.estado}
-                        </span>
-                      </td>
-
-                      {/* Badge Prioridad */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${prioridadConfig[exp.prioridad]?.color} ${prioridadConfig[exp.prioridad]?.border} ${prioridadConfig[exp.prioridad]?.bg}`}
-                          style={{ fontFamily: "'DM Mono', monospace" }}
-                        >
-                          <span>{prioridadConfig[exp.prioridad]?.symbol}</span>
-                          {exp.prioridad}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-              {expedientesOrdenados.length} expediente{expedientesOrdenados.length !== 1 ? 's' : ''}
-            </span>
-            <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-              Despacho Jurídico Acedo e Hijos · {new Date().getFullYear()}
-            </span>
-          </div>
-        </div>
+        {/* Bloque de expedientes cerrados */}
+        <BloqueExpandible
+          titulo="Expedientes cerrados"
+          expedientes={ordenar(expedientesMuertos)}
+          cargando={cargando}
+          onRowClick={id => navigate(`/expedientes/${id}`)}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          defaultAbierto={false}
+        />
       </main>
     </div>
   )
