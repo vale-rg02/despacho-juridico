@@ -230,7 +230,7 @@ function Expedientes() {
 
   const tituloBloque = useMemo(() => {
     if (!esSocioPrincipal) return `Expedientes de ${usuario?.nombre}`
-    if (filtroUsuarioId === 0) return 'Todos los expedientes'
+    if (filtroUsuarioId === 0) return 'Todos los expedientes.'
     if (filtroUsuarioId === usuario?.id) return `Mis expedientes`
     const u = usuarios.find(u => u.id === filtroUsuarioId)
     return u ? `Expedientes de ${u.nombre}` : 'Expedientes'
