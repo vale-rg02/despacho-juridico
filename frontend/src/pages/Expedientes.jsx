@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import Topbar from '../components/Topbar'
-import { getExpedientes } from '../services/expedientes'
+import { getExpedientes, getExpedientesPorUsuario } from '../services/expedientes'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 
@@ -146,7 +146,6 @@ function Expedientes() {
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === 1
-  const puedeVerAdmin = usuario?.nivelAcceso === 'Administrativo' || usuario?.nivelAcceso === 'Superior'
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroUsuarioId, setFiltroUsuarioId] = useState(esSocioPrincipal ? 0 : (usuario?.id ?? null))
@@ -156,12 +155,10 @@ function Expedientes() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
-  // Expedientes activos (Abierto + Pausado)
   const [expedientesActivos, setExpedientesActivos] = useState([])
-  // Expedientes muertos (Cerrado)
   const [expedientesMuertos, setExpedientesMuertos] = useState([])
+  const [expedientesPorUsuario, setExpedientesPorUsuario] = useState([])
 
-  // Para el Socio Principal: lista de usuarios
   const [usuarios, setUsuarios] = useState([])
 
   useEffect(() => {
@@ -186,14 +183,24 @@ function Expedientes() {
     setCargando(true)
     setError('')
     try {
-      // Cargar activos (Abierto y Pausado por separado y combinar)
-      const [abiertos, pausados, cerrados] = await Promise.all([
-        getExpedientes({ estado: 'Abierto', busqueda, usuarioId: filtroUsuarioId }),
-        getExpedientes({ estado: 'Pausado', busqueda, usuarioId: filtroUsuarioId }),
-        getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: filtroUsuarioId }),
-      ])
-      setExpedientesActivos([...abiertos, ...pausados])
-      setExpedientesMuertos(cerrados)
+      if (esSocioPrincipal && filtroUsuarioId === 0) {
+        const [porUsuario, cerrados] = await Promise.all([
+          getExpedientesPorUsuario(busqueda),
+          getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: 0 }),
+        ])
+        setExpedientesPorUsuario(porUsuario)
+        setExpedientesActivos([])
+        setExpedientesMuertos(cerrados)
+      } else {
+        const [abiertos, pausados, cerrados] = await Promise.all([
+          getExpedientes({ estado: 'Abierto', busqueda, usuarioId: filtroUsuarioId }),
+          getExpedientes({ estado: 'Pausado', busqueda, usuarioId: filtroUsuarioId }),
+          getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: filtroUsuarioId }),
+        ])
+        setExpedientesActivos([...abiertos, ...pausados])
+        setExpedientesMuertos(cerrados)
+        setExpedientesPorUsuario([])
+      }
     } catch {
       setError('No se pudieron cargar los expedientes')
     } finally {
@@ -230,8 +237,8 @@ function Expedientes() {
 
   const tituloBloque = useMemo(() => {
     if (!esSocioPrincipal) return `Expedientes de ${usuario?.nombre}`
-    if (filtroUsuarioId === 0) return 'Todos los expedientes.'
-    if (filtroUsuarioId === usuario?.id) return `Mis expedientes`
+    if (filtroUsuarioId === 0) return null
+    if (filtroUsuarioId === usuario?.id) return 'Mis expedientes'
     const u = usuarios.find(u => u.id === filtroUsuarioId)
     return u ? `Expedientes de ${u.nombre}` : 'Expedientes'
   }, [filtroUsuarioId, usuarios])
@@ -273,16 +280,16 @@ function Expedientes() {
               {dropdownUsuarioOpen && (
                 <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
                   <button
-                    onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
-                  >
-                    Mis expedientes
-                  </button>
-                  <button
                     onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
                     className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
                   >
                     Todos los usuarios
+                  </button>
+                  <button
+                    onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                  >
+                    Mis expedientes
                   </button>
                   <div className="border-t border-border" />
                   {usuarios.filter(u => u.id !== usuario?.id).map(u => (
@@ -319,19 +326,35 @@ function Expedientes() {
           </div>
         )}
 
-        {/* Bloque de expedientes activos */}
-        <BloqueExpandible
-          titulo={tituloBloque ?? 'Todos los expedientes'}
-          expedientes={ordenar(expedientesActivos)}
-          cargando={cargando}
-          onRowClick={id => navigate(`/expedientes/${id}`)}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={handleSort}
-          defaultAbierto={true}
-        />
+        {/* Bloques por usuario cuando Socio Principal selecciona Todos */}
+        {esSocioPrincipal && filtroUsuarioId === 0 ? (
+          expedientesPorUsuario.map(grupo => (
+            <BloqueExpandible
+              key={grupo.usuarioId}
+              titulo={`Expedientes de ${grupo.usuarioNombre}`}
+              expedientes={ordenar(grupo.expedientes)}
+              cargando={cargando}
+              onRowClick={id => navigate(`/expedientes/${id}`)}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              defaultAbierto={true}
+            />
+          ))
+        ) : (
+          <BloqueExpandible
+            titulo={tituloBloque ?? 'Expedientes'}
+            expedientes={ordenar(expedientesActivos)}
+            cargando={cargando}
+            onRowClick={id => navigate(`/expedientes/${id}`)}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            defaultAbierto={true}
+          />
+        )}
 
-        {/* Bloque de expedientes muertos */}
+        {/* Bloque de expedientes cerrados */}
         <BloqueExpandible
           titulo="Expedientes cerrados"
           expedientes={ordenar(expedientesMuertos)}

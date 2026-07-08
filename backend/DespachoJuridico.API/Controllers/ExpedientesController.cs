@@ -458,6 +458,47 @@ public class ExpedientesController : ControllerBase
         return NoContent();
     }
 
+    // GET /api/expedientes/por-usuario
+[HttpGet("por-usuario")]
+public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
+{
+    var usuarioIdActual = ObtenerUsuarioId();
+    if (usuarioIdActual != 1)
+        return Forbid();
+
+    var usuarios = await _context.Usuarios
+        .Where(u => u.Activo)
+        .OrderBy(u => u.Nombre)
+        .ToListAsync();
+
+    var resultado = new List<object>();
+
+    foreach (var u in usuarios)
+    {
+        var query = _context.Expedientes
+            .Include(e => e.Banco)
+            .Include(e => e.UsuarioAsignado)
+            .Where(e => e.UsuarioAsignadoId == u.Id && e.Estado != EstadoExpediente.Cerrado);
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+            query = query.Where(e => e.NumeroExpediente.Contains(busqueda) || e.ParteDemandada.Contains(busqueda));
+
+        var expedientes = await query
+            .OrderByDescending(e => e.ActualizadoEn)
+            .Select(e => MapToResponse(e))
+            .ToListAsync();
+
+        resultado.Add(new
+        {
+            usuarioId = u.Id,
+            usuarioNombre = u.Nombre,
+            expedientes
+        });
+    }
+
+    return Ok(resultado);
+}
+
     // ───────────── Helpers privados ─────────────
 
     private static ExpedienteResponse MapToResponse(Expediente e) => new()

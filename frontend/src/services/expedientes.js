@@ -43,3 +43,10 @@ export async function cambiarPrioridad(id, prioridad) {
 export async function eliminarExpediente(id) {
   await api.delete(`/expedientes/${id}`)
 }
+
+export async function getExpedientesPorUsuario(busqueda = '') {
+  const params = {}
+  if (busqueda) params.busqueda = busqueda
+  const response = await api.get('/expedientes/por-usuario', { params })
+  return response.data
+}
