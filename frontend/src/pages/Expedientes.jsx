@@ -149,7 +149,7 @@ function Expedientes() {
   const puedeVerAdmin = usuario?.nivelAcceso === 'Administrativo' || usuario?.nivelAcceso === 'Superior'
 
   const [busqueda, setBusqueda] = useState('')
-  const [filtroUsuarioId, setFiltroUsuarioId] = useState(usuario?.id ?? null)
+  const [filtroUsuarioId, setFiltroUsuarioId] = useState(esSocioPrincipal ? 0 : (usuario?.id ?? null))
   const [dropdownUsuarioOpen, setDropdownUsuarioOpen] = useState(false)
   const [sortKey, setSortKey] = useState('numeroExpediente')
   const [sortDir, setSortDir] = useState('asc')
@@ -230,7 +230,7 @@ function Expedientes() {
 
   const tituloBloque = useMemo(() => {
     if (!esSocioPrincipal) return `Expedientes de ${usuario?.nombre}`
-    if (filtroUsuarioId === 0) return null // se mostrarán bloques por usuario
+    if (filtroUsuarioId === 0) return 'Todos los expedientes'
     if (filtroUsuarioId === usuario?.id) return `Mis expedientes`
     const u = usuarios.find(u => u.id === filtroUsuarioId)
     return u ? `Expedientes de ${u.nombre}` : 'Expedientes'
