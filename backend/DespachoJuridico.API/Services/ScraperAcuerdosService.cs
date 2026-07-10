@@ -148,7 +148,8 @@ public class ScraperAcuerdosService : BackgroundService
         if (!response.IsSuccessStatusCode) return resultado;
 
         var html = await response.Content.ReadAsStringAsync();
-        _logger.LogInformation("Juzgado {IdUnidad}: HTML recibido, longitud {Length}", idUnidad, html.Length);
+        if (idUnidad == 152)
+            _logger.LogInformation("Juzgado {IdUnidad}: HTML={Html}", idUnidad, html);
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
