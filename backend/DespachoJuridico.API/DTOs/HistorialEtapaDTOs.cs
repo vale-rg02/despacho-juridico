@@ -34,6 +34,19 @@ public class CompletarEtapaRequest
     public DateTime? FechaCompletada { get; set; }
 }
 
+public class EditarEtapaRequest
+{
+    [Required(ErrorMessage = "Debes seleccionar una etapa del catálogo")]
+    public int EtapaCatalogoId { get; set; }
+
+    [Required(ErrorMessage = "La fecha de inicio es obligatoria")]
+    public DateTime FechaInicio { get; set; }
+
+    public DateTime? FechaLimite { get; set; }
+
+    public string? Notas { get; set; }
+}
+
 public class AlertaResponse
 {
     public int EtapaHistorialId { get; set; }

@@ -26,3 +26,13 @@ export async function revertirEtapa(expedienteId, etapaId) {
   const response = await api.delete(`/expedientes/${expedienteId}/etapas/${etapaId}/completar`)
   return response.data
 }
+
+export async function editarEtapa(expedienteId, etapaId, datos) {
+  const response = await api.patch(`/expedientes/${expedienteId}/etapas/${etapaId}`, datos)
+  return response.data
+}
+
+export async function eliminarEtapa(expedienteId, etapaId) {
+  const response = await api.delete(`/expedientes/${expedienteId}/etapas/${etapaId}`)
+  return response.data
+}

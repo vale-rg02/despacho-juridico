@@ -8,7 +8,8 @@ import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
-import { getHistorialEtapas, completarEtapa, revertirEtapa } from '../services/etapas'
+import ModalEditarEtapa from '../components/ModalEditarEtapa'
+import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
 import { getAcuerdos } from '../services/acuerdos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -139,6 +140,7 @@ function DetalleExpediente() {
   const [bitacora, setBitacora] = useState([])
   const [acuerdos, setAcuerdos] = useState([])
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
+  const [etapaEditando, setEtapaEditando] = useState(null)
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -211,6 +213,28 @@ function DetalleExpediente() {
       setTimeout(() => setExito(''), 3000)
     } catch {
       setError('No se pudo revertir la etapa')
+    }
+  }
+
+  function handleEditarEtapa(etapa) {
+    setEtapaEditando(etapa)
+  }
+
+  async function handleGuardarEdicionEtapa() {
+    setEtapaEditando(null)
+    await cargarDatos()
+    setExito('Etapa actualizada correctamente')
+    setTimeout(() => setExito(''), 3000)
+  }
+
+  async function handleEliminarEtapa(etapaId) {
+    try {
+      await eliminarEtapa(id, etapaId)
+      await cargarDatos()
+      setExito('Etapa eliminada correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo eliminar la etapa')
     }
   }
 
@@ -409,8 +433,20 @@ function DetalleExpediente() {
               etapas={etapas}
               onCompletar={handleCompletarEtapa}
               onRevertir={handleRevertirEtapa}
+              onEditar={handleEditarEtapa}
+              onEliminar={handleEliminarEtapa}
             />
           </div>
+
+          {etapaEditando && (
+            <ModalEditarEtapa
+              expedienteId={id}
+              etapa={etapaEditando}
+              tipoJuicio={expediente.tipoJuicio}
+              onGuardado={handleGuardarEdicionEtapa}
+              onCerrar={() => setEtapaEditando(null)}
+            />
+          )}
         </section>
 
         {/* Acuerdos del Poder Judicial */}

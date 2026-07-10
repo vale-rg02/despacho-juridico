@@ -395,6 +395,91 @@ public class ExpedientesController : ControllerBase
         });
     }
 
+    // PATCH /api/expedientes/5/etapas/12
+    [HttpPatch("{id}/etapas/{etapaId}")]
+    public async Task<IActionResult> EditarEtapa(int id, int etapaId, [FromBody] EditarEtapaRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var historial = await _context.HistorialEtapas
+            .Include(h => h.EtapaCatalogo)
+            .Include(h => h.RegistradoPor)
+            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
+
+        if (historial == null)
+            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
+
+        var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
+        if (etapaCatalogo == null)
+            return BadRequest(new { mensaje = "La etapa del catálogo no existe" });
+
+        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+        DateTime? fechaLimiteUtc = request.FechaLimite.HasValue
+            ? DateTime.SpecifyKind(request.FechaLimite.Value.Date, DateTimeKind.Utc)
+            : null;
+
+        var cambios = new List<string>();
+        if (historial.EtapaCatalogoId != etapaCatalogo.Id)
+            cambios.Add($"Etapa: '{historial.EtapaCatalogo?.Nombre ?? "—"}' → '{etapaCatalogo.Nombre}'");
+        if (historial.FechaInicio != fechaInicioUtc)
+            cambios.Add($"Fecha inicio: '{historial.FechaInicio:yyyy-MM-dd}' → '{fechaInicioUtc:yyyy-MM-dd}'");
+        if (historial.FechaLimite != fechaLimiteUtc)
+            cambios.Add($"Fecha límite: '{historial.FechaLimite?.ToString("yyyy-MM-dd") ?? "—"}' → '{fechaLimiteUtc?.ToString("yyyy-MM-dd") ?? "—"}'");
+        if (historial.Notas != request.Notas)
+            cambios.Add("Notas actualizadas");
+
+        historial.EtapaCatalogoId = etapaCatalogo.Id;
+        historial.FechaInicio = fechaInicioUtc;
+        historial.FechaLimite = fechaLimiteUtc;
+        historial.Notas = request.Notas;
+
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        if (cambios.Count > 0)
+        {
+            await RegistrarBitacora(id, usuarioId, "etapa_editada", string.Join("; ", cambios));
+        }
+
+        await _context.Entry(historial).Reference(h => h.EtapaCatalogo).LoadAsync();
+
+        return Ok(new EtapaHistorialResponse
+        {
+            Id = historial.Id,
+            EtapaCatalogoId = historial.EtapaCatalogoId,
+            EtapaNombre = historial.EtapaCatalogo?.Nombre,
+            FechaInicio = historial.FechaInicio,
+            FechaLimite = historial.FechaLimite,
+            FechaCompletada = historial.FechaCompletada,
+            Atendido = historial.Atendido,
+            Notas = historial.Notas,
+            RegistradoPorNombre = historial.RegistradoPor.Nombre
+        });
+    }
+
+    // DELETE /api/expedientes/5/etapas/12
+    [HttpDelete("{id}/etapas/{etapaId}")]
+    public async Task<IActionResult> EliminarEtapa(int id, int etapaId)
+    {
+        var historial = await _context.HistorialEtapas
+            .Include(h => h.EtapaCatalogo)
+            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
+
+        if (historial == null)
+            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
+
+        var nombreEtapa = historial.EtapaCatalogo?.Nombre ?? "Etapa";
+
+        _context.HistorialEtapas.Remove(historial);
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        await RegistrarBitacora(id, usuarioId, "etapa_eliminada", $"Etapa '{nombreEtapa}' eliminada del historial");
+
+        return NoContent();
+    }
+
     // DELETE /api/expedientes/{id}/etapas/{etapaId}/completar
     [HttpDelete("{id}/etapas/{etapaId}/completar")]
     public async Task<IActionResult> RevertirEtapa(int id, int etapaId)
