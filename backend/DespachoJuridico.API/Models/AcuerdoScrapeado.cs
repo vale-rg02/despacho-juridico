@@ -13,5 +13,6 @@ public class AcuerdoScrapeado
     public DateTime FechaDetectado { get; set; } = DateTime.UtcNow;
     public bool NotificacionEnviada { get; set; } = false;
 
+    public bool Visto { get; set; } = false;
     public Expediente Expediente { get; set; } = null!;
 }

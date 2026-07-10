@@ -33,10 +33,25 @@ public class AcuerdosController : ControllerBase
                 a.Sintesis,
                 a.FechaAcuerdo,
                 a.FechaDetectado,
-                a.NotificacionEnviada
+                a.NotificacionEnviada,
+                a.Visto
             })
             .ToListAsync();
 
         return Ok(acuerdos);
+    }
+
+    // PATCH /api/acuerdos/{id}/visto
+    [HttpPatch("{id}/visto")]
+    public async Task<IActionResult> MarcarVisto(int id)
+    {
+        var acuerdo = await _context.AcuerdosScrapeados.FindAsync(id);
+        if (acuerdo == null)
+            return NotFound(new { mensaje = "Acuerdo no encontrado" });
+
+        acuerdo.Visto = true;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { mensaje = "Acuerdo marcado como visto" });
     }
 }
