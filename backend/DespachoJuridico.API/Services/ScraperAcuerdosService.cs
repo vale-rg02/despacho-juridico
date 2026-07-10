@@ -2,7 +2,6 @@
 using DespachoJuridico.API.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using System.Xml;
 
 
 namespace DespachoJuridico.API.Services;
@@ -58,7 +57,7 @@ public class ScraperAcuerdosService : BackgroundService
 
     public async Task EjecutarScrapingAsync()
     {
-        var fecha = new DateOnly(2026, 7, 7); // lunes 7 de julio
+        var fecha = DateOnly.FromDateTime(DateTime.Now);
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha}", fecha);
 
         using var scope = _scopeFactory.CreateScope();
@@ -155,11 +154,7 @@ public class ScraperAcuerdosService : BackgroundService
 
         if (!root.TryGetProperty("Resultado", out var resultadoArray)) return resultado;
         if (resultadoArray.ValueKind != JsonValueKind.Array) return resultado;
-        if (idUnidad == 152 && resultadoArray.GetArrayLength() > 0)
-        {
-            var primero = resultadoArray.EnumerateArray().First();
-            _logger.LogInformation("Primer resultado juzgado 152: {Json}", primero.GetRawText());
-        }
+
 
         foreach (var item in resultadoArray.EnumerateArray())
         {
