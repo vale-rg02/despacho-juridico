@@ -148,12 +148,13 @@ public class ScraperAcuerdosService : BackgroundService
         if (!response.IsSuccessStatusCode) return resultado;
 
         var html = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation("Juzgado {IdUnidad}: HTML recibido, longitud {Length}", idUnidad, html.Length);
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        // Parsear filas de la tabla de acuerdos
         var filas = doc.DocumentNode.SelectNodes("//tr[td]");
+        _logger.LogInformation("Juzgado {IdUnidad}: {Count} filas encontradas", idUnidad, filas?.Count ?? 0);
         if (filas == null) return resultado;
 
         foreach (var fila in filas)
