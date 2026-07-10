@@ -11,7 +11,7 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 
@@ -139,6 +139,7 @@ function DetalleExpediente() {
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
   const [acuerdos, setAcuerdos] = useState([])
+  const [acuerdosNuevosIds, setAcuerdosNuevosIds] = useState(new Set())
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
   const [etapaEditando, setEtapaEditando] = useState(null)
 
@@ -162,6 +163,12 @@ function DetalleExpediente() {
 
       const dataAcuerdos = await getAcuerdos(id)
       setAcuerdos(dataAcuerdos)
+
+      const idsNuevos = dataAcuerdos.filter(a => !a.visto).map(a => a.id)
+      setAcuerdosNuevosIds(new Set(idsNuevos))
+      idsNuevos.forEach(acuerdoId => {
+        marcarAcuerdoVisto(acuerdoId).catch(() => {})
+      })
 
       if (usuario?.rol === 'Socio') {
         const dataBitacora = await getBitacora(id)
@@ -457,6 +464,11 @@ function DetalleExpediente() {
           >
             <Scale size={13} />
             Acuerdos del Poder Judicial
+            {acuerdosNuevosIds.size > 0 && (
+              <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
+              </span>
+            )}
           </h2>
 
           {acuerdos.length === 0 ? (
@@ -475,6 +487,12 @@ function DetalleExpediente() {
                       <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                         <Gavel size={12} className="text-accent" />
                         {acuerdo.nombreJuzgado}
+                        {acuerdosNuevosIds.has(acuerdo.id) && (
+                          <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                            Nuevo
+                          </span>
+                        )}
                       </span>
                       <span
                         className="text-xs text-muted-foreground"

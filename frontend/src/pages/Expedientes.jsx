@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import { getExpedientes, getExpedientesPorUsuario } from '../services/expedientes'
+import { getExpedientesConAcuerdosNoVistos } from '../services/acuerdos'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 
@@ -27,7 +28,7 @@ const COLUMNAS = [
   { key: 'prioridad',        label: 'Prioridad' },
 ]
 
-function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir, onSort }) {
+function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir, onSort, expedientesConAcuerdosNuevos }) {
   function SortIcon({ col }) {
     if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
     return sortDir === 'asc'
@@ -73,8 +74,16 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
               className={`border-b border-border last:border-0 hover:bg-accent/5 hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
             >
               <td className="px-4 py-3.5 whitespace-nowrap">
-                <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
-                  {exp.numeroExpediente}
+                <span className="inline-flex items-center gap-1.5">
+                  {expedientesConAcuerdosNuevos?.has(exp.id) && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-accent shrink-0"
+                      title="Acuerdos nuevos sin ver"
+                    />
+                  )}
+                  <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
+                    {exp.numeroExpediente}
+                  </span>
                 </span>
               </td>
               <td className="px-4 py-3.5">
@@ -104,7 +113,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
   )
 }
 
-function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, sortDir, onSort, defaultAbierto = true }) {
+function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, sortDir, onSort, defaultAbierto = true, expedientesConAcuerdosNuevos }) {
   const [abierto, setAbierto] = useState(defaultAbierto)
 
   return (
@@ -135,6 +144,7 @@ function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, 
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={onSort}
+            expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
           />
         </div>
       )}
@@ -160,10 +170,17 @@ function Expedientes() {
   const [expedientesPorUsuario, setExpedientesPorUsuario] = useState([])
 
   const [usuarios, setUsuarios] = useState([])
+  const [expedientesConAcuerdosNuevos, setExpedientesConAcuerdosNuevos] = useState(new Set())
 
   useEffect(() => {
     if (esSocioPrincipal) cargarUsuarios()
+    cargarAcuerdosNoVistos()
   }, [])
+
+  async function cargarAcuerdosNoVistos() {
+    const ids = await getExpedientesConAcuerdosNoVistos()
+    setExpedientesConAcuerdosNuevos(new Set(ids))
+  }
 
   useEffect(() => {
     const timeout = setTimeout(() => cargarExpedientes(), 400)
@@ -339,6 +356,7 @@ function Expedientes() {
               sortDir={sortDir}
               onSort={handleSort}
               defaultAbierto={true}
+              expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
             />
           ))
         ) : (
@@ -351,6 +369,7 @@ function Expedientes() {
             sortDir={sortDir}
             onSort={handleSort}
             defaultAbierto={true}
+            expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
           />
         )}
 
@@ -364,6 +383,7 @@ function Expedientes() {
           sortDir={sortDir}
           onSort={handleSort}
           defaultAbierto={false}
+          expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
         />
       </main>
     </div>
