@@ -155,6 +155,11 @@ public class ScraperAcuerdosService : BackgroundService
 
         if (!root.TryGetProperty("Resultado", out var resultadoArray)) return resultado;
         if (resultadoArray.ValueKind != JsonValueKind.Array) return resultado;
+        if (idUnidad == 152 && resultadoArray.GetArrayLength() > 0)
+        {
+            var primero = resultadoArray.EnumerateArray().First();
+            _logger.LogInformation("Primer resultado juzgado 152: {Json}", primero.GetRawText());
+        }
 
         foreach (var item in resultadoArray.EnumerateArray())
         {
