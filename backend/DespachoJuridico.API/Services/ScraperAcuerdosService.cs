@@ -81,8 +81,7 @@ public class ScraperAcuerdosService : BackgroundService
                     // Buscar match con expedientes del despacho
                     var expediente = expedientes.FirstOrDefault(e =>
                         NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
-                        e.Juzgado != null &&
-                        NormalizarJuzgado(e.Juzgado) == NormalizarJuzgado(nombreJuzgado));
+                        JuzgadoCoincide(e.Juzgado ?? "", nombreJuzgado));
 
                     if (expediente == null) continue;
 
@@ -170,7 +169,7 @@ public class ScraperAcuerdosService : BackgroundService
 
             resultado.Add((asunto, partes, sintesis, fecha));
         }
-
+        _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados en HTML", idUnidad, resultado.Count);
         return resultado;
     }
 
@@ -203,14 +202,39 @@ public class ScraperAcuerdosService : BackgroundService
             .Replace("-", "/");
     }
 
-    private static string NormalizarJuzgado(string juzgado)
+    private static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
     {
-        return juzgado.Trim().ToLowerInvariant()
-            .Replace("primero", "1ro").Replace("1ro", "1")
-            .Replace("segundo", "2do").Replace("2do", "2")
-            .Replace("tercero", "3ro").Replace("3ro", "3")
-            .Replace("cuarto", "4to").Replace("4to", "4")
-            .Replace("civil", "").Replace("mercantil", "")
-            .Replace("familiar", "").Replace(" ", "");
+        if (string.IsNullOrWhiteSpace(juzgadoExpediente)) return false;
+
+        var exp = juzgadoExpediente.Trim().ToLowerInvariant();
+        var scr = nombreJuzgadoScrapeado.Trim().ToLowerInvariant();
+
+        // Mapeo directo
+        if (exp.Contains("1ro civil") || exp.Contains("primero civil"))
+            return scr.Contains("1ro civil");
+        if (exp.Contains("2do civil") || exp.Contains("segundo civil"))
+            return scr.Contains("2do civil");
+        if (exp.Contains("3ro civil") || exp.Contains("tercero civil"))
+            return scr.Contains("3ro civil");
+        if (exp.Contains("1ro mercantil") || exp.Contains("primero mercantil") || exp.Contains("1ro oral mercantil"))
+            return scr.Contains("1ro mercantil");
+        if (exp.Contains("2do mercantil") || exp.Contains("segundo mercantil") || exp.Contains("2do oral mecantil") || exp.Contains("2do oral mercantil"))
+            return scr.Contains("2do mercantil");
+        if (exp.Contains("3ro mercantil") || exp.Contains("tercero mercantil"))
+            return scr.Contains("3ro mercantil");
+        if (exp.Contains("4to mercantil") || exp.Contains("cuarto mercantil"))
+            return scr.Contains("4to mercantil");
+        if (exp.Contains("1ro familiar") || exp.Contains("primero familiar"))
+            return scr.Contains("1ro familiar");
+        if (exp.Contains("2do familiar") || exp.Contains("segundo familiar"))
+            return scr.Contains("2do familiar");
+        if (exp.Contains("3ro familiar") || exp.Contains("tercero familiar"))
+            return scr.Contains("3ro familiar");
+        if (exp.Contains("4to familiar") || exp.Contains("cuarto familiar"))
+            return scr.Contains("4to familiar");
+        if (exp.Contains("arrendamiento"))
+            return scr.Contains("arrendamiento");
+
+        return false;
     }
 }
