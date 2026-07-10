@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -10,7 +10,8 @@ import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
 import { getHistorialEtapas, completarEtapa, revertirEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
+import { getAcuerdos } from '../services/acuerdos'
+import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 
 const estadoConfig = {
@@ -136,6 +137,7 @@ function DetalleExpediente() {
   const [expediente, setExpediente] = useState(null)
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
+  const [acuerdos, setAcuerdos] = useState([])
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
 
   const [cargando, setCargando] = useState(true)
@@ -155,6 +157,9 @@ function DetalleExpediente() {
 
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
+
+      const dataAcuerdos = await getAcuerdos(id)
+      setAcuerdos(dataAcuerdos)
 
       if (usuario?.rol === 'Socio') {
         const dataBitacora = await getBitacora(id)
@@ -406,6 +411,48 @@ function DetalleExpediente() {
               onRevertir={handleRevertirEtapa}
             />
           </div>
+        </section>
+
+        {/* Acuerdos del Poder Judicial */}
+        <section>
+          <h2
+            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            <Scale size={13} />
+            Acuerdos del Poder Judicial
+          </h2>
+
+          {acuerdos.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-5">
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Sin acuerdos registrados del Poder Judicial
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[...acuerdos]
+                .sort((a, b) => new Date(b.fechaAcuerdo) - new Date(a.fechaAcuerdo))
+                .map((acuerdo) => (
+                  <div key={acuerdo.id} className="bg-card border border-border rounded-lg p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Gavel size={12} className="text-accent" />
+                        {acuerdo.nombreJuzgado}
+                      </span>
+                      <span
+                        className="text-xs text-muted-foreground"
+                        style={{ fontFamily: "'DM Mono', monospace" }}
+                      >
+                        {formatearFechaCorta(acuerdo.fechaAcuerdo)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{acuerdo.partes}</p>
+                    <p className="text-sm text-foreground leading-relaxed">{acuerdo.sintesis}</p>
+                  </div>
+                ))}
+            </div>
+          )}
         </section>
 
         {/* Bitácora — solo Socio */}
