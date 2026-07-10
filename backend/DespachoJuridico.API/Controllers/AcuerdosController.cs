@@ -2,6 +2,7 @@ using DespachoJuridico.API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DespachoJuridico.API.Controllers;
 
@@ -17,8 +18,31 @@ public class AcuerdosController : ControllerBase
         _context = context;
     }
 
+    // GET /api/acuerdos/no-vistos
+    [HttpGet("no-vistos")]
+    public async Task<IActionResult> GetNoVistos()
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+
+        var noVistos = await _context.AcuerdosScrapeados
+            .Where(a => !a.Visto && a.Expediente.UsuarioAsignadoId == usuarioIdActual)
+            .OrderByDescending(a => a.FechaAcuerdo)
+            .Select(a => new
+            {
+                a.Id,
+                a.ExpedienteId,
+                a.NumeroExpediente,
+                a.NombreJuzgado,
+                a.Sintesis,
+                a.FechaAcuerdo
+            })
+            .ToListAsync();
+
+        return Ok(noVistos);
+    }
+
     // GET /api/acuerdos/{expedienteId}
-    [HttpGet("{expedienteId}")]
+    [HttpGet("{expedienteId:int}")]
     public async Task<IActionResult> GetByExpediente(int expedienteId)
     {
         var acuerdos = await _context.AcuerdosScrapeados
@@ -53,5 +77,11 @@ public class AcuerdosController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { mensaje = "Acuerdo marcado como visto" });
+    }
+
+    private int ObtenerUsuarioId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return claim != null ? int.Parse(claim) : 2;
     }
 }
