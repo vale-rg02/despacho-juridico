@@ -1,4 +1,5 @@
 ﻿using DespachoJuridico.API.Data;
+using DespachoJuridico.API.DTOs;
 using DespachoJuridico.API.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -59,10 +60,12 @@ public class ScraperAcuerdosService : BackgroundService
         }
     }
 
-    public async Task EjecutarScrapingAsync()
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null)
     {
-        var fecha = DateOnly.FromDateTime(DateTime.Now);
+        var fecha = fechaConsulta ?? DateOnly.FromDateTime(DateTime.Now);
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha}", fecha);
+
+        var resultado = new ResultadoScrapingResponse { Fecha = fecha };
 
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -74,6 +77,7 @@ public class ScraperAcuerdosService : BackgroundService
             .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
             .ToListAsync();
 
+        resultado.ExpedientesConsultados = expedientes.Count;
         _logger.LogInformation("Expedientes activos consultados: {Count}", expedientes.Count);
 
         foreach (var (idUnidad, nombreJuzgado) in Juzgados)
@@ -88,6 +92,7 @@ public class ScraperAcuerdosService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error scrapeando juzgado {IdUnidad}", idUnidad);
+                resultado.JuzgadosConError.Add(nombreJuzgado);
 
                 var fallos = _fallosConsecutivosPorJuzgado.GetValueOrDefault(idUnidad) + 1;
                 _fallosConsecutivosPorJuzgado[idUnidad] = fallos;
@@ -143,6 +148,14 @@ public class ScraperAcuerdosService : BackgroundService
                     nuevoAcuerdo.NotificacionEnviada = true;
                     await context.SaveChangesAsync();
 
+                    resultado.AcuerdosDetectados.Add(new AcuerdoDetectadoResumen
+                    {
+                        NumeroExpediente = expediente.NumeroExpediente,
+                        Juzgado = nombreJuzgado,
+                        Sintesis = acuerdo.Sintesis,
+                        FechaAcuerdo = acuerdo.FechaAcuerdo
+                    });
+
                     _logger.LogInformation("Acuerdo detectado: Exp {Numero} en {Juzgado}", expediente.NumeroExpediente, nombreJuzgado);
                 }
                 catch (Exception ex)
@@ -157,6 +170,7 @@ public class ScraperAcuerdosService : BackgroundService
         }
 
         _logger.LogInformation("Scraping completado para {Fecha}", fecha);
+        return resultado;
     }
 
     private async Task<List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo)>> ScrapearJuzgadoAsync(
@@ -229,7 +243,7 @@ public class ScraperAcuerdosService : BackgroundService
 
     private static string NormalizarNumero(string numero)
     {
-        var partes = numero.Trim().Replace(" ", "").Split('/');
+        var partes = numero.Trim().Replace(" ", "").Split('/', '-');
         if (partes.Length == 2)
         {
             var num = partes[0].TrimStart('0');

@@ -17,10 +17,11 @@ public class ScraperController : ControllerBase
     }
 
     // POST /api/scraper/ejecutar
+    // POST /api/scraper/ejecutar?fecha=2026-06-15
     [HttpPost("ejecutar")]
-    public async Task<IActionResult> Ejecutar()
+    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha)
     {
-        await _scraper.EjecutarScrapingAsync();
-        return Ok(new { mensaje = "Scraping ejecutado" });
+        var resultado = await _scraper.EjecutarScrapingAsync(fecha);
+        return Ok(resultado);
     }
 }
