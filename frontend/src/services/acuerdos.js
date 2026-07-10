@@ -10,13 +10,12 @@ export async function marcarAcuerdoVisto(acuerdoId) {
   return response.data
 }
 
-// Pendiente del lado backend: GET /api/acuerdos/no-vistos debe regresar
-// un arreglo de expedienteId con al menos un acuerdo con Visto=false.
-// Mientras no exista, se resuelve como set vacío para no romper la lista.
+// GET /api/acuerdos/no-vistos regresa los acuerdos (no los expedientes) con
+// visto=false asignados al usuario autenticado; se reduce a expedienteId único.
 export async function getExpedientesConAcuerdosNoVistos() {
   try {
     const response = await api.get('/acuerdos/no-vistos')
-    return response.data
+    return [...new Set(response.data.map(a => a.expedienteId))]
   } catch {
     return []
   }
