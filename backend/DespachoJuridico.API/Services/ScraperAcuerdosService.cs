@@ -1,8 +1,9 @@
 ﻿using DespachoJuridico.API.Data;
 using DespachoJuridico.API.Models;
-using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using System.Xml;
+
 
 namespace DespachoJuridico.API.Services;
 
@@ -136,10 +137,10 @@ public class ScraperAcuerdosService : BackgroundService
 
         var formData = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("Accion", "Publicacion|ListaAcuerdosController|BuscarByFecha"),
-            new KeyValuePair<string, string>("IdUnidad", idUnidad.ToString()),
-            new KeyValuePair<string, string>("Fecha", fecha.ToString("yyyy-MM-dd")),
-        });
+        new KeyValuePair<string, string>("Accion", "Publicacion|ListaAcuerdosController|BuscarByFecha"),
+        new KeyValuePair<string, string>("IdUnidad", idUnidad.ToString()),
+        new KeyValuePair<string, string>("Fecha", fecha.ToString("yyyy-MM-dd")),
+    });
 
         var response = await _httpClient.PostAsync(
             "https://adison.stjsonora.gob.mx/Controller/ActionController.php",
@@ -147,31 +148,26 @@ public class ScraperAcuerdosService : BackgroundService
 
         if (!response.IsSuccessStatusCode) return resultado;
 
-        var html = await response.Content.ReadAsStringAsync();
-        if (idUnidad == 152)
-            _logger.LogInformation("Juzgado {IdUnidad}: HTML={Html}", idUnidad, html);
+        var json = await response.Content.ReadAsStringAsync();
 
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
 
-        var filas = doc.DocumentNode.SelectNodes("//tr[td]");
-        _logger.LogInformation("Juzgado {IdUnidad}: {Count} filas encontradas", idUnidad, filas?.Count ?? 0);
-        if (filas == null) return resultado;
+        if (!root.TryGetProperty("Resultado", out var resultadoArray)) return resultado;
+        if (resultadoArray.ValueKind != JsonValueKind.Array) return resultado;
 
-        foreach (var fila in filas)
+        foreach (var item in resultadoArray.EnumerateArray())
         {
-            var celdas = fila.SelectNodes("td");
-            if (celdas == null || celdas.Count < 3) continue;
+            var asunto = item.TryGetProperty("Asunto", out var a) ? a.GetString() ?? "" : "";
+            var partes = item.TryGetProperty("Partes", out var p) ? p.GetString() ?? "" : "";
+            var sintesis = item.TryGetProperty("Sintesis", out var s) ? s.GetString() ?? "" : "";
 
-            var asunto = celdas[0].InnerText.Trim();
-            var partes = celdas[1].InnerText.Trim();
-            var sintesis = celdas[2].InnerText.Trim();
-
-            if (string.IsNullOrWhiteSpace(asunto) || string.IsNullOrWhiteSpace(sintesis)) continue;
+            if (string.IsNullOrWhiteSpace(asunto)) continue;
 
             resultado.Add((asunto, partes, sintesis, fecha));
         }
-        _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados en HTML", idUnidad, resultado.Count);
+
+        _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados", idUnidad, resultado.Count);
         return resultado;
     }
 
