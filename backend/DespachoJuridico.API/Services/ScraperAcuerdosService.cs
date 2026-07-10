@@ -58,7 +58,7 @@ public class ScraperAcuerdosService : BackgroundService
 
     public async Task EjecutarScrapingAsync()
     {
-        var fecha = DateOnly.FromDateTime(DateTime.Now);
+        var fecha = new DateOnly(2026, 7, 7); // lunes 7 de julio
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha}", fecha);
 
         using var scope = _scopeFactory.CreateScope();
