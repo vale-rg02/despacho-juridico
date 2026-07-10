@@ -164,15 +164,19 @@ public class ScraperAcuerdosService : BackgroundService
         foreach (var item in resultadoArray.EnumerateArray())
         {
             var asunto = item.TryGetProperty("Asunto", out var a) ? a.GetString() ?? "" : "";
+            var anio = item.TryGetProperty("Anio", out var an) ? an.GetString() ?? "" : "";
             var partes = item.TryGetProperty("Partes", out var p) ? p.GetString() ?? "" : "";
             var sintesis = item.TryGetProperty("Sintesis", out var s) ? s.GetString() ?? "" : "";
 
+            // Construir número de expediente completo
+            var numeroExpediente = string.IsNullOrWhiteSpace(anio) ? asunto : $"{asunto}/{anio}";
+
             if (string.IsNullOrWhiteSpace(asunto)) continue;
 
-            resultado.Add((asunto, partes, sintesis, fecha));
+            resultado.Add((numeroExpediente, partes, sintesis, fecha));
         }
 
-        _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados", idUnidad, resultado.Count);
+            _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados", idUnidad, resultado.Count);
         return resultado;
     }
 
@@ -200,9 +204,14 @@ public class ScraperAcuerdosService : BackgroundService
 
     private static string NormalizarNumero(string numero)
     {
-        return numero.Trim().ToUpperInvariant()
-            .Replace(" ", "")
-            .Replace("-", "/");
+        var partes = numero.Trim().Replace(" ", "").Split('/');
+        if (partes.Length == 2)
+        {
+            var num = partes[0].TrimStart('0');
+            var anio = partes[1].Trim();
+            return $"{num}/{anio}";
+        }
+        return numero.Trim().ToUpperInvariant().TrimStart('0');
     }
 
     private static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
