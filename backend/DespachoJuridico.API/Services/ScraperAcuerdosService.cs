@@ -8,10 +8,13 @@ namespace DespachoJuridico.API.Services;
 
 public class ScraperAcuerdosService : BackgroundService
 {
+    private const int UmbralFallosConsecutivos = 3;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ScraperAcuerdosService> _logger;
     private readonly IConfiguration _config;
     private readonly HttpClient _httpClient;
+    private readonly Dictionary<int, int> _fallosConsecutivosPorJuzgado = new();
 
     private static readonly Dictionary<int, string> Juzgados = new()
     {
@@ -41,6 +44,7 @@ public class ScraperAcuerdosService : BackgroundService
         _logger = logger;
         _config = config;
         _httpClient = new HttpClient();
+        _httpClient.Timeout = TimeSpan.FromSeconds(20);
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; DespachoBot/1.0)");
     }
 
@@ -70,13 +74,38 @@ public class ScraperAcuerdosService : BackgroundService
             .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
             .ToListAsync();
 
+        _logger.LogInformation("Expedientes activos consultados: {Count}", expedientes.Count);
+
         foreach (var (idUnidad, nombreJuzgado) in Juzgados)
         {
+            List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo)> acuerdos;
+
             try
             {
-                var acuerdos = await ScrapearJuzgadoAsync(idUnidad, nombreJuzgado, fecha);
+                acuerdos = await ScrapearJuzgadoAsync(idUnidad, nombreJuzgado, fecha);
+                _fallosConsecutivosPorJuzgado[idUnidad] = 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scrapeando juzgado {IdUnidad}", idUnidad);
 
-                foreach (var acuerdo in acuerdos)
+                var fallos = _fallosConsecutivosPorJuzgado.GetValueOrDefault(idUnidad) + 1;
+                _fallosConsecutivosPorJuzgado[idUnidad] = fallos;
+
+                if (fallos >= UmbralFallosConsecutivos)
+                {
+                    _logger.LogCritical(
+                        "El juzgado {IdUnidad} ({Nombre}) no responde desde hace {Fallos} intentos consecutivos",
+                        idUnidad, nombreJuzgado, fallos);
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                continue;
+            }
+
+            foreach (var acuerdo in acuerdos)
+            {
+                try
                 {
                     // Buscar match con expedientes del despacho
                     var expediente = expedientes.FirstOrDefault(e =>
@@ -116,10 +145,11 @@ public class ScraperAcuerdosService : BackgroundService
 
                     _logger.LogInformation("Acuerdo detectado: Exp {Numero} en {Juzgado}", expediente.NumeroExpediente, nombreJuzgado);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error scrapeando juzgado {IdUnidad}", idUnidad);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error procesando acuerdo del expediente {Numero} en juzgado {Juzgado}",
+                        acuerdo.NumeroExpediente, nombreJuzgado);
+                }
             }
 
             // Pausa entre juzgados para no sobrecargar el servidor
@@ -241,6 +271,12 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("4to familiar");
         if (exp.Contains("arrendamiento"))
             return scr.Contains("arrendamiento");
+        if (exp.Contains("1er tribunal colegiado") || exp.Contains("primer tribunal colegiado") || exp.Contains("1ro tribunal colegiado"))
+            return scr.Contains("1er tribunal colegiado");
+        if (exp.Contains("2do tribunal colegiado") || exp.Contains("segundo tribunal colegiado"))
+            return scr.Contains("2do tribunal colegiado");
+        if (exp.Contains("secretaría general") || exp.Contains("secretaria general"))
+            return scr.Contains("secretaría general");
 
         return false;
     }

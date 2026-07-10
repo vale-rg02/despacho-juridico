@@ -18,7 +18,7 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Expediente tiene dos FKs a Usuario — hay que decirle a EF cuál es cuál
+        // Expediente tiene dos FKs a Usuario ï¿½ hay que decirle a EF cuï¿½l es cuï¿½l
         modelBuilder.Entity<Expediente>()
             .HasOne(e => e.UsuarioAsignado)
             .WithMany(u => u.ExpedientesAsignados)
@@ -38,7 +38,7 @@ public class AppDbContext : DbContext
             .HasForeignKey(e => e.ExpedienteRelacionadoId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Enums guardados como string en la BD (más legible que números)
+        // Enums guardados como string en la BD (mï¿½s legible que nï¿½meros)
         modelBuilder.Entity<Expediente>()
             .Property(e => e.Estado)
             .HasConversion<string>();
@@ -54,5 +54,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Notificacion>()
             .Property(n => n.Canal)
             .HasConversion<string>();
+
+        // Evita duplicados a nivel de BD si el cron y un trigger manual llegaran a solaparse
+        modelBuilder.Entity<AcuerdoScrapeado>()
+            .HasIndex(a => new { a.ExpedienteId, a.FechaAcuerdo, a.Sintesis })
+            .IsUnique();
     }
 }
