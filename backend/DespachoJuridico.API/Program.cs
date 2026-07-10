@@ -16,6 +16,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHostedService<RevisionFechasService>();
+builder.Services.AddHostedService<ScraperAcuerdosService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<AppDbContext>(options =>

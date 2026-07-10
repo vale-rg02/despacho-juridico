@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<HistorialEtapa> HistorialEtapas => Set<HistorialEtapa>();
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
     public DbSet<BitacoraCambio> BitacoraCambios => Set<BitacoraCambio>();
+    public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
