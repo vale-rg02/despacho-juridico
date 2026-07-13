@@ -44,3 +44,14 @@
 .fc-wrapper .fc-daygrid-day-frame {
   background: var(--card);
 }
+
+/* Hover en días del calendario para indicar que son clickeables */
+.fc-wrapper .fc-daygrid-day:hover {
+  background-color: rgba(154, 124, 60, 0.06);
+  cursor: pointer;
+}
+
+.fc-wrapper .fc-timegrid-slot:hover {
+  background-color: rgba(154, 124, 60, 0.06);
+  cursor: pointer;
+}

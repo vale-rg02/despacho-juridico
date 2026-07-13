@@ -6,6 +6,6 @@ export async function getBancos() {
 }
 
 export async function getUsuarios() {
-  const response = await api.get('/usuarios')
+  const response = await api.get('/usuarios?excluirSoporte=true')
   return response.data
 }

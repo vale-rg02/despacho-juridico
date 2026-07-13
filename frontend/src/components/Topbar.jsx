@@ -184,6 +184,15 @@ function Topbar({ breadcrumb }) {
                     {alertas.length} vencimiento{alertas.length !== 1 ? 's' : ''} en los próximos 15 días
                   </span>
                 </div>
+
+                <div className="px-4 py-2.5 border-t border-border">
+                  <button
+                    onClick={() => { setBellOpen(false); navigate('/notificaciones') }}
+                    className="w-full text-xs text-accent hover:underline text-center font-medium"
+                  >
+                    Ver todas las notificaciones →
+                  </button>
+                </div>
               </div>
             )}
           </div>

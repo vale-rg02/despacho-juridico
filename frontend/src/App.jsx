@@ -7,6 +7,7 @@ import EditarExpediente from './pages/EditarExpediente'
 import RutaProtegida from './components/RutaProtegida'
 import Perfil from './pages/Perfil'
 import Calendario from './pages/Calendario'
+import Notificaciones from './pages/Notificaciones'
 
 function App() {
   return (
@@ -28,6 +29,9 @@ function App() {
       <Route path="/perfil" element={<Perfil />} />
       <Route path="/calendario" element={
         <RutaProtegida><Calendario /></RutaProtegida>
+      } />
+      <Route path="/notificaciones" element={
+        <RutaProtegida><Notificaciones /></RutaProtegida>
       } />
     </Routes>
   )

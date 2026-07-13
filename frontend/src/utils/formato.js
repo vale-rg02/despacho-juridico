@@ -10,11 +10,12 @@ export function formatearFecha(fechaISO) {
   })
 }
 
-// Para fechas tipo DateOnly ("2026-07-07"): evita que new Date() las interprete
-// como UTC y desfase el día al convertir a la zona horaria local
+// Para fechas tipo DateOnly ("2026-07-07") o DateTime ("2026-07-07T00:00:00"):
+// evita que new Date() las interprete como UTC y desfase el día al convertir
+// a la zona horaria local
 export function formatearFechaCorta(fechaISO) {
   if (!fechaISO) return '—'
-  const [anio, mes, dia] = fechaISO.split('-').map(Number)
+  const [anio, mes, dia] = fechaISO.slice(0, 10).split('-').map(Number)
   const fecha = new Date(anio, mes - 1, dia)
   return fecha.toLocaleDateString('es-MX', {
     day: '2-digit',
