@@ -16,6 +16,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHostedService<RevisionFechasService>();
+builder.Services.AddHostedService<RecordatorioCitasService>();
 builder.Services.AddSingleton<ScraperAcuerdosService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScraperAcuerdosService>()); builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddEndpointsApiExplorer();
@@ -39,7 +40,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Autenticación JWT
+// Autenticaciï¿½n JWT
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];

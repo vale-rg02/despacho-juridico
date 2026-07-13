@@ -122,17 +122,52 @@ public class RevisionFechasService : BackgroundService
                         destinatarios.Add((socio.Nombre, socio.Email));
                 }
 
-                var asunto = $"Aviso: '{etapaNombre}' del expediente {expediente.NumeroExpediente} vence en {diasRestantes} día(s)";
-                var cuerpoHtml = $@"
-                    <h3>Despacho Jurídico - Aviso de vencimiento</h3>
-                    <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-                    <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-                    <p><strong>Etapa:</strong> {etapaNombre}</p>
-                    <p><strong>Fecha límite:</strong> {historial.FechaLimite:dd/MM/yyyy}</p>
-                    <p><strong>Días restantes:</strong> {diasRestantes}</p>";
+                var diasTexto = diasRestantes == 1 ? "mañana" : $"en {diasRestantes} días";
+                var asunto = $"Recordatorio — Exp. {expediente.NumeroExpediente}: etapa '{etapaNombre}' vence {diasTexto}";
 
                 foreach (var (nombre, email) in destinatarios.DistinctBy(d => d.Email))
                 {
+                    var cuerpoHtml = $@"
+<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  body{{font-family:Georgia,'Times New Roman',serif;background:#f7f5f0;margin:0;padding:0;}}
+  .container{{max-width:580px;margin:40px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}}
+  .header{{background:#1c2b4a;padding:32px 40px;text-align:center;}}
+  .header h1{{color:#ffffff;font-size:20px;margin:0;font-weight:normal;letter-spacing:1px;}}
+  .header p{{color:#9a7c3c;font-size:13px;margin:6px 0 0;letter-spacing:2px;text-transform:uppercase;}}
+  .body{{padding:40px;color:#333333;}}
+  .body p{{font-size:15px;line-height:1.7;margin:0 0 16px;}}
+  .highlight{{background:#f0f4fa;border-left:4px solid #9a7c3c;padding:16px 20px;margin:24px 0;border-radius:0 6px 6px 0;}}
+  .highlight p{{margin:4px 0;font-size:14px;color:#444;}}
+  .highlight strong{{color:#1c2b4a;}}
+  .footer{{background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e0ddd6;}}
+  .footer p{{font-size:12px;color:#888;margin:0;}}
+</style></head>
+<body><div class='container'>
+  <div class='header'>
+    <h1>Despacho Jurídico Acedo e Hijos</h1>
+    <p>Recordatorio de vencimiento</p>
+  </div>
+  <div class='body'>
+    <p>Estimado(a) {nombre},</p>
+    <p>Le recordamos que la etapa procesal <strong>{etapaNombre}</strong> del siguiente expediente
+    vence <strong>{diasTexto}</strong>, el día <strong>{historial.FechaLimite:dd/MM/yyyy}</strong>.</p>
+    <div class='highlight'>
+      <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
+      <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
+      <p><strong>Etapa:</strong> {etapaNombre}</p>
+      <p><strong>Fecha límite:</strong> {historial.FechaLimite:dd/MM/yyyy}</p>
+    </div>
+    <p>Le recomendamos revisar el estado del caso y tomar las acciones necesarias
+    antes de que venza el plazo.</p>
+    <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
+  </div>
+  <div class='footer'>
+    <p>Este es un mensaje automático del Sistema de Gestión de Expedientes.</p>
+    <p>Por favor no responda a este correo.</p>
+  </div>
+</div></body></html>";
+
                     var yaExisteEmail = await context.Notificaciones.AnyAsync(n =>
                         n.HistorialEtapaId == historial.Id &&
                         n.DiasAnticipacion == diasRestantes &&
