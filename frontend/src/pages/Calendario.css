@@ -1,0 +1,46 @@
+.fc-wrapper {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--card);
+  --fc-neutral-bg-color: var(--secondary);
+  --fc-list-event-hover-bg-color: var(--secondary);
+  --fc-today-bg-color: rgba(154, 124, 60, 0.08);
+  --fc-button-bg-color: var(--primary);
+  --fc-button-border-color: var(--primary);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--accent);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--accent);
+  --fc-button-text-color: var(--primary-foreground);
+  font-family: 'Inter', sans-serif;
+}
+
+.fc-wrapper .fc-toolbar-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  color: var(--foreground);
+}
+
+.fc-wrapper .fc-button {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  box-shadow: none !important;
+}
+
+.fc-wrapper .fc-col-header-cell-cushion,
+.fc-wrapper .fc-daygrid-day-number {
+  color: var(--muted-foreground);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.fc-wrapper .fc-event {
+  border-radius: 4px;
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+.fc-wrapper .fc-daygrid-day-frame {
+  background: var(--card);
+}
