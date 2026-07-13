@@ -42,16 +42,50 @@
 }
 
 .fc-wrapper .fc-daygrid-day-frame {
+  position: relative;
   background: var(--card);
 }
 
-/* Hover en días del calendario para indicar que son clickeables */
-.fc-wrapper .fc-daygrid-day:hover {
-  background-color: rgba(154, 124, 60, 0.06);
+/* Hover en días del calendario para indicar que son clickeables (agregar cita) */
+.fc-wrapper .fc-daygrid-day {
   cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.fc-wrapper .fc-daygrid-day:hover {
+  background-color: rgba(154, 124, 60, 0.16);
+}
+
+.fc-wrapper .fc-daygrid-day-frame::after {
+  content: '+';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+
+.fc-wrapper .fc-daygrid-day:hover .fc-daygrid-day-frame::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.fc-wrapper .fc-timegrid-slot {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
 .fc-wrapper .fc-timegrid-slot:hover {
-  background-color: rgba(154, 124, 60, 0.06);
-  cursor: pointer;
+  background-color: rgba(154, 124, 60, 0.16);
 }
