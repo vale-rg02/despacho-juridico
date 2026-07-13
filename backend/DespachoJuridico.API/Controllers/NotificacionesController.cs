@@ -77,10 +77,20 @@ public class NotificacionesController : ControllerBase
         var usuarioIdActual = ObtenerUsuarioId();
         var esSocioPrincipal = usuarioIdActual == 1;
 
-        // Solo el Socio Principal puede ver notificaciones de otros usuarios
-        var filtroUsuarioId = (esSocioPrincipal && usuarioId.HasValue)
-            ? usuarioId.Value
-            : usuarioIdActual;
+        // Solo el Socio Principal puede ver notificaciones de otros usuarios.
+        // usuarioId=0 significa "todos" (sin filtro), igual que en ExpedientesController.GetAll.
+        // filtroUsuarioId == null => no se aplica filtro por usuario.
+        int? filtroUsuarioId;
+        if (esSocioPrincipal)
+        {
+            filtroUsuarioId = (usuarioId.HasValue && usuarioId.Value == 0)
+                ? null
+                : (usuarioId ?? usuarioIdActual);
+        }
+        else
+        {
+            filtroUsuarioId = usuarioIdActual;
+        }
 
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
         var hoy = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria).Date;
@@ -91,9 +101,9 @@ public class NotificacionesController : ControllerBase
             .Where(e => e.Prioridad == Prioridad.Urgente
                      && e.Estado == EstadoExpediente.Abierto);
 
-        if (!esSocioPrincipal || usuarioId.HasValue)
+        if (filtroUsuarioId.HasValue)
             expedientesUrgentesQuery = expedientesUrgentesQuery
-                .Where(e => e.UsuarioAsignadoId == filtroUsuarioId);
+                .Where(e => e.UsuarioAsignadoId == filtroUsuarioId.Value);
 
         var expedientesUrgentes = await expedientesUrgentesQuery
             .OrderByDescending(e => e.ActualizadoEn)
@@ -116,9 +126,9 @@ public class NotificacionesController : ControllerBase
             .Where(h => h.FechaCompletada == null
                      && h.FechaLimite != null);
 
-        if (!esSocioPrincipal || usuarioId.HasValue)
+        if (filtroUsuarioId.HasValue)
             etapasQuery = etapasQuery
-                .Where(h => h.Expediente.UsuarioAsignadoId == filtroUsuarioId);
+                .Where(h => h.Expediente.UsuarioAsignadoId == filtroUsuarioId.Value);
 
         var todasEtapas = await etapasQuery.ToListAsync();
 
@@ -168,9 +178,9 @@ public class NotificacionesController : ControllerBase
             .Where(h => h.Atendido
                      && h.FechaLimite != null);
 
-        if (!esSocioPrincipal || usuarioId.HasValue)
+        if (filtroUsuarioId.HasValue)
             atendidasQuery = atendidasQuery
-                .Where(h => h.Expediente.UsuarioAsignadoId == filtroUsuarioId);
+                .Where(h => h.Expediente.UsuarioAsignadoId == filtroUsuarioId.Value);
 
         var atendidas = await atendidasQuery
             .OrderByDescending(h => h.FechaLimite)
