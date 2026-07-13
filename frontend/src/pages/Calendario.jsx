@@ -5,10 +5,11 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import esLocale from '@fullcalendar/core/locales/es'
-import { CalendarDays } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import ModalCita from '../components/ModalCita'
 import { getExpedientes } from '../services/expedientes'
 import { getHistorialEtapas } from '../services/etapas'
+import { getCitas } from '../services/citas'
 import './Calendario.css'
 
 const TAMANO_LOTE = 20
@@ -37,7 +38,7 @@ async function obtenerEtapasEnLotes(expedientes) {
   return pares
 }
 
-function construirEventos(pares) {
+function construirEventosEtapas(pares) {
   const eventos = []
   pares.forEach(({ expediente, etapas }) => {
     etapas
@@ -50,6 +51,7 @@ function construirEventos(pares) {
           backgroundColor: colorPorPrioridad(expediente.prioridad),
           borderColor: colorPorPrioridad(expediente.prioridad),
           extendedProps: {
+            tipo: 'etapa',
             expedienteId: expediente.id,
             parteDemandada: expediente.parteDemandada,
             juzgado: expediente.juzgado,
@@ -61,17 +63,49 @@ function construirEventos(pares) {
   return eventos
 }
 
+function construirEventosCitas(citas) {
+  return citas.map(cita => ({
+    id: `cita-${cita.id}`,
+    title: cita.expedienteId
+      ? `📌 ${cita.titulo} (${cita.numeroExpediente})`
+      : `📌 ${cita.titulo}`,
+    start: cita.fechaHora,
+    backgroundColor: '#1c2b4a',
+    borderColor: '#1c2b4a',
+    textColor: '#ffffff',
+    extendedProps: {
+      tipo: 'cita',
+      citaId: cita.id,
+      titulo: cita.titulo,
+      descripcion: cita.descripcion,
+      expedienteId: cita.expedienteId,
+      numeroExpediente: cita.numeroExpediente,
+      fechaHora: cita.fechaHora,
+    },
+  }))
+}
+
+function mesAnioDe(fecha) {
+  return { mes: fecha.getMonth() + 1, anio: fecha.getFullYear() }
+}
+
 function Calendario() {
   const navigate = useNavigate()
-  const [eventos, setEventos] = useState([])
+
+  const [eventosEtapas, setEventosEtapas] = useState([])
+  const [citas, setCitas] = useState([])
+  const [expedientesActivos, setExpedientesActivos] = useState([])
+  const [modalCita, setModalCita] = useState(null)
+  const [mesVisible, setMesVisible] = useState(() => mesAnioDe(new Date()))
+
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    cargarEventos()
+    cargarDatos()
   }, [])
 
-  async function cargarEventos() {
+  async function cargarDatos() {
     setCargando(true)
     setError('')
     try {
@@ -79,8 +113,15 @@ function Calendario() {
         getExpedientes({ estado: 'Abierto' }),
         getExpedientes({ estado: 'Pausado' }),
       ])
-      const pares = await obtenerEtapasEnLotes([...abiertos, ...pausados])
-      setEventos(construirEventos(pares))
+      const activos = [...abiertos, ...pausados]
+      setExpedientesActivos(activos)
+
+      const [pares, dataCitas] = await Promise.all([
+        obtenerEtapasEnLotes(activos),
+        getCitas(mesVisible.mes, mesVisible.anio),
+      ])
+      setEventosEtapas(construirEventosEtapas(pares))
+      setCitas(dataCitas)
     } catch {
       setError('No se pudo cargar el calendario')
     } finally {
@@ -88,9 +129,51 @@ function Calendario() {
     }
   }
 
-  function handleEventClick(info) {
-    navigate(`/expedientes/${info.event.extendedProps.expedienteId}`)
+  async function cargarCitasDelMes(mes, anio) {
+    try {
+      const data = await getCitas(mes, anio)
+      setCitas(data)
+    } catch {
+      // no bloquear el calendario si solo falla la recarga de citas
+    }
   }
+
+  function handleDatesSet(info) {
+    const { mes, anio } = mesAnioDe(info.view.currentStart)
+    if (mes !== mesVisible.mes || anio !== mesVisible.anio) {
+      setMesVisible({ mes, anio })
+      cargarCitasDelMes(mes, anio)
+    }
+  }
+
+  function handleDateClick(info) {
+    setModalCita({
+      modo: 'crear',
+      fecha: info.dateStr.slice(0, 10),
+      hora: '09:00',
+    })
+  }
+
+  function handleEventClick(info) {
+    const { extendedProps } = info.event
+
+    if (extendedProps.tipo === 'cita') {
+      setModalCita({
+        modo: 'editar',
+        cita: {
+          id: extendedProps.citaId,
+          titulo: extendedProps.titulo,
+          descripcion: extendedProps.descripcion,
+          expedienteId: extendedProps.expedienteId,
+          fechaHora: extendedProps.fechaHora,
+        },
+      })
+    } else {
+      navigate(`/expedientes/${extendedProps.expedienteId}`)
+    }
+  }
+
+  const todosLosEventos = [...eventosEtapas, ...construirEventosCitas(citas)]
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,11 +194,6 @@ function Calendario() {
           <div className="text-center py-16 text-muted-foreground text-sm">
             Cargando calendario...
           </div>
-        ) : eventos.length === 0 && !error ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <CalendarDays size={28} className="text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Sin compromisos pendientes</p>
-          </div>
         ) : (
           <div className="fc-wrapper bg-card border border-border rounded-lg p-4">
             <FullCalendar
@@ -127,13 +205,24 @@ function Calendario() {
                 right: 'dayGridMonth,timeGridWeek,timeGridDay',
               }}
               locale={esLocale}
-              events={eventos}
+              events={todosLosEventos}
+              dateClick={handleDateClick}
               eventClick={handleEventClick}
+              datesSet={handleDatesSet}
               height="auto"
             />
           </div>
         )}
       </main>
+
+      {modalCita && (
+        <ModalCita
+          modalCita={modalCita}
+          setModalCita={setModalCita}
+          expedientesActivos={expedientesActivos}
+          onGuardado={() => cargarCitasDelMes(mesVisible.mes, mesVisible.anio)}
+        />
+      )}
     </div>
   )
 }
