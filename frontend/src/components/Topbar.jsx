@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scale, Bell, LogOut, AlertTriangle } from 'lucide-react'
+import { Scale, Bell, LogOut, AlertTriangle, Calendar } from 'lucide-react'
 import { logout, getUsuario } from '../services/auth'
 import { getAlertas, marcarAtendida } from '../services/notificaciones'
 import { formatearFecha } from '../utils/formato'
@@ -100,6 +100,15 @@ function Topbar({ breadcrumb }) {
         )}
 
         <div className="ml-auto flex items-center gap-3">
+          {/* Calendario */}
+          <button
+            onClick={() => navigate('/calendario')}
+            className="p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
+            title="Calendario"
+          >
+            <Calendar size={17} />
+          </button>
+
           {/* Bell */}
           <div className="relative" ref={bellRef}>
             <button

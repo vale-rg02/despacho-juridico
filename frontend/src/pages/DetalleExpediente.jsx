@@ -2,15 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
-import { getHistorialEtapas, completarEtapa, revertirEtapa } from '../services/etapas'
+import ModalEditarEtapa from '../components/ModalEditarEtapa'
+import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { formatearFecha, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
+import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
+import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 
 const estadoConfig = {
@@ -136,7 +138,10 @@ function DetalleExpediente() {
   const [expediente, setExpediente] = useState(null)
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
+  const [acuerdos, setAcuerdos] = useState([])
+  const [acuerdosNuevosIds, setAcuerdosNuevosIds] = useState(new Set())
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
+  const [etapaEditando, setEtapaEditando] = useState(null)
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -155,6 +160,15 @@ function DetalleExpediente() {
 
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
+
+      const dataAcuerdos = await getAcuerdos(id)
+      setAcuerdos(dataAcuerdos)
+
+      const idsNuevos = dataAcuerdos.filter(a => !a.visto).map(a => a.id)
+      setAcuerdosNuevosIds(new Set(idsNuevos))
+      idsNuevos.forEach(acuerdoId => {
+        marcarAcuerdoVisto(acuerdoId).catch(() => {})
+      })
 
       if (usuario?.rol === 'Socio') {
         const dataBitacora = await getBitacora(id)
@@ -206,6 +220,28 @@ function DetalleExpediente() {
       setTimeout(() => setExito(''), 3000)
     } catch {
       setError('No se pudo revertir la etapa')
+    }
+  }
+
+  function handleEditarEtapa(etapa) {
+    setEtapaEditando(etapa)
+  }
+
+  async function handleGuardarEdicionEtapa() {
+    setEtapaEditando(null)
+    await cargarDatos()
+    setExito('Etapa actualizada correctamente')
+    setTimeout(() => setExito(''), 3000)
+  }
+
+  async function handleEliminarEtapa(etapaId) {
+    try {
+      await eliminarEtapa(id, etapaId)
+      await cargarDatos()
+      setExito('Etapa eliminada correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo eliminar la etapa')
     }
   }
 
@@ -404,8 +440,73 @@ function DetalleExpediente() {
               etapas={etapas}
               onCompletar={handleCompletarEtapa}
               onRevertir={handleRevertirEtapa}
+              onEditar={handleEditarEtapa}
+              onEliminar={handleEliminarEtapa}
             />
           </div>
+
+          {etapaEditando && (
+            <ModalEditarEtapa
+              expedienteId={id}
+              etapa={etapaEditando}
+              tipoJuicio={expediente.tipoJuicio}
+              onGuardado={handleGuardarEdicionEtapa}
+              onCerrar={() => setEtapaEditando(null)}
+            />
+          )}
+        </section>
+
+        {/* Acuerdos del Poder Judicial */}
+        <section>
+          <h2
+            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            <Scale size={13} />
+            Acuerdos del Poder Judicial
+            {acuerdosNuevosIds.size > 0 && (
+              <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
+              </span>
+            )}
+          </h2>
+
+          {acuerdos.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-5">
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Sin acuerdos registrados del Poder Judicial
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[...acuerdos]
+                .sort((a, b) => new Date(b.fechaAcuerdo) - new Date(a.fechaAcuerdo))
+                .map((acuerdo) => (
+                  <div key={acuerdo.id} className="bg-card border border-border rounded-lg p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Gavel size={12} className="text-accent" />
+                        {acuerdo.nombreJuzgado}
+                        {acuerdosNuevosIds.has(acuerdo.id) && (
+                          <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                            Nuevo
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className="text-xs text-muted-foreground"
+                        style={{ fontFamily: "'DM Mono', monospace" }}
+                      >
+                        {formatearFechaCorta(acuerdo.fechaAcuerdo)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{acuerdo.partes}</p>
+                    <p className="text-sm text-foreground leading-relaxed">{acuerdo.sintesis}</p>
+                  </div>
+                ))}
+            </div>
+          )}
         </section>
 
         {/* Bitácora — solo Socio */}

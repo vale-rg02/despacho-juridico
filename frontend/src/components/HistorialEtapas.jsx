@@ -39,7 +39,7 @@ function EstadoFecha({ etapa }) {
   return <span className="text-xs text-muted-foreground">Vence en {dias} días</span>
 }
 
-function HistorialEtapas({ etapas, onCompletar, onRevertir }) {
+function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar }) {
   if (etapas.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-4">
@@ -73,25 +73,43 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir }) {
             {etapa.notas && (
               <p className="text-sm text-foreground/80 mt-1">{etapa.notas}</p>
             )}
-            {activa ? (
+            <div className="flex flex-wrap items-center gap-3 mt-2">
+              {activa ? (
+                <button
+                  onClick={() => onCompletar(etapa.id)}
+                  className="text-xs text-accent hover:underline font-medium"
+                >
+                  Marcar como completada
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (window.confirm('¿Estás seguro de que deseas revertir esta etapa a pendiente?')) {
+                      onRevertir(etapa.id)
+                    }
+                  }}
+                  className="text-xs text-red-400 hover:underline font-medium"
+                >
+                  Revertir a pendiente
+                </button>
+              )}
               <button
-                onClick={() => onCompletar(etapa.id)}
-                className="text-xs text-accent hover:underline mt-2 font-medium"
+                onClick={() => onEditar(etapa)}
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
               >
-                Marcar como completada
+                Editar
               </button>
-) : (
-  <button
-    onClick={() => {
-      if (window.confirm('¿Estás seguro de que deseas revertir esta etapa a pendiente?')) {
-        onRevertir(etapa.id)
-      }
-    }}
-    className="text-xs text-red-400 hover:underline mt-2 font-medium"
-  >
-    Revertir a pendiente
-  </button>
-)}
+              <button
+                onClick={() => {
+                  if (window.confirm('¿Estás seguro de que deseas eliminar esta etapa? Esta acción no se puede deshacer.')) {
+                    onEliminar(etapa.id)
+                  }
+                }}
+                className="text-xs text-red-400 hover:underline font-medium"
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
         )
       })}

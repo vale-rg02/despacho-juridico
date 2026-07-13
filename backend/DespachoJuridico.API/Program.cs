@@ -16,7 +16,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHostedService<RevisionFechasService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<ScraperAcuerdosService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ScraperAcuerdosService>()); builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

@@ -10,6 +10,19 @@ export function formatearFecha(fechaISO) {
   })
 }
 
+// Para fechas tipo DateOnly ("2026-07-07"): evita que new Date() las interprete
+// como UTC y desfase el día al convertir a la zona horaria local
+export function formatearFechaCorta(fechaISO) {
+  if (!fechaISO) return '—'
+  const [anio, mes, dia] = fechaISO.split('-').map(Number)
+  const fecha = new Date(anio, mes - 1, dia)
+  return fecha.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 // Mapeo entre el string que regresa el backend y el número que espera al enviar
 export const ESTADOS = [
   { valor: 0, etiqueta: 'Abierto' },

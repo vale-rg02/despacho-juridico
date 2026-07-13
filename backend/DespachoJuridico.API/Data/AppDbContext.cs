@@ -14,10 +14,12 @@ public class AppDbContext : DbContext
     public DbSet<HistorialEtapa> HistorialEtapas => Set<HistorialEtapa>();
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
     public DbSet<BitacoraCambio> BitacoraCambios => Set<BitacoraCambio>();
+    public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
+    public DbSet<Cita> Citas => Set<Cita>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Expediente tiene dos FKs a Usuario — hay que decirle a EF cuál es cuál
+        // Expediente tiene dos FKs a Usuario ï¿½ hay que decirle a EF cuï¿½l es cuï¿½l
         modelBuilder.Entity<Expediente>()
             .HasOne(e => e.UsuarioAsignado)
             .WithMany(u => u.ExpedientesAsignados)
@@ -37,7 +39,7 @@ public class AppDbContext : DbContext
             .HasForeignKey(e => e.ExpedienteRelacionadoId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Enums guardados como string en la BD (más legible que números)
+        // Enums guardados como string en la BD (mï¿½s legible que nï¿½meros)
         modelBuilder.Entity<Expediente>()
             .Property(e => e.Estado)
             .HasConversion<string>();
@@ -53,5 +55,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Notificacion>()
             .Property(n => n.Canal)
             .HasConversion<string>();
+
+        // Evita duplicados a nivel de BD si el cron y un trigger manual llegaran a solaparse
+        modelBuilder.Entity<AcuerdoScrapeado>()
+            .HasIndex(a => new { a.ExpedienteId, a.FechaAcuerdo, a.Sintesis })
+            .IsUnique();
+
+        // Si se elimina el expediente, la cita se conserva sin vincular (no se borra la cita)
+        modelBuilder.Entity<Cita>()
+            .HasOne(c => c.Expediente)
+            .WithMany()
+            .HasForeignKey(c => c.ExpedienteId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

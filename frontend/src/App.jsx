@@ -6,6 +6,7 @@ import NuevoExpediente from './pages/NuevoExpediente'
 import EditarExpediente from './pages/EditarExpediente'
 import RutaProtegida from './components/RutaProtegida'
 import Perfil from './pages/Perfil'
+import Calendario from './pages/Calendario'
 
 function App() {
   return (
@@ -25,6 +26,9 @@ function App() {
         <RutaProtegida><DetalleExpediente /></RutaProtegida>
       } />
       <Route path="/perfil" element={<Perfil />} />
+      <Route path="/calendario" element={
+        <RutaProtegida><Calendario /></RutaProtegida>
+      } />
     </Routes>
   )
 }

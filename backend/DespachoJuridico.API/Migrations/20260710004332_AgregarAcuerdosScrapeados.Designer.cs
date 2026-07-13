@@ -3,6 +3,7 @@ using System;
 using DespachoJuridico.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DespachoJuridico.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260710004332_AgregarAcuerdosScrapeados")]
+    partial class AgregarAcuerdosScrapeados
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,13 +64,9 @@ namespace DespachoJuridico.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("Visto")
-                        .HasColumnType("boolean");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ExpedienteId", "FechaAcuerdo", "Sintesis")
-                        .IsUnique();
+                    b.HasIndex("ExpedienteId");
 
                     b.ToTable("AcuerdosScrapeados");
                 });
@@ -129,42 +128,6 @@ namespace DespachoJuridico.API.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("BitacoraCambios");
-                });
-
-            modelBuilder.Entity("DespachoJuridico.API.Models.Cita", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreadoEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Descripcion")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ExpedienteId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("FechaHora")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Titulo")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpedienteId");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.ToTable("Citas");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.EtapaCatalogo", b =>
@@ -420,24 +383,6 @@ namespace DespachoJuridico.API.Migrations
 
                     b.HasOne("DespachoJuridico.API.Models.Usuario", "Usuario")
                         .WithMany("Bitacora")
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Expediente");
-
-                    b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("DespachoJuridico.API.Models.Cita", b =>
-                {
-                    b.HasOne("DespachoJuridico.API.Models.Expediente", "Expediente")
-                        .WithMany()
-                        .HasForeignKey("ExpedienteId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("DespachoJuridico.API.Models.Usuario", "Usuario")
-                        .WithMany()
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
