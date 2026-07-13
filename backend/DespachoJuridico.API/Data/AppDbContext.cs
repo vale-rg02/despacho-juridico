@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
     public DbSet<BitacoraCambio> BitacoraCambios => Set<BitacoraCambio>();
     public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
+    public DbSet<Cita> Citas => Set<Cita>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,5 +60,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AcuerdoScrapeado>()
             .HasIndex(a => new { a.ExpedienteId, a.FechaAcuerdo, a.Sintesis })
             .IsUnique();
+
+        // Si se elimina el expediente, la cita se conserva sin vincular (no se borra la cita)
+        modelBuilder.Entity<Cita>()
+            .HasOne(c => c.Expediente)
+            .WithMany()
+            .HasForeignKey(c => c.ExpedienteId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
