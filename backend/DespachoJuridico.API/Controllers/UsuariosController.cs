@@ -21,10 +21,16 @@ public class UsuariosController : ControllerBase
     }
 
     // GET /api/usuarios
+    // GET /api/usuarios?excluirSoporte=true
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] bool excluirSoporte = false)
     {
-        var usuarios = await _context.Usuarios
+        var query = _context.Usuarios.AsQueryable();
+
+        if (excluirSoporte)
+            query = query.Where(u => !u.EsCuentaSoporte);
+
+        var usuarios = await query
             .OrderBy(u => u.Nombre)
             .Select(u => new UsuarioResponse
             {
