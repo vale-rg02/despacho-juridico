@@ -28,7 +28,8 @@ public class NotificacionesController : ControllerBase
         var usuarioId = ObtenerUsuarioId();
         var rol = User.FindFirst(ClaimTypes.Role)?.Value;
 
-        var hoy = DateTime.UtcNow.Date;
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var hoy = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria).Date;
 
         var query = _context.HistorialEtapas
             .Include(h => h.Expediente)
