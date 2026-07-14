@@ -4,6 +4,7 @@ using DespachoJuridico.API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 
 namespace DespachoJuridico.API.Controllers;
@@ -47,18 +48,26 @@ public class UsuariosController : ControllerBase
     }
 
     // PUT /api/usuarios/{id}/password
+    // Solo el propio usuario puede cambiar su contraseña, y debe confirmar la actual
     [HttpPut("{id}/password")]
     public async Task<IActionResult> CambiarPassword(int id, [FromBody] CambiarPasswordRequest request)
     {
+        var usuarioIdActual = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        if (id != usuarioIdActual)
+            return Forbid();
+
         var usuario = await _context.Usuarios.FindAsync(id);
         if (usuario == null)
             return NotFound(new { mensaje = "Usuario no encontrado" });
 
+        if (!BCrypt.Net.BCrypt.Verify(request.PasswordActual, usuario.PasswordHash))
+            return BadRequest(new { mensaje = "La contraseña actual es incorrecta" });
+
         if (request.NuevaPassword != request.ConfirmarPassword)
             return BadRequest(new { mensaje = "Las contraseñas no coinciden" });
 
-        if (request.NuevaPassword.Length < 6)
-            return BadRequest(new { mensaje = "La contraseña debe tener al menos 6 caracteres" });
+        if (request.NuevaPassword.Length < 8)
+            return BadRequest(new { mensaje = "La contraseña debe tener al menos 8 caracteres" });
 
         usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NuevaPassword);
         await _context.SaveChangesAsync();

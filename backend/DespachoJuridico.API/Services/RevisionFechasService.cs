@@ -125,8 +125,13 @@ public class RevisionFechasService : BackgroundService
                 var diasTexto = diasRestantes == 1 ? "mañana" : $"en {diasRestantes} días";
                 var asunto = $"Recordatorio — Exp. {expediente.NumeroExpediente}: etapa '{etapaNombre}' vence {diasTexto}";
 
+                var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+                var parteDemandadaEnc = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+                var etapaNombreEnc = System.Net.WebUtility.HtmlEncode(etapaNombre);
+
                 foreach (var (nombre, email) in destinatarios.DistinctBy(d => d.Email))
                 {
+                    var nombreEnc = System.Net.WebUtility.HtmlEncode(nombre);
                     var cuerpoHtml = $@"
 <!DOCTYPE html><html><head><meta charset='UTF-8'>
 <style>
@@ -149,13 +154,13 @@ public class RevisionFechasService : BackgroundService
     <p>Recordatorio de vencimiento</p>
   </div>
   <div class='body'>
-    <p>Estimado(a) {nombre},</p>
-    <p>Le recordamos que la etapa procesal <strong>{etapaNombre}</strong> del siguiente expediente
+    <p>Estimado(a) {nombreEnc},</p>
+    <p>Le recordamos que la etapa procesal <strong>{etapaNombreEnc}</strong> del siguiente expediente
     vence <strong>{diasTexto}</strong>, el día <strong>{historial.FechaLimite:dd/MM/yyyy}</strong>.</p>
     <div class='highlight'>
-      <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-      <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-      <p><strong>Etapa:</strong> {etapaNombre}</p>
+      <p><strong>Expediente:</strong> {numeroExpedienteEnc}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandadaEnc}</p>
+      <p><strong>Etapa:</strong> {etapaNombreEnc}</p>
       <p><strong>Fecha límite:</strong> {historial.FechaLimite:dd/MM/yyyy}</p>
     </div>
     <p>Le recomendamos revisar el estado del caso y tomar las acciones necesarias

@@ -34,6 +34,7 @@ function Perfil() {
   const [seccion, setSeccion] = useState('info')
 
   // Estado cambio de contraseña
+  const [passwordActual, setPasswordActual] = useState('')
   const [nuevaPassword, setNuevaPassword] = useState('')
   const [confirmarPassword, setConfirmarPassword] = useState('')
   const [msgPassword, setMsgPassword] = useState('')
@@ -86,12 +87,13 @@ function Perfil() {
   async function handleCambiarPassword() {
     setMsgPassword('')
     setErrorPassword('')
-    if (!nuevaPassword || !confirmarPassword) { setErrorPassword('Completa ambos campos'); return }
+    if (!passwordActual || !nuevaPassword || !confirmarPassword) { setErrorPassword('Completa todos los campos'); return }
     if (nuevaPassword !== confirmarPassword) { setErrorPassword('Las contraseñas no coinciden'); return }
     setCargandoPassword(true)
     try {
-      await api.put(`/usuarios/${usuario.id}/password`, { nuevaPassword, confirmarPassword })
+      await api.put(`/usuarios/${usuario.id}/password`, { passwordActual, nuevaPassword, confirmarPassword })
       setMsgPassword('Contraseña actualizada correctamente')
+      setPasswordActual('')
       setNuevaPassword('')
       setConfirmarPassword('')
     } catch (err) {
@@ -238,6 +240,11 @@ function Perfil() {
             <div className="bg-card border border-border rounded-lg p-6 space-y-4 max-w-md">
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Cambiar contraseña</h2>
               <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
+                  <input type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
                   <input type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}

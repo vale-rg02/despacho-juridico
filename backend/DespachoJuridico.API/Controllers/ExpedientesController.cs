@@ -100,7 +100,7 @@ public class ExpedientesController : ControllerBase
             .Include(e => e.UsuarioAsignado)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         return Ok(MapToResponse(expediente));
@@ -156,7 +156,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -224,7 +224,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var estadoAnterior = expediente.Estado;
@@ -245,7 +245,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarPrioridad(int id, [FromBody] CambiarPrioridadRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var prioridadAnterior = expediente.Prioridad;
@@ -265,8 +265,8 @@ public class ExpedientesController : ControllerBase
     [HttpGet("{id}/bitacora")]
     public async Task<IActionResult> GetBitacora(int id)
     {
-        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
-        if (!existe)
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var bitacora = await _context.BitacoraCambios
@@ -290,8 +290,8 @@ public class ExpedientesController : ControllerBase
     [HttpGet("{id}/etapas")]
     public async Task<IActionResult> GetEtapas(int id)
     {
-        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
-        if (!existe)
+        var expedienteEtapas = await _context.Expedientes.FindAsync(id);
+        if (expedienteEtapas == null || !TieneAccesoAExpediente(expedienteEtapas.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapas = await _context.HistorialEtapas
@@ -324,7 +324,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
@@ -389,9 +389,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.FechaCompletada = request.FechaCompletada.HasValue
@@ -421,9 +422,10 @@ public class ExpedientesController : ControllerBase
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
             .Include(h => h.RegistradoPor)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
@@ -480,9 +482,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var nombreEtapa = historial.EtapaCatalogo?.Nombre ?? "Etapa";
@@ -502,9 +505,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         if (historial.FechaCompletada == null)
@@ -527,9 +531,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.Atendido = true;
@@ -547,7 +552,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> Eliminar(int id)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -625,7 +630,15 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         }
     }
 
-    private static string ConstruirCuerpoAsignacion(Usuario usuarioAsignado, Expediente expediente) => $@"
+    private static string ConstruirCuerpoAsignacion(Usuario usuarioAsignado, Expediente expediente)
+    {
+        var nombre = System.Net.WebUtility.HtmlEncode(usuarioAsignado.Nombre);
+        var numeroExpediente = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+        var parteDemandada = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+        var juzgado = System.Net.WebUtility.HtmlEncode(expediente.Juzgado ?? "—");
+        var materia = System.Net.WebUtility.HtmlEncode(expediente.Materia ?? "—");
+
+        return $@"
 <!DOCTYPE html><html><head><meta charset='UTF-8'>
 <style>
   body{{font-family:Georgia,'Times New Roman',serif;background:#f7f5f0;margin:0;padding:0;}}
@@ -647,14 +660,14 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
     <p>Nuevo expediente asignado</p>
   </div>
   <div class='body'>
-    <p>Estimado(a) {usuarioAsignado.Nombre},</p>
+    <p>Estimado(a) {nombre},</p>
     <p>Se le ha asignado un nuevo expediente en el Sistema de Gestión del Despacho
     Jurídico Acedo e Hijos. A continuación encontrará los datos del caso:</p>
     <div class='highlight'>
-      <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-      <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-      <p><strong>Juzgado:</strong> {expediente.Juzgado ?? "—"}</p>
-      <p><strong>Materia:</strong> {expediente.Materia ?? "—"}</p>
+      <p><strong>Expediente:</strong> {numeroExpediente}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandada}</p>
+      <p><strong>Juzgado:</strong> {juzgado}</p>
+      <p><strong>Materia:</strong> {materia}</p>
       <p><strong>Prioridad:</strong> {expediente.Prioridad}</p>
     </div>
     <p>Por favor acceda al sistema para revisar los detalles completos del expediente
@@ -666,6 +679,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
     <p>Por favor no responda a este correo.</p>
   </div>
 </div></body></html>";
+    }
 
     private static ExpedienteResponse MapToResponse(Expediente e) => new()
     {
@@ -702,10 +716,15 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
 
     private int ObtenerUsuarioId()
     {
-        // Por ahora, mientras no esté la autenticación obligatoria en estas rutas,
-        // usamos el usuario 2 (Carlos) como default.
-        // Cuando agreguemos [Authorize], esto se reemplaza por el claim del token.
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return claim != null ? int.Parse(claim) : 2;
+    }
+
+    // Solo el Socio Principal (id=1) puede operar sobre expedientes de cualquier
+    // usuario; el resto solo sobre los que tiene asignados. Mismo criterio que GetAll.
+    private bool TieneAccesoAExpediente(int? usuarioAsignadoId)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        return usuarioIdActual == 1 || usuarioAsignadoId == usuarioIdActual;
     }
 }

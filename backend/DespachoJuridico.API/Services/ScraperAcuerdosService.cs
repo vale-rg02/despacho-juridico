@@ -224,6 +224,14 @@ public class ScraperAcuerdosService : BackgroundService
         if (expediente.UsuarioAsignado == null) return;
 
         var asunto = $"Nuevo acuerdo judicial — Exp. {expediente.NumeroExpediente}";
+
+        var nombreEnc = System.Net.WebUtility.HtmlEncode(expediente.UsuarioAsignado.Nombre);
+        var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+        var parteDemandadaEnc = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+        var juzgadoEnc = System.Net.WebUtility.HtmlEncode(acuerdo.NombreJuzgado);
+        var partesEnc = System.Net.WebUtility.HtmlEncode(acuerdo.Partes);
+        var sintesisEnc = System.Net.WebUtility.HtmlEncode(acuerdo.Sintesis);
+
         var cuerpo = $@"
 <!DOCTYPE html><html><head><meta charset='UTF-8'>
 <style>
@@ -247,18 +255,18 @@ public class ScraperAcuerdosService : BackgroundService
     <p>Nuevo acuerdo judicial detectado</p>
   </div>
   <div class='body'>
-    <p>Estimado(a) {expediente.UsuarioAsignado.Nombre},</p>
-    <p>El sistema ha detectado un nuevo acuerdo publicado por el <strong>{acuerdo.NombreJuzgado}</strong>
+    <p>Estimado(a) {nombreEnc},</p>
+    <p>El sistema ha detectado un nuevo acuerdo publicado por el <strong>{juzgadoEnc}</strong>
     correspondiente al siguiente expediente a su cargo:</p>
     <div class='highlight'>
-      <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-      <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-      <p><strong>Juzgado:</strong> {acuerdo.NombreJuzgado}</p>
+      <p><strong>Expediente:</strong> {numeroExpedienteEnc}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandadaEnc}</p>
+      <p><strong>Juzgado:</strong> {juzgadoEnc}</p>
       <p><strong>Fecha del acuerdo:</strong> {acuerdo.FechaAcuerdo:dd/MM/yyyy}</p>
-      <p><strong>Partes:</strong> {acuerdo.Partes}</p>
+      <p><strong>Partes:</strong> {partesEnc}</p>
     </div>
     <p><strong>Síntesis del acuerdo:</strong></p>
-    <div class='sintesis'>{acuerdo.Sintesis}</div>
+    <div class='sintesis'>{sintesisEnc}</div>
     <p>Le recomendamos revisar el expediente en el sistema para tomar las acciones correspondientes.</p>
     <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
   </div>

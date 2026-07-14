@@ -2,6 +2,7 @@ using DespachoJuridico.API.Data;
 using DespachoJuridico.API.Models;
 using DespachoJuridico.API.Models.Enums;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -25,6 +26,7 @@ public class AuthController : ControllerBase
 
     // POST /api/auth/login
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var usuario = await _context.Usuarios

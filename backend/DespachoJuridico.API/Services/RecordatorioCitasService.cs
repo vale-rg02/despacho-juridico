@@ -78,13 +78,16 @@ public class RecordatorioCitasService : BackgroundService
 
     private static string ConstruirCuerpo(Models.Cita cita)
     {
+        var nombreEnc = System.Net.WebUtility.HtmlEncode(cita.Usuario.Nombre);
+        var tituloEnc = System.Net.WebUtility.HtmlEncode(cita.Titulo);
+
         var expedienteInfo = cita.Expediente != null
-            ? $"<p><strong>Expediente relacionado:</strong> {cita.Expediente.NumeroExpediente} — {cita.Expediente.ParteDemandada}</p>"
+            ? $"<p><strong>Expediente relacionado:</strong> {System.Net.WebUtility.HtmlEncode(cita.Expediente.NumeroExpediente)} — {System.Net.WebUtility.HtmlEncode(cita.Expediente.ParteDemandada)}</p>"
             : "";
 
         var notasInfo = string.IsNullOrWhiteSpace(cita.Descripcion)
             ? ""
-            : $"<p><strong>Notas:</strong> {cita.Descripcion}</p>";
+            : $"<p><strong>Notas:</strong> {System.Net.WebUtility.HtmlEncode(cita.Descripcion)}</p>";
 
         return $@"
 <!DOCTYPE html><html><head><meta charset='UTF-8'>
@@ -108,10 +111,10 @@ public class RecordatorioCitasService : BackgroundService
     <p>Recordatorio de cita</p>
   </div>
   <div class='body'>
-    <p>Estimado(a) {cita.Usuario.Nombre},</p>
+    <p>Estimado(a) {nombreEnc},</p>
     <p>Le recordamos que mañana tiene agendada la siguiente cita en su calendario:</p>
     <div class='highlight'>
-      <p><strong>Título:</strong> {cita.Titulo}</p>
+      <p><strong>Título:</strong> {tituloEnc}</p>
       <p><strong>Fecha y hora:</strong> {cita.FechaHora:dd/MM/yyyy} a las {cita.FechaHora:HH:mm}</p>
       {expedienteInfo}
       {notasInfo}
