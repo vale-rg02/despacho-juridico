@@ -10,8 +10,7 @@ export async function marcarAtendida(expedienteId, etapaHistorialId) {
   return response.data
 }
 
-// usuarioId debe omitirse (undefined) para pedir "todos" — el backend solo
-// deja de filtrar por usuario cuando el parámetro está ausente, no cuando viene en 0
+// usuarioId=0 o ausente = todos los usuarios (solo aplica para Socio Principal)
 export async function getPanelNotificaciones(usuarioId) {
   const params = {}
   if (usuarioId !== undefined && usuarioId !== null) params.usuarioId = usuarioId

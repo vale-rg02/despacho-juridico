@@ -123,10 +123,7 @@ function Notificaciones() {
     setCargando(true)
     setError('')
     try {
-      // "Todos los usuarios" se manda como ausente: el backend solo omite el
-      // filtro por usuario cuando el parámetro no viene, no cuando viene en 0
-      const usuarioIdParam = esSocioPrincipal && filtroUsuarioId !== 0 ? filtroUsuarioId : undefined
-      const data = await getPanelNotificaciones(usuarioIdParam)
+      const data = await getPanelNotificaciones(esSocioPrincipal ? filtroUsuarioId : undefined)
       setPanel(data)
     } catch {
       setError('No se pudo cargar el panel de notificaciones')
