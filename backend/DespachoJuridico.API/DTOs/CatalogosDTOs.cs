@@ -22,6 +22,13 @@ public class UsuarioResponse
 
 }
 
+// Versión reducida para usuarios sin permisos de administrador (ej. dropdown "Asignado a")
+public class UsuarioBasicoResponse
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+}
+
 public class BitacoraResponse
 {
     public int Id { get; set; }

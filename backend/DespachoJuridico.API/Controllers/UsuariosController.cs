@@ -23,6 +23,8 @@ public class UsuariosController : ControllerBase
 
     // GET /api/usuarios
     // GET /api/usuarios?excluirSoporte=true
+    // Los usuarios sin permisos de administrador reciben una versión reducida
+    // (solo Id/Nombre, ej. para el dropdown "Asignado a"), sin correos ni niveles de acceso ajenos.
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool excluirSoporte = false)
     {
@@ -30,6 +32,23 @@ public class UsuariosController : ControllerBase
 
         if (excluirSoporte)
             query = query.Where(u => !u.EsCuentaSoporte);
+
+        var nivelAcceso = User.FindFirst("NivelAcceso")?.Value;
+        var esAdmin = nivelAcceso == "Administrativo" || nivelAcceso == "Superior";
+
+        if (!esAdmin)
+        {
+            var usuariosBasico = await query
+                .OrderBy(u => u.Nombre)
+                .Select(u => new UsuarioBasicoResponse
+                {
+                    Id = u.Id,
+                    Nombre = u.Nombre
+                })
+                .ToListAsync();
+
+            return Ok(usuariosBasico);
+        }
 
         var usuarios = await query
             .OrderBy(u => u.Nombre)

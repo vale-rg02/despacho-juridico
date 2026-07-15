@@ -114,10 +114,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("CorsPolicy");
-if (app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+
+// Se aplica en todos los ambientes; en producción, UseForwardedHeaders ya corrigió
+// el esquema a partir de X-Forwarded-Proto, así que no genera loop de redirección
+// detrás del proxy de Railway.
+app.UseHttpsRedirection();
 
 app.UseRateLimiter();
 
