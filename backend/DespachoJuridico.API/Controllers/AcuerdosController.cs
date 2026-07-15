@@ -45,6 +45,11 @@ public class AcuerdosController : ControllerBase
     [HttpGet("{expedienteId:int}")]
     public async Task<IActionResult> GetByExpediente(int expedienteId)
     {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var expediente = await _context.Expedientes.FindAsync(expedienteId);
+        if (expediente == null || (usuarioIdActual != 1 && expediente.UsuarioAsignadoId != usuarioIdActual))
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
         var acuerdos = await _context.AcuerdosScrapeados
             .Where(a => a.ExpedienteId == expedienteId)
             .OrderByDescending(a => a.FechaAcuerdo)
@@ -69,8 +74,12 @@ public class AcuerdosController : ControllerBase
     [HttpPatch("{id}/visto")]
     public async Task<IActionResult> MarcarVisto(int id)
     {
-        var acuerdo = await _context.AcuerdosScrapeados.FindAsync(id);
-        if (acuerdo == null)
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null || (usuarioIdActual != 1 && acuerdo.Expediente.UsuarioAsignadoId != usuarioIdActual))
             return NotFound(new { mensaje = "Acuerdo no encontrado" });
 
         acuerdo.Visto = true;

@@ -9,6 +9,7 @@ public class Cita
     public string? Descripcion { get; set; }
     public DateTime FechaHora { get; set; }
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
+    public bool ReminderEnviado { get; set; } = false;
 
     public Usuario Usuario { get; set; } = null!;
     public Expediente? Expediente { get; set; }

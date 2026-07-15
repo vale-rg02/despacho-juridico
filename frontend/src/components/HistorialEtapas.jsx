@@ -77,7 +77,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
               {activa ? (
                 <button
                   onClick={() => onCompletar(etapa.id)}
-                  className="text-xs text-accent hover:underline font-medium"
+                  className="text-xs px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition font-medium"
                 >
                   Marcar como completada
                 </button>
@@ -88,14 +88,14 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                       onRevertir(etapa.id)
                     }
                   }}
-                  className="text-xs text-red-400 hover:underline font-medium"
+                  className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
                 >
                   Revertir a pendiente
                 </button>
               )}
               <button
                 onClick={() => onEditar(etapa)}
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
+                className="text-xs px-3 py-1 rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground transition font-medium"
               >
                 Editar
               </button>
@@ -105,7 +105,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                     onEliminar(etapa.id)
                   }
                 }}
-                className="text-xs text-red-400 hover:underline font-medium"
+                className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
               >
                 Eliminar
               </button>

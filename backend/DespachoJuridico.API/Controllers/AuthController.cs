@@ -2,6 +2,7 @@ using DespachoJuridico.API.Data;
 using DespachoJuridico.API.Models;
 using DespachoJuridico.API.Models.Enums;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -16,25 +17,37 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(AppDbContext context, IConfiguration config)
+    public AuthController(AppDbContext context, IConfiguration config, ILogger<AuthController> logger)
     {
         _context = context;
         _config = config;
+        _logger = logger;
     }
 
     // POST /api/auth/login
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida";
         var usuario = await _context.Usuarios
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
         if (usuario == null || !BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
+        {
+            _logger.LogWarning("Login fallido para {Email} desde {Ip}", request.Email, ip);
             return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+        }
 
         if (!usuario.Activo)
+        {
+            _logger.LogWarning("Intento de login en cuenta desactivada {Email} desde {Ip}", request.Email, ip);
             return Unauthorized(new { mensaje = "Tu cuenta está desactivada. Contacta al administrador." });
+        }
+
+        _logger.LogInformation("Login exitoso para {Email} (id={UsuarioId}) desde {Ip}", usuario.Email, usuario.Id, ip);
 
         // Generar JWT
         var token = GenerarToken(usuario);

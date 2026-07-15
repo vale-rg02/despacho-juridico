@@ -18,11 +18,19 @@ public class ExpedientesController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ICalculadorFechasService _calculador;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<ExpedientesController> _logger;
 
-    public ExpedientesController(AppDbContext context, ICalculadorFechasService calculador)
+    public ExpedientesController(
+        AppDbContext context,
+        ICalculadorFechasService calculador,
+        IEmailService emailService,
+        ILogger<ExpedientesController> logger)
     {
         _context = context;
         _calculador = calculador;
+        _emailService = emailService;
+        _logger = logger;
     }
 
 
@@ -92,7 +100,7 @@ public class ExpedientesController : ControllerBase
             .Include(e => e.UsuarioAsignado)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         return Ok(MapToResponse(expediente));
@@ -135,6 +143,8 @@ public class ExpedientesController : ControllerBase
         await _context.Entry(expediente).Reference(e => e.Banco).LoadAsync();
         await _context.Entry(expediente).Reference(e => e.UsuarioAsignado).LoadAsync();
 
+        await NotificarAsignacionAsync(expediente, usuarioId);
+
         return CreatedAtAction(nameof(GetById), new { id = expediente.Id }, MapToResponse(expediente));
     }
 
@@ -146,7 +156,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -170,7 +180,8 @@ public class ExpedientesController : ControllerBase
         if (expediente.BancoId != request.BancoId)
             cambios.Add($"Banco: '{expediente.BancoId?.ToString() ?? "—"}' → '{request.BancoId?.ToString() ?? "—"}'");
 
-        if (expediente.UsuarioAsignadoId != request.UsuarioAsignadoId)
+        var usuarioAsignadoCambio = expediente.UsuarioAsignadoId != request.UsuarioAsignadoId;
+        if (usuarioAsignadoCambio)
             cambios.Add($"Usuario asignado: '{expediente.UsuarioAsignadoId?.ToString() ?? "—"}' → '{request.UsuarioAsignadoId?.ToString() ?? "—"}'");
 
         if (expediente.ExpedienteRelacionadoId != request.ExpedienteRelacionadoId)
@@ -200,6 +211,11 @@ public class ExpedientesController : ControllerBase
         await _context.Entry(expediente).Reference(e => e.Banco).LoadAsync();
         await _context.Entry(expediente).Reference(e => e.UsuarioAsignado).LoadAsync();
 
+        if (usuarioAsignadoCambio)
+        {
+            await NotificarAsignacionAsync(expediente, usuarioId);
+        }
+
         return Ok(MapToResponse(expediente));
     }
 
@@ -208,7 +224,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var estadoAnterior = expediente.Estado;
@@ -229,7 +245,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarPrioridad(int id, [FromBody] CambiarPrioridadRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var prioridadAnterior = expediente.Prioridad;
@@ -249,8 +265,8 @@ public class ExpedientesController : ControllerBase
     [HttpGet("{id}/bitacora")]
     public async Task<IActionResult> GetBitacora(int id)
     {
-        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
-        if (!existe)
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var bitacora = await _context.BitacoraCambios
@@ -274,8 +290,8 @@ public class ExpedientesController : ControllerBase
     [HttpGet("{id}/etapas")]
     public async Task<IActionResult> GetEtapas(int id)
     {
-        var existe = await _context.Expedientes.AnyAsync(e => e.Id == id);
-        if (!existe)
+        var expedienteEtapas = await _context.Expedientes.FindAsync(id);
+        if (expedienteEtapas == null || !TieneAccesoAExpediente(expedienteEtapas.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapas = await _context.HistorialEtapas
@@ -308,7 +324,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
@@ -373,9 +389,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.FechaCompletada = request.FechaCompletada.HasValue
@@ -405,9 +422,10 @@ public class ExpedientesController : ControllerBase
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
             .Include(h => h.RegistradoPor)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
@@ -464,9 +482,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var nombreEtapa = historial.EtapaCatalogo?.Nombre ?? "Etapa";
@@ -486,9 +505,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         if (historial.FechaCompletada == null)
@@ -511,9 +531,10 @@ public class ExpedientesController : ControllerBase
     {
         var historial = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
+            .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null)
+        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.Atendido = true;
@@ -531,7 +552,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> Eliminar(int id)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null)
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -586,6 +607,80 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
 
     // ───────────── Helpers privados ─────────────
 
+    private async Task NotificarAsignacionAsync(Expediente expediente, int usuarioIdQueAsigna)
+    {
+        if (!expediente.UsuarioAsignadoId.HasValue) return;
+        if (expediente.UsuarioAsignadoId.Value == usuarioIdQueAsigna) return; // no enviar si se asigna a sí mismo
+
+        var usuarioAsignado = expediente.UsuarioAsignado
+            ?? await _context.Usuarios.FindAsync(expediente.UsuarioAsignadoId.Value);
+        if (usuarioAsignado == null) return;
+
+        var asunto = $"Nuevo expediente asignado — {expediente.NumeroExpediente}";
+        var cuerpo = ConstruirCuerpoAsignacion(usuarioAsignado, expediente);
+
+        try
+        {
+            await _emailService.EnviarAsync(usuarioAsignado.Email, usuarioAsignado.Nombre, asunto, cuerpo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo enviar correo de asignación a {Email} para expediente {Numero}",
+                usuarioAsignado.Email, expediente.NumeroExpediente);
+        }
+    }
+
+    private static string ConstruirCuerpoAsignacion(Usuario usuarioAsignado, Expediente expediente)
+    {
+        var nombre = System.Net.WebUtility.HtmlEncode(usuarioAsignado.Nombre);
+        var numeroExpediente = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+        var parteDemandada = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+        var juzgado = System.Net.WebUtility.HtmlEncode(expediente.Juzgado ?? "—");
+        var materia = System.Net.WebUtility.HtmlEncode(expediente.Materia ?? "—");
+
+        return $@"
+<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  body{{font-family:Georgia,'Times New Roman',serif;background:#f7f5f0;margin:0;padding:0;}}
+  .container{{max-width:580px;margin:40px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}}
+  .header{{background:#1c2b4a;padding:32px 40px;text-align:center;}}
+  .header h1{{color:#ffffff;font-size:20px;margin:0;font-weight:normal;letter-spacing:1px;}}
+  .header p{{color:#9a7c3c;font-size:13px;margin:6px 0 0;letter-spacing:2px;text-transform:uppercase;}}
+  .body{{padding:40px;color:#333333;}}
+  .body p{{font-size:15px;line-height:1.7;margin:0 0 16px;}}
+  .highlight{{background:#f0f4fa;border-left:4px solid #9a7c3c;padding:16px 20px;margin:24px 0;border-radius:0 6px 6px 0;}}
+  .highlight p{{margin:4px 0;font-size:14px;color:#444;}}
+  .highlight strong{{color:#1c2b4a;}}
+  .footer{{background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e0ddd6;}}
+  .footer p{{font-size:12px;color:#888;margin:0;}}
+</style></head>
+<body><div class='container'>
+  <div class='header'>
+    <h1>Despacho Jurídico Acedo e Hijos</h1>
+    <p>Nuevo expediente asignado</p>
+  </div>
+  <div class='body'>
+    <p>Estimado(a) {nombre},</p>
+    <p>Se le ha asignado un nuevo expediente en el Sistema de Gestión del Despacho
+    Jurídico Acedo e Hijos. A continuación encontrará los datos del caso:</p>
+    <div class='highlight'>
+      <p><strong>Expediente:</strong> {numeroExpediente}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandada}</p>
+      <p><strong>Juzgado:</strong> {juzgado}</p>
+      <p><strong>Materia:</strong> {materia}</p>
+      <p><strong>Prioridad:</strong> {expediente.Prioridad}</p>
+    </div>
+    <p>Por favor acceda al sistema para revisar los detalles completos del expediente
+    y registrar las etapas procesales correspondientes.</p>
+    <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
+  </div>
+  <div class='footer'>
+    <p>Este es un mensaje automático del Sistema de Gestión de Expedientes.</p>
+    <p>Por favor no responda a este correo.</p>
+  </div>
+</div></body></html>";
+    }
+
     private static ExpedienteResponse MapToResponse(Expediente e) => new()
     {
         Id = e.Id,
@@ -621,10 +716,15 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
 
     private int ObtenerUsuarioId()
     {
-        // Por ahora, mientras no esté la autenticación obligatoria en estas rutas,
-        // usamos el usuario 2 (Carlos) como default.
-        // Cuando agreguemos [Authorize], esto se reemplaza por el claim del token.
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return claim != null ? int.Parse(claim) : 2;
+    }
+
+    // Solo el Socio Principal (id=1) puede operar sobre expedientes de cualquier
+    // usuario; el resto solo sobre los que tiene asignados. Mismo criterio que GetAll.
+    private bool TieneAccesoAExpediente(int? usuarioAsignadoId)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        return usuarioIdActual == 1 || usuarioAsignadoId == usuarioIdActual;
     }
 }

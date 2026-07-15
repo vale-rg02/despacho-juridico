@@ -223,16 +223,58 @@ public class ScraperAcuerdosService : BackgroundService
     {
         if (expediente.UsuarioAsignado == null) return;
 
-        var asunto = $"Nuevo acuerdo: Exp. {expediente.NumeroExpediente} — {acuerdo.NombreJuzgado}";
+        var asunto = $"Nuevo acuerdo judicial — Exp. {expediente.NumeroExpediente}";
+
+        var nombreEnc = System.Net.WebUtility.HtmlEncode(expediente.UsuarioAsignado.Nombre);
+        var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+        var parteDemandadaEnc = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+        var juzgadoEnc = System.Net.WebUtility.HtmlEncode(acuerdo.NombreJuzgado);
+        var partesEnc = System.Net.WebUtility.HtmlEncode(acuerdo.Partes);
+        var sintesisEnc = System.Net.WebUtility.HtmlEncode(acuerdo.Sintesis);
+
         var cuerpo = $@"
-            <h2>Nuevo acuerdo detectado</h2>
-            <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-            <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-            <p><strong>Juzgado:</strong> {acuerdo.NombreJuzgado}</p>
-            <p><strong>Fecha:</strong> {acuerdo.FechaAcuerdo:dd/MM/yyyy}</p>
-            <p><strong>Partes:</strong> {acuerdo.Partes}</p>
-            <p><strong>Síntesis:</strong> {acuerdo.Sintesis}</p>
-        ";
+<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  body{{font-family:Georgia,'Times New Roman',serif;background:#f7f5f0;margin:0;padding:0;}}
+  .container{{max-width:580px;margin:40px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}}
+  .header{{background:#1c2b4a;padding:32px 40px;text-align:center;}}
+  .header h1{{color:#ffffff;font-size:20px;margin:0;font-weight:normal;letter-spacing:1px;}}
+  .header p{{color:#9a7c3c;font-size:13px;margin:6px 0 0;letter-spacing:2px;text-transform:uppercase;}}
+  .body{{padding:40px;color:#333333;}}
+  .body p{{font-size:15px;line-height:1.7;margin:0 0 16px;}}
+  .highlight{{background:#f0f4fa;border-left:4px solid #9a7c3c;padding:16px 20px;margin:24px 0;border-radius:0 6px 6px 0;}}
+  .highlight p{{margin:4px 0;font-size:14px;color:#444;}}
+  .highlight strong{{color:#1c2b4a;}}
+  .sintesis{{background:#fffdf7;border:1px solid #e0ddd6;padding:16px 20px;margin:16px 0;border-radius:6px;font-size:14px;line-height:1.6;color:#555;}}
+  .footer{{background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e0ddd6;}}
+  .footer p{{font-size:12px;color:#888;margin:0;}}
+</style></head>
+<body><div class='container'>
+  <div class='header'>
+    <h1>Despacho Jurídico Acedo e Hijos</h1>
+    <p>Nuevo acuerdo judicial detectado</p>
+  </div>
+  <div class='body'>
+    <p>Estimado(a) {nombreEnc},</p>
+    <p>El sistema ha detectado un nuevo acuerdo publicado por el <strong>{juzgadoEnc}</strong>
+    correspondiente al siguiente expediente a su cargo:</p>
+    <div class='highlight'>
+      <p><strong>Expediente:</strong> {numeroExpedienteEnc}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandadaEnc}</p>
+      <p><strong>Juzgado:</strong> {juzgadoEnc}</p>
+      <p><strong>Fecha del acuerdo:</strong> {acuerdo.FechaAcuerdo:dd/MM/yyyy}</p>
+      <p><strong>Partes:</strong> {partesEnc}</p>
+    </div>
+    <p><strong>Síntesis del acuerdo:</strong></p>
+    <div class='sintesis'>{sintesisEnc}</div>
+    <p>Le recomendamos revisar el expediente en el sistema para tomar las acciones correspondientes.</p>
+    <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
+  </div>
+  <div class='footer'>
+    <p>Este es un mensaje automático del Sistema de Gestión de Expedientes.</p>
+    <p>Por favor no responda a este correo.</p>
+  </div>
+</div></body></html>";
 
         await emailService.EnviarAsync(
             expediente.UsuarioAsignado.Email,

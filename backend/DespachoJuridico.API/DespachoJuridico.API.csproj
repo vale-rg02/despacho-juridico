@@ -14,7 +14,9 @@
     <PackageReference Include="ExcelDataReader.DataSet" Version="3.9.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <!-- Fuerza una versión parchada de la dependencia transitiva (GHSA-v5pm-xwqc-g5wc); la serie 3.x rompe compatibilidad con el generador de Microsoft.AspNetCore.OpenApi -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

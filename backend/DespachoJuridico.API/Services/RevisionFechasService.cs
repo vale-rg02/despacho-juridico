@@ -11,8 +11,9 @@ public class RevisionFechasService : BackgroundService
     private readonly ILogger<RevisionFechasService> _logger;
     private readonly TimeSpan _intervalo;
 
-    // Umbrales de notificación en días
-    private static readonly int[] UmbralesDias = { 15, 7, 3, 1};
+    // Umbrales de notificación en días, separados por canal
+    private static readonly int[] UmbralesSistema = { 15, 7, 3, 1 };
+    private static readonly int[] UmbralesEmail = { 1 };
 
     public RevisionFechasService(
         IServiceScopeFactory scopeFactory,
@@ -68,7 +69,9 @@ public class RevisionFechasService : BackgroundService
         foreach (var historial in etapasActivas)
         {
             var diasRestantes = (historial.FechaLimite!.Value.Date - hoy).Days;
-            if (!UmbralesDias.Contains(diasRestantes))
+            var enUmbralSistema = UmbralesSistema.Contains(diasRestantes);
+            var enUmbralEmail = UmbralesEmail.Contains(diasRestantes);
+            if (!enUmbralSistema && !enUmbralEmail)
                 continue;
 
 
@@ -80,85 +83,131 @@ public class RevisionFechasService : BackgroundService
                           $"({historial.FechaLimite:dd/MM/yyyy})";
 
             // ── Notificación interna (panel del sistema) ──
-            var yaExisteSistema = await context.Notificaciones.AnyAsync(n =>
-                n.HistorialEtapaId == historial.Id &&
-                n.DiasAnticipacion == diasRestantes &&
-                n.Canal == CanalNotificacion.Sistema, ct);
-
-            if (!yaExisteSistema)
+            if (enUmbralSistema)
             {
-                context.Notificaciones.Add(new Notificacion
-                {
-                    ExpedienteId = historial.ExpedienteId,
-                    HistorialEtapaId = historial.Id,
-                    Mensaje = mensaje,
-                    DiasAnticipacion = diasRestantes,
-                    Canal = CanalNotificacion.Sistema,
-                    Enviada = false,
-                    CreadoEn = DateTime.UtcNow
-                });
+                var yaExisteSistema = await context.Notificaciones.AnyAsync(n =>
+                    n.HistorialEtapaId == historial.Id &&
+                    n.DiasAnticipacion == diasRestantes &&
+                    n.Canal == CanalNotificacion.Sistema, ct);
 
-                _logger.LogInformation("Notificación de sistema generada para expediente {Numero}, {Dias} días restantes",
-                    expediente.NumeroExpediente, diasRestantes);
+                if (!yaExisteSistema)
+                {
+                    context.Notificaciones.Add(new Notificacion
+                    {
+                        ExpedienteId = historial.ExpedienteId,
+                        HistorialEtapaId = historial.Id,
+                        Mensaje = mensaje,
+                        DiasAnticipacion = diasRestantes,
+                        Canal = CanalNotificacion.Sistema,
+                        Enviada = false,
+                        CreadoEn = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Notificación de sistema generada para expediente {Numero}, {Dias} días restantes",
+                        expediente.NumeroExpediente, diasRestantes);
+                }
             }
 
             // ── Destinatarios de correo ──
-            var destinatarios = new List<(string Nombre, string Email)>();
-
-            if (expediente.UsuarioAsignado != null)
-                destinatarios.Add((expediente.UsuarioAsignado.Nombre, expediente.UsuarioAsignado.Email));
-
-            if (expediente.Prioridad == Prioridad.Urgente)
+            if (enUmbralEmail)
             {
-                foreach (var socio in socios)
-                    destinatarios.Add((socio.Nombre, socio.Email));
-            }
+                var destinatarios = new List<(string Nombre, string Email)>();
 
-            var asunto = $"Aviso: '{etapaNombre}' del expediente {expediente.NumeroExpediente} vence en {diasRestantes} día(s)";
-            var cuerpoHtml = $@"
-                <h3>Despacho Jurídico - Aviso de vencimiento</h3>
-                <p><strong>Expediente:</strong> {expediente.NumeroExpediente}</p>
-                <p><strong>Parte demandada:</strong> {expediente.ParteDemandada}</p>
-                <p><strong>Etapa:</strong> {etapaNombre}</p>
-                <p><strong>Fecha límite:</strong> {historial.FechaLimite:dd/MM/yyyy}</p>
-                <p><strong>Días restantes:</strong> {diasRestantes}</p>";
+                if (expediente.UsuarioAsignado != null)
+                    destinatarios.Add((expediente.UsuarioAsignado.Nombre, expediente.UsuarioAsignado.Email));
 
-            foreach (var (nombre, email) in destinatarios.DistinctBy(d => d.Email))
-            {
-                var yaExisteEmail = await context.Notificaciones.AnyAsync(n =>
-                    n.HistorialEtapaId == historial.Id &&
-                    n.DiasAnticipacion == diasRestantes &&
-                    n.Canal == CanalNotificacion.Email &&
-                    n.DestinatarioEmail == email, ct);
-
-                if (yaExisteEmail)
-                    continue;
-
-                var notificacionEmail = new Notificacion
+                if (expediente.Prioridad == Prioridad.Urgente)
                 {
-                    ExpedienteId = historial.ExpedienteId,
-                    HistorialEtapaId = historial.Id,
-                    Mensaje = mensaje,
-                    DiasAnticipacion = diasRestantes,
-                    Canal = CanalNotificacion.Email,
-                    DestinatarioEmail = email,
-                    Enviada = false,
-                    CreadoEn = DateTime.UtcNow
-                };
-
-                try
-                {
-                    await emailService.EnviarAsync(email, nombre, asunto, cuerpoHtml);
-                    notificacionEmail.Enviada = true;
-                    notificacionEmail.FechaEnvio = DateTime.UtcNow;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "No se pudo enviar correo a {Email} para expediente {Numero}",
-                        email, expediente.NumeroExpediente);
+                    foreach (var socio in socios)
+                        destinatarios.Add((socio.Nombre, socio.Email));
                 }
 
-                context.Notificaciones.Add(notificacionEmail);
+                var diasTexto = diasRestantes == 1 ? "mañana" : $"en {diasRestantes} días";
+                var asunto = $"Recordatorio — Exp. {expediente.NumeroExpediente}: etapa '{etapaNombre}' vence {diasTexto}";
+
+                var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
+                var parteDemandadaEnc = System.Net.WebUtility.HtmlEncode(expediente.ParteDemandada);
+                var etapaNombreEnc = System.Net.WebUtility.HtmlEncode(etapaNombre);
+
+                foreach (var (nombre, email) in destinatarios.DistinctBy(d => d.Email))
+                {
+                    var nombreEnc = System.Net.WebUtility.HtmlEncode(nombre);
+                    var cuerpoHtml = $@"
+<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  body{{font-family:Georgia,'Times New Roman',serif;background:#f7f5f0;margin:0;padding:0;}}
+  .container{{max-width:580px;margin:40px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}}
+  .header{{background:#1c2b4a;padding:32px 40px;text-align:center;}}
+  .header h1{{color:#ffffff;font-size:20px;margin:0;font-weight:normal;letter-spacing:1px;}}
+  .header p{{color:#9a7c3c;font-size:13px;margin:6px 0 0;letter-spacing:2px;text-transform:uppercase;}}
+  .body{{padding:40px;color:#333333;}}
+  .body p{{font-size:15px;line-height:1.7;margin:0 0 16px;}}
+  .highlight{{background:#f0f4fa;border-left:4px solid #9a7c3c;padding:16px 20px;margin:24px 0;border-radius:0 6px 6px 0;}}
+  .highlight p{{margin:4px 0;font-size:14px;color:#444;}}
+  .highlight strong{{color:#1c2b4a;}}
+  .footer{{background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e0ddd6;}}
+  .footer p{{font-size:12px;color:#888;margin:0;}}
+</style></head>
+<body><div class='container'>
+  <div class='header'>
+    <h1>Despacho Jurídico Acedo e Hijos</h1>
+    <p>Recordatorio de vencimiento</p>
+  </div>
+  <div class='body'>
+    <p>Estimado(a) {nombreEnc},</p>
+    <p>Le recordamos que la etapa procesal <strong>{etapaNombreEnc}</strong> del siguiente expediente
+    vence <strong>{diasTexto}</strong>, el día <strong>{historial.FechaLimite:dd/MM/yyyy}</strong>.</p>
+    <div class='highlight'>
+      <p><strong>Expediente:</strong> {numeroExpedienteEnc}</p>
+      <p><strong>Parte demandada:</strong> {parteDemandadaEnc}</p>
+      <p><strong>Etapa:</strong> {etapaNombreEnc}</p>
+      <p><strong>Fecha límite:</strong> {historial.FechaLimite:dd/MM/yyyy}</p>
+    </div>
+    <p>Le recomendamos revisar el estado del caso y tomar las acciones necesarias
+    antes de que venza el plazo.</p>
+    <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
+  </div>
+  <div class='footer'>
+    <p>Este es un mensaje automático del Sistema de Gestión de Expedientes.</p>
+    <p>Por favor no responda a este correo.</p>
+  </div>
+</div></body></html>";
+
+                    var yaExisteEmail = await context.Notificaciones.AnyAsync(n =>
+                        n.HistorialEtapaId == historial.Id &&
+                        n.DiasAnticipacion == diasRestantes &&
+                        n.Canal == CanalNotificacion.Email &&
+                        n.DestinatarioEmail == email, ct);
+
+                    if (yaExisteEmail)
+                        continue;
+
+                    var notificacionEmail = new Notificacion
+                    {
+                        ExpedienteId = historial.ExpedienteId,
+                        HistorialEtapaId = historial.Id,
+                        Mensaje = mensaje,
+                        DiasAnticipacion = diasRestantes,
+                        Canal = CanalNotificacion.Email,
+                        DestinatarioEmail = email,
+                        Enviada = false,
+                        CreadoEn = DateTime.UtcNow
+                    };
+
+                    try
+                    {
+                        await emailService.EnviarAsync(email, nombre, asunto, cuerpoHtml);
+                        notificacionEmail.Enviada = true;
+                        notificacionEmail.FechaEnvio = DateTime.UtcNow;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "No se pudo enviar correo a {Email} para expediente {Numero}",
+                            email, expediente.NumeroExpediente);
+                    }
+
+                    context.Notificaciones.Add(notificacionEmail);
+                }
             }
         }
 
