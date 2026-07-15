@@ -108,6 +108,17 @@ using (var scope = app.Services.CreateScope())
 // Pipeline
 app.UseForwardedHeaders();
 
+// Headers de seguridad básicos en todas las respuestas (defensa en profundidad;
+// la API solo sirve JSON, así que no se agrega una Content-Security-Policy completa)
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    await next();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
