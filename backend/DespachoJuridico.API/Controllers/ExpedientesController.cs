@@ -333,14 +333,15 @@ public class ExpedientesController : ControllerBase
 
         // Si no viene fecha límite explícita, se calcula con el catálogo
         // Normalizamos la fecha de inicio a UTC (PostgreSQL lo exige para timestamptz)
-        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+        var fechaInicioUtc = CombinarFechaHora(request.FechaInicio, request.HoraInicio);
 
-        // Si no viene fecha límite explícita, se calcula con el catálogo
+        // Si no viene fecha límite explícita, se calcula con el catálogo (en días, sin hora);
+        // la hora (si se mandó) se aplica encima tanto si vino explícita como si fue calculada.
         var fechaLimiteCalculada = request.FechaLimite
             ?? _calculador.CalcularFechaLimite(fechaInicioUtc, etapaCatalogo.TerminoDias, etapaCatalogo.EsDiasHabiles);
 
         DateTime? fechaLimiteUtc = fechaLimiteCalculada.HasValue
-            ? DateTime.SpecifyKind(fechaLimiteCalculada.Value.Date, DateTimeKind.Utc)
+            ? CombinarFechaHora(fechaLimiteCalculada.Value, request.HoraLimite)
             : null;
 
         var usuarioId = ObtenerUsuarioId();
@@ -432,9 +433,9 @@ public class ExpedientesController : ControllerBase
         if (etapaCatalogo == null)
             return BadRequest(new { mensaje = "La etapa del catálogo no existe" });
 
-        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+        var fechaInicioUtc = CombinarFechaHora(request.FechaInicio, request.HoraInicio);
         DateTime? fechaLimiteUtc = request.FechaLimite.HasValue
-            ? DateTime.SpecifyKind(request.FechaLimite.Value.Date, DateTimeKind.Utc)
+            ? CombinarFechaHora(request.FechaLimite.Value, request.HoraLimite)
             : null;
 
         var cambios = new List<string>();
@@ -726,5 +727,13 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
     {
         var usuarioIdActual = ObtenerUsuarioId();
         return usuarioIdActual == 1 || usuarioAsignadoId == usuarioIdActual;
+    }
+
+    // Combina la fecha con una hora opcional; si no se manda hora, queda a medianoche
+    // (comportamiento anterior a DJ-66). Siempre normaliza a UTC para PostgreSQL.
+    private static DateTime CombinarFechaHora(DateTime fecha, TimeOnly? hora)
+    {
+        var horaFinal = hora ?? TimeOnly.MinValue;
+        return DateTime.SpecifyKind(fecha.Date + horaFinal.ToTimeSpan(), DateTimeKind.Utc);
     }
 }
