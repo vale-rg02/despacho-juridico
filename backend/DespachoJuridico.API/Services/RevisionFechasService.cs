@@ -56,7 +56,11 @@ public class RevisionFechasService : BackgroundService
         var etapasActivas = await context.HistorialEtapas
             .Include(h => h.Expediente).ThenInclude(e => e.UsuarioAsignado)
             .Include(h => h.EtapaCatalogo)
-            .Where(h => h.FechaCompletada == null && h.FechaLimite != null)
+            .Where(h => h.FechaCompletada == null
+                     && h.FechaLimite != null
+                     && h.Expediente.Estado != EstadoExpediente.Cerrado
+                     // Excluir expedientes de prueba asignados a cuentas de soporte
+                     && (h.Expediente.UsuarioAsignado == null || !h.Expediente.UsuarioAsignado.EsCuentaSoporte))
             .ToListAsync(ct);
 
         _logger.LogInformation("Revisión de fechas: {Cantidad} etapas activas con fecha límite", etapasActivas.Count);

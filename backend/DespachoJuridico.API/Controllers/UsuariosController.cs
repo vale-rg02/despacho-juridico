@@ -28,9 +28,14 @@ public class UsuariosController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool excluirSoporte = false)
     {
+        var usuarioIdActual = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var usuarioActual = await _context.Usuarios.FindAsync(usuarioIdActual);
+
         var query = _context.Usuarios.AsQueryable();
 
-        if (excluirSoporte)
+        // Solo filtrar cuentas de soporte si quien llama NO es cuenta de soporte;
+        // un dev necesita poder asignarse expedientes entre ellos mismos.
+        if (excluirSoporte && !(usuarioActual?.EsCuentaSoporte ?? false))
             query = query.Where(u => !u.EsCuentaSoporte);
 
         var nivelAcceso = User.FindFirst("NivelAcceso")?.Value;

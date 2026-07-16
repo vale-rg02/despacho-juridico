@@ -64,4 +64,6 @@ public class AlertaResponse
     public DateTime FechaLimite { get; set; }
     public int DiasRestantes { get; set; }
     public bool Vencida { get; set; }
+    public int? UsuarioAsignadoId { get; set; }
+    public string? UsuarioAsignadoNombre { get; set; }
 }
