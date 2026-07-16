@@ -76,7 +76,8 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = `w-full ${inputBase}`
 
   return (
     <form onSubmit={handleSubmit} className="bg-secondary/40 border border-border rounded-lg p-4">
@@ -86,22 +87,22 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <select
-            value={etapaCatalogoId}
-            onChange={e => setEtapaCatalogoId(e.target.value)}
-            disabled={cargandoCatalogo}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">— Selecciona —</option>
-            {catalogo.map(e => (
-              <option key={e.id} value={e.id}>{e.nombre}</option>
-            ))}
-          </select>
-        </div>
+      <div className="mb-3">
+        <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
+        <select
+          value={etapaCatalogoId}
+          onChange={e => setEtapaCatalogoId(e.target.value)}
+          disabled={cargandoCatalogo}
+          className={`${inputClass} cursor-pointer max-w-sm`}
+        >
+          <option value="">— Selecciona —</option>
+          {catalogo.map(e => (
+            <option key={e.id} value={e.id}>{e.nombre}</option>
+          ))}
+        </select>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
           <div className="flex gap-2">
@@ -109,14 +110,14 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               type="date"
               value={fechaInicio}
               onChange={e => setFechaInicio(e.target.value)}
-              className={`${inputClass} flex-1`}
+              className={`${inputBase} flex-1 min-w-0`}
             />
             <input
               type="time"
               value={horaInicio}
               onChange={e => setHoraInicio(e.target.value)}
               title="Hora (opcional)"
-              className={`${inputClass} w-28`}
+              className={`${inputBase} w-32 shrink-0`}
             />
           </div>
         </div>
@@ -133,14 +134,14 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               type="date"
               value={fechaLimite}
               onChange={e => setFechaLimite(e.target.value)}
-              className={`${inputClass} flex-1`}
+              className={`${inputBase} flex-1 min-w-0`}
             />
             <input
               type="time"
               value={horaLimite}
               onChange={e => setHoraLimite(e.target.value)}
               title="Hora (opcional)"
-              className={`${inputClass} w-28`}
+              className={`${inputBase} w-32 shrink-0`}
             />
           </div>
           {etapaSeleccionada?.terminoDias == null && etapaCatalogoId && (
