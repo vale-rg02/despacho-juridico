@@ -7,6 +7,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import esLocale from '@fullcalendar/core/locales/es'
 import Topbar from '../components/Topbar'
 import ModalCita from '../components/ModalCita'
+import ModalEtapaCalendario from '../components/ModalEtapaCalendario'
 import { getExpedientes } from '../services/expedientes'
 import { getHistorialEtapas } from '../services/etapas'
 import { getCitas } from '../services/citas'
@@ -39,6 +40,16 @@ function tieneHoraReal(fechaISO) {
 // sin conversión real, hay que quitarle la "Z" para que no se desfase al renderizar
 function sinZonaUtc(fechaISO) {
   return fechaISO.endsWith('Z') ? fechaISO.slice(0, -1) : fechaISO
+}
+
+// Extrae "HH:MM" directo del string ISO (mismo motivo que las funciones de arriba:
+// nunca pasar por new Date().getHours(), que desfasaría la hora)
+function horaDeIso(fechaISO) {
+  if (!fechaISO) return ''
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  if (!match) return ''
+  const [, horas, minutos] = match
+  return horas === '00' && minutos === '00' ? '' : `${horas}:${minutos}`
 }
 
 async function obtenerEtapasEnLotes(expedientes) {
@@ -82,9 +93,16 @@ function construirEventosEtapas(pares) {
           extendedProps: {
             tipo: 'etapa',
             expedienteId: expediente.id,
+            numeroExpediente: expediente.numeroExpediente,
             parteDemandada: expediente.parteDemandada,
             juzgado: expediente.juzgado,
             prioridad: expediente.prioridad,
+            etapaId: etapa.id,
+            etapaCatalogoId: etapa.etapaCatalogoId,
+            etapaNombre: etapa.etapaNombre,
+            fechaInicio: etapa.fechaInicio,
+            fechaLimite: etapa.fechaLimite,
+            notas: etapa.notas,
           },
         })
       })
@@ -125,6 +143,7 @@ function Calendario() {
   const [citas, setCitas] = useState([])
   const [expedientesActivos, setExpedientesActivos] = useState([])
   const [modalCita, setModalCita] = useState(null)
+  const [modalEtapa, setModalEtapa] = useState(null)
   const [mesVisible, setMesVisible] = useState(() => mesAnioDe(new Date()))
 
   const [cargando, setCargando] = useState(true)
@@ -167,6 +186,15 @@ function Calendario() {
     }
   }
 
+  async function recargarEtapas() {
+    try {
+      const pares = await obtenerEtapasEnLotes(expedientesActivos)
+      setEventosEtapas(construirEventosEtapas(pares))
+    } catch {
+      // no bloquear el calendario si solo falla la recarga de etapas
+    }
+  }
+
   function handleDatesSet(info) {
     const { mes, anio } = mesAnioDe(info.view.currentStart)
     if (mes !== mesVisible.mes || anio !== mesVisible.anio) {
@@ -198,7 +226,17 @@ function Calendario() {
         },
       })
     } else {
-      navigate(`/expedientes/${extendedProps.expedienteId}`)
+      setModalEtapa({
+        etapaId: extendedProps.etapaId,
+        etapaCatalogoId: extendedProps.etapaCatalogoId,
+        expedienteId: extendedProps.expedienteId,
+        numeroExpediente: extendedProps.numeroExpediente,
+        etapaNombre: extendedProps.etapaNombre,
+        fechaInicio: extendedProps.fechaInicio,
+        notas: extendedProps.notas,
+        fechaLimite: extendedProps.fechaLimite ? soloFecha(extendedProps.fechaLimite) : '',
+        horaLimite: horaDeIso(extendedProps.fechaLimite),
+      })
     }
   }
 
@@ -250,6 +288,15 @@ function Calendario() {
           setModalCita={setModalCita}
           expedientesActivos={expedientesActivos}
           onGuardado={() => cargarCitasDelMes(mesVisible.mes, mesVisible.anio)}
+        />
+      )}
+
+      {modalEtapa && (
+        <ModalEtapaCalendario
+          modalEtapa={modalEtapa}
+          setModalEtapa={setModalEtapa}
+          onGuardado={recargarEtapas}
+          onVerExpediente={id => navigate(`/expedientes/${id}`)}
         />
       )}
     </div>
