@@ -25,12 +25,62 @@ function formatFechaAlerta(diasRestantes) {
   return `en ${diasRestantes} días`
 }
 
+function AlertaItem({ alerta, onAtender, onNavegar }) {
+  return (
+    <div
+      onClick={() => onNavegar(alerta.expedienteId)}
+      className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-foreground truncate">{alerta.etapaNombre ?? 'Etapa'}</p>
+          <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {alerta.numeroExpediente}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Límite: {formatearFecha(alerta.fechaLimite)}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${urgenciaClase(alerta.diasRestantes)}`}>
+            {formatFechaAlerta(alerta.diasRestantes)}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAtender(alerta) }}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Atender
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Topbar({ breadcrumb }) {
   const navigate = useNavigate()
   const usuario = getUsuario()
+  const esSocioPrincipal = usuario?.id === 1
   const [bellOpen, setBellOpen] = useState(false)
   const [alertas, setAlertas] = useState([])
   const bellRef = useRef(null)
+
+  // Separar alertas propias de las ajenas (solo aplica para Socio Principal;
+  // el backend ya limita a los demás roles a solo sus propias alertas)
+  const alertasPropias = esSocioPrincipal
+    ? alertas.filter(a => a.usuarioAsignadoId === usuario?.id || !a.usuarioAsignadoId)
+    : alertas
+
+  const alertasAjenas = esSocioPrincipal
+    ? alertas.filter(a => a.usuarioAsignadoId !== usuario?.id && a.usuarioAsignadoId)
+    : []
+
+  const gruposAjenos = alertasAjenas.reduce((grupos, alerta) => {
+    const nombre = alerta.usuarioAsignadoNombre ?? 'Sin asignar'
+    if (!grupos[nombre]) grupos[nombre] = []
+    grupos[nombre].push(alerta)
+    return grupos
+  }, {})
 
   useEffect(() => {
     cargarAlertas()
@@ -55,8 +105,7 @@ function Topbar({ breadcrumb }) {
     }
   }
 
-  async function handleAtender(e, alerta) {
-    e.stopPropagation()
+  async function handleAtender(alerta) {
     try {
       await marcarAtendida(alerta.expedienteId, alerta.etapaHistorialId)
       setAlertas(prev => prev.filter(a => a.etapaHistorialId !== alerta.etapaHistorialId))
@@ -140,44 +189,55 @@ function Topbar({ breadcrumb }) {
                   </span>
                 </div>
 
-                <ul className="divide-y divide-border max-h-80 overflow-y-auto">
+                <div className="divide-y divide-border max-h-80 overflow-y-auto">
                   {alertas.length === 0 ? (
-                    <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                       Sin alertas pendientes
-                    </li>
+                    </p>
                   ) : (
-                    alertas.map(alerta => (
-                      <li
-                        key={alerta.etapaHistorialId}
-                        onClick={() => irAlExpediente(alerta.expedienteId)}
-                        className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{alerta.etapaNombre ?? 'Etapa'}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
-                              {alerta.numeroExpediente}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Límite: {formatearFecha(alerta.fechaLimite)}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${urgenciaClase(alerta.diasRestantes)}`}>
-                              {formatFechaAlerta(alerta.diasRestantes)}
+                    <>
+                      {alertasPropias.length > 0 && (
+                        <>
+                          {esSocioPrincipal && (
+                            <div className="px-4 py-2 bg-secondary/30 border-b border-border">
+                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                                style={{ fontFamily: "'DM Mono', monospace" }}>
+                                Mis expedientes
+                              </span>
+                            </div>
+                          )}
+                          {alertasPropias.map(alerta => (
+                            <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                          ))}
+                        </>
+                      )}
+
+                      {esSocioPrincipal && alertasAjenas.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-secondary/30 border-b border-border border-t">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                              style={{ fontFamily: "'DM Mono', monospace" }}>
+                              Otros litigantes
                             </span>
-                            <button
-                              onClick={(e) => handleAtender(e, alerta)}
-                              className="text-xs text-muted-foreground hover:text-foreground underline"
-                            >
-                              Atender
-                            </button>
                           </div>
-                        </div>
-                      </li>
-                    ))
+                          {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
+                            <div key={nombre}>
+                              <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
+                                <span className="text-xs font-medium text-accent"
+                                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                                  {nombre}
+                                </span>
+                              </div>
+                              {alertasUsuario.map(alerta => (
+                                <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                              ))}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </>
                   )}
-                </ul>
+                </div>
 
                 <div className="px-4 py-2.5 border-t border-border bg-secondary/30">
                   <span className="text-xs text-muted-foreground">

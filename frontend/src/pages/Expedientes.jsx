@@ -189,7 +189,7 @@ function Expedientes() {
 
   async function cargarUsuarios() {
     try {
-      const res = await api.get('/usuarios')
+      const res = await api.get('/usuarios?excluirSoporte=true')
       setUsuarios(res.data.filter(u => u.activo))
     } catch {
       // silencioso
