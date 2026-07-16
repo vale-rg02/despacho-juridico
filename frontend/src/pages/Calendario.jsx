@@ -26,6 +26,21 @@ function soloFecha(fechaISO) {
   return fechaISO.slice(0, 10)
 }
 
+// true si la etapa trae una hora real (no medianoche); se lee del string ISO
+// directo, sin pasar por Date().getHours(), que la desfasaría según la zona
+// horaria del navegador (fechaLimite viene "etiquetada" como UTC sin conversión real)
+function tieneHoraReal(fechaISO) {
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  return match ? !(match[1] === '00' && match[2] === '00') : false
+}
+
+// FullCalendar interpreta los ISO sin sufijo de zona como hora "flotante" (la
+// muestra tal cual, sin convertir); como fechaLimite viene etiquetada como UTC
+// sin conversión real, hay que quitarle la "Z" para que no se desfase al renderizar
+function sinZonaUtc(fechaISO) {
+  return fechaISO.endsWith('Z') ? fechaISO.slice(0, -1) : fechaISO
+}
+
 async function obtenerEtapasEnLotes(expedientes) {
   const pares = []
   for (let i = 0; i < expedientes.length; i += TAMANO_LOTE) {
@@ -44,10 +59,24 @@ function construirEventosEtapas(pares) {
     etapas
       .filter(etapa => etapa.fechaLimite && !etapa.fechaCompletada)
       .forEach(etapa => {
+        const tieneHora = tieneHoraReal(etapa.fechaLimite)
         eventos.push({
           id: `etapa-${etapa.id}`,
           title: `${expediente.numeroExpediente} — ${etapa.etapaNombre}`,
-          date: soloFecha(etapa.fechaLimite),
+          // Con hora: evento con inicio/fin (1 hora de duración por defecto),
+          // visible en el bloque correcto en vistas de semana y día.
+          // Sin hora: evento de día completo, como antes.
+          ...(tieneHora
+            ? {
+                start: sinZonaUtc(etapa.fechaLimite),
+                end: sinZonaUtc(new Date(new Date(etapa.fechaLimite).getTime() + 60 * 60 * 1000).toISOString()),
+                allDay: false,
+              }
+            : {
+                date: soloFecha(etapa.fechaLimite),
+                allDay: true,
+              }
+          ),
           backgroundColor: colorPorPrioridad(expediente.prioridad),
           borderColor: colorPorPrioridad(expediente.prioridad),
           extendedProps: {

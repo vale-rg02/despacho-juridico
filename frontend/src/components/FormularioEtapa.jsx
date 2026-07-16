@@ -12,7 +12,9 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
   const [etapaCatalogoId, setEtapaCatalogoId] = useState('')
   const [fechaInicio, setFechaInicio] = useState(hoyISO())
+  const [horaInicio, setHoraInicio] = useState('')
   const [fechaLimite, setFechaLimite] = useState('')
+  const [horaLimite, setHoraLimite] = useState('')
   const [notas, setNotas] = useState('')
 
   const [error, setError] = useState('')
@@ -56,9 +58,13 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
       await registrarEtapa(expedienteId, {
         etapaCatalogoId: Number(etapaCatalogoId),
         fechaInicio,
+        horaInicio: horaInicio || null,
         fechaLimite: fechaLimite || null,
+        horaLimite: horaLimite || null,
         notas: notas || null,
       })
+      setHoraInicio('')
+      setHoraLimite('')
       onGuardado()
     } catch {
       setError('No se pudo registrar la etapa')
@@ -98,12 +104,21 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
-          <input
-            type="date"
-            value={fechaInicio}
-            onChange={e => setFechaInicio(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={e => setFechaInicio(e.target.value)}
+              className={`${inputClass} flex-1`}
+            />
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={e => setHoraInicio(e.target.value)}
+              title="Hora (opcional)"
+              className={`${inputClass} w-28`}
+            />
+          </div>
         </div>
 
         <div>
@@ -113,12 +128,21 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               <span className="text-muted-foreground/60 font-normal"> (sugerida)</span>
             )}
           </label>
-          <input
-            type="date"
-            value={fechaLimite}
-            onChange={e => setFechaLimite(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={fechaLimite}
+              onChange={e => setFechaLimite(e.target.value)}
+              className={`${inputClass} flex-1`}
+            />
+            <input
+              type="time"
+              value={horaLimite}
+              onChange={e => setHoraLimite(e.target.value)}
+              title="Hora (opcional)"
+              className={`${inputClass} w-28`}
+            />
+          </div>
           {etapaSeleccionada?.terminoDias == null && etapaCatalogoId && (
             <p className="text-xs text-muted-foreground mt-1">Sin plazo definido aún. Captúralo manualmente si lo conoces.</p>
           )}

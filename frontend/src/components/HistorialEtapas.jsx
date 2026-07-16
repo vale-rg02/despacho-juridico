@@ -1,5 +1,24 @@
 import { formatearFecha } from '../utils/formato'
 
+// El backend guarda fecha y hora "etiquetadas" como UTC sin convertirlas de
+// verdad (mismo patrón que fechaLimite/fechaAcuerdo en el resto de la app), así
+// que se arma el Date con sus componentes locales (sin conversión de zona) en
+// vez de parsear el ISO con new Date(), que desfasaría la hora según la zona
+// horaria del navegador.
+function formatearFechaConHora(fechaStr) {
+  if (!fechaStr) return '—'
+  const match = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (!match) return '—'
+  const [, anio, mes, dia, horas, minutos] = match
+  const fecha = new Date(Number(anio), Number(mes) - 1, Number(dia), Number(horas), Number(minutos))
+
+  const soloFecha = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (horas === '00' && minutos === '00') return soloFecha
+
+  const hora = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return `${soloFecha}, ${hora}`
+}
+
 function diasRestantes(fechaLimite) {
   if (!fechaLimite) return null
   const hoy = new Date()
@@ -64,8 +83,8 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
               <EstadoFecha etapa={etapa} />
             </div>
             <div className="flex flex-wrap gap-x-4 text-xs text-muted-foreground mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
-              <span>Inicio: {formatearFecha(etapa.fechaInicio)}</span>
-              <span>Límite: {etapa.fechaLimite ? formatearFecha(etapa.fechaLimite) : '—'}</span>
+              <span>Inicio: {formatearFechaConHora(etapa.fechaInicio)}</span>
+              <span>Límite: {etapa.fechaLimite ? formatearFechaConHora(etapa.fechaLimite) : '—'}</span>
               {etapa.fechaCompletada && (
                 <span>Completada: {formatearFecha(etapa.fechaCompletada)}</span>
               )}

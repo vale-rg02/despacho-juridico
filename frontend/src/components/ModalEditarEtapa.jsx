@@ -2,13 +2,26 @@ import { useState, useEffect } from 'react'
 import { getEtapasCatalogo, editarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
 
+// Extrae "HH:MM" directo del string ISO (sin pasar por new Date(), que convertiría
+// a la zona horaria del navegador y desfasaría la hora) si trae una hora real, no medianoche
+function horaDe(fechaISO) {
+  if (!fechaISO) return ''
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  if (!match) return ''
+  const [, horas, minutos] = match
+  if (horas === '00' && minutos === '00') return ''
+  return `${horas}:${minutos}`
+}
+
 function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerrar }) {
   const [catalogo, setCatalogo] = useState([])
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true)
 
   const [etapaCatalogoId, setEtapaCatalogoId] = useState(etapa.etapaCatalogoId ?? '')
   const [fechaInicio, setFechaInicio] = useState(etapa.fechaInicio.slice(0, 10))
+  const [horaInicio, setHoraInicio] = useState(horaDe(etapa.fechaInicio))
   const [fechaLimite, setFechaLimite] = useState(etapa.fechaLimite ? etapa.fechaLimite.slice(0, 10) : '')
+  const [horaLimite, setHoraLimite] = useState(horaDe(etapa.fechaLimite))
   const [notas, setNotas] = useState(etapa.notas ?? '')
 
   const [error, setError] = useState('')
@@ -43,7 +56,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
       await editarEtapa(expedienteId, etapa.id, {
         etapaCatalogoId: Number(etapaCatalogoId),
         fechaInicio,
+        horaInicio: horaInicio || null,
         fechaLimite: fechaLimite || null,
+        horaLimite: horaLimite || null,
         notas: notas || null,
       })
       onGuardado()
@@ -93,22 +108,40 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={e => setFechaInicio(e.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={e => setFechaInicio(e.target.value)}
+                className={`${inputClass} flex-1`}
+              />
+              <input
+                type="time"
+                value={horaInicio}
+                onChange={e => setHoraInicio(e.target.value)}
+                title="Hora (opcional)"
+                className={`${inputClass} w-24`}
+              />
+            </div>
           </div>
 
           <div>
             <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
-            <input
-              type="date"
-              value={fechaLimite}
-              onChange={e => setFechaLimite(e.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={fechaLimite}
+                onChange={e => setFechaLimite(e.target.value)}
+                className={`${inputClass} flex-1`}
+              />
+              <input
+                type="time"
+                value={horaLimite}
+                onChange={e => setHoraLimite(e.target.value)}
+                title="Hora (opcional)"
+                className={`${inputClass} w-24`}
+              />
+            </div>
           </div>
         </div>
 
