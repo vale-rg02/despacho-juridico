@@ -67,5 +67,14 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(c => c.ExpedienteId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Sin esto quedaba en NO ACTION por default: no se podía eliminar una etapa
+        // que ya hubiera generado notificaciones. Se conserva el historial de la
+        // notificación, solo se desvincula de la etapa eliminada.
+        modelBuilder.Entity<Notificacion>()
+            .HasOne(n => n.HistorialEtapa)
+            .WithMany(h => h.Notificaciones)
+            .HasForeignKey(n => n.HistorialEtapaId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
