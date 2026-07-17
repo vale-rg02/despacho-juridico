@@ -548,6 +548,133 @@ public class ExpedientesController : ControllerBase
         return Ok(new { mensaje = "Alerta marcada como atendida" });
     }
 
+    // GET /api/expedientes/5/exhortos
+    [HttpGet("{id}/exhortos")]
+    public async Task<IActionResult> GetExhortos(int id)
+    {
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var exhortos = await _context.Exhortos
+            .Include(e => e.RegistradoPor)
+            .Where(e => e.ExpedienteId == id)
+            .OrderByDescending(e => e.CreadoEn)
+            .Select(e => new ExhortoResponse
+            {
+                Id = e.Id,
+                NumeroExhorto = e.NumeroExhorto,
+                Ciudad = e.Ciudad,
+                Notas = e.Notas,
+                CreadoEn = e.CreadoEn,
+                RegistradoPorNombre = e.RegistradoPor.Nombre
+            })
+            .ToListAsync();
+
+        return Ok(exhortos);
+    }
+
+    // POST /api/expedientes/5/exhortos
+    [HttpPost("{id}/exhortos")]
+    public async Task<IActionResult> RegistrarExhorto(int id, [FromBody] CrearExhortoRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var usuarioId = ObtenerUsuarioId();
+
+        var exhorto = new Exhorto
+        {
+            ExpedienteId = id,
+            NumeroExhorto = request.NumeroExhorto,
+            Ciudad = request.Ciudad,
+            Notas = request.Notas,
+            RegistradoPorId = usuarioId
+        };
+
+        _context.Exhortos.Add(exhorto);
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(id, usuarioId, "exhorto_nuevo",
+            $"Exhorto '{exhorto.NumeroExhorto}' registrado ({exhorto.Ciudad})");
+
+        await _context.Entry(exhorto).Reference(e => e.RegistradoPor).LoadAsync();
+
+        var response = new ExhortoResponse
+        {
+            Id = exhorto.Id,
+            NumeroExhorto = exhorto.NumeroExhorto,
+            Ciudad = exhorto.Ciudad,
+            Notas = exhorto.Notas,
+            CreadoEn = exhorto.CreadoEn,
+            RegistradoPorNombre = exhorto.RegistradoPor.Nombre
+        };
+
+        return CreatedAtAction(nameof(GetExhortos), new { id }, response);
+    }
+
+    // PATCH /api/expedientes/5/exhortos/12
+    [HttpPatch("{id}/exhortos/{exhortoId}")]
+    public async Task<IActionResult> EditarExhorto(int id, int exhortoId, [FromBody] EditarExhortoRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var exhorto = await _context.Exhortos
+            .Include(e => e.Expediente)
+            .Include(e => e.RegistradoPor)
+            .FirstOrDefaultAsync(e => e.Id == exhortoId && e.ExpedienteId == id);
+
+        if (exhorto == null || !TieneAccesoAExpediente(exhorto.Expediente.UsuarioAsignadoId))
+            return NotFound(new { mensaje = "Exhorto no encontrado en este expediente" });
+
+        exhorto.NumeroExhorto = request.NumeroExhorto;
+        exhorto.Ciudad = request.Ciudad;
+        exhorto.Notas = request.Notas;
+
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        await RegistrarBitacora(id, usuarioId, "exhorto_editado",
+            $"Exhorto '{exhorto.NumeroExhorto}' actualizado ({exhorto.Ciudad})");
+
+        return Ok(new ExhortoResponse
+        {
+            Id = exhorto.Id,
+            NumeroExhorto = exhorto.NumeroExhorto,
+            Ciudad = exhorto.Ciudad,
+            Notas = exhorto.Notas,
+            CreadoEn = exhorto.CreadoEn,
+            RegistradoPorNombre = exhorto.RegistradoPor.Nombre
+        });
+    }
+
+    // DELETE /api/expedientes/5/exhortos/12
+    [HttpDelete("{id}/exhortos/{exhortoId}")]
+    public async Task<IActionResult> EliminarExhorto(int id, int exhortoId)
+    {
+        var exhorto = await _context.Exhortos
+            .Include(e => e.Expediente)
+            .FirstOrDefaultAsync(e => e.Id == exhortoId && e.ExpedienteId == id);
+
+        if (exhorto == null || !TieneAccesoAExpediente(exhorto.Expediente.UsuarioAsignadoId))
+            return NotFound(new { mensaje = "Exhorto no encontrado en este expediente" });
+
+        var numeroExhorto = exhorto.NumeroExhorto;
+
+        _context.Exhortos.Remove(exhorto);
+        await _context.SaveChangesAsync();
+
+        var usuarioId = ObtenerUsuarioId();
+        await RegistrarBitacora(id, usuarioId, "exhorto_eliminado", $"Exhorto '{numeroExhorto}' eliminado");
+
+        return NoContent();
+    }
+
     // DELETE /api/expedientes/5
     [HttpDelete("{id}")]
     public async Task<IActionResult> Eliminar(int id)

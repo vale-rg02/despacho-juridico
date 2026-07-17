@@ -2,14 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
+import FormularioExhorto from '../components/FormularioExhorto'
+import ListaExhortos from '../components/ListaExhortos'
+import ModalEditarExhorto from '../components/ModalEditarExhorto'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
+import { getExhortos, eliminarExhorto } from '../services/exhortos'
 import { getUsuario } from '../services/auth'
 import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -144,6 +148,9 @@ function DetalleExpediente() {
   const [acuerdosNuevosIds, setAcuerdosNuevosIds] = useState(new Set())
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
   const [etapaEditando, setEtapaEditando] = useState(null)
+  const [exhortos, setExhortos] = useState([])
+  const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
+  const [exhortoEditando, setExhortoEditando] = useState(null)
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -162,6 +169,9 @@ function DetalleExpediente() {
 
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
+
+      const dataExhortos = await getExhortos(id)
+      setExhortos(dataExhortos)
 
       const dataAcuerdos = await getAcuerdos(id)
       setAcuerdos(dataAcuerdos)
@@ -244,6 +254,28 @@ function DetalleExpediente() {
       setTimeout(() => setExito(''), 3000)
     } catch {
       setError('No se pudo eliminar la etapa')
+    }
+  }
+
+  function handleEditarExhorto(exhorto) {
+    setExhortoEditando(exhorto)
+  }
+
+  async function handleGuardarEdicionExhorto() {
+    setExhortoEditando(null)
+    await cargarDatos()
+    setExito('Exhorto actualizado correctamente')
+    setTimeout(() => setExito(''), 3000)
+  }
+
+  async function handleEliminarExhorto(exhortoId) {
+    try {
+      await eliminarExhorto(id, exhortoId)
+      await cargarDatos()
+      setExito('Exhorto eliminado correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo eliminar el exhorto')
     }
   }
 
@@ -444,6 +476,51 @@ function DetalleExpediente() {
               tipoJuicio={expediente.tipoJuicio}
               onGuardado={handleGuardarEdicionEtapa}
               onCerrar={() => setEtapaEditando(null)}
+            />
+          )}
+        </section>
+
+        {/* Exhortos */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <EtiquetaSeccion>Exhortos</EtiquetaSeccion>
+            {!mostrarFormExhorto && (
+              <button
+                onClick={() => setMostrarFormExhorto(true)}
+                className="text-xs text-accent hover:underline font-medium"
+              >
+                + Registrar exhorto
+              </button>
+            )}
+          </div>
+
+          {mostrarFormExhorto && (
+            <div className="mb-3">
+              <FormularioExhorto
+                expedienteId={id}
+                onGuardado={() => {
+                  setMostrarFormExhorto(false)
+                  cargarDatos()
+                }}
+                onCancelar={() => setMostrarFormExhorto(false)}
+              />
+            </div>
+          )}
+
+          <div className="bg-card border border-border rounded-lg p-4">
+            <ListaExhortos
+              exhortos={exhortos}
+              onEditar={handleEditarExhorto}
+              onEliminar={handleEliminarExhorto}
+            />
+          </div>
+
+          {exhortoEditando && (
+            <ModalEditarExhorto
+              expedienteId={id}
+              exhorto={exhortoEditando}
+              onGuardado={handleGuardarEdicionExhorto}
+              onCerrar={() => setExhortoEditando(null)}
             />
           )}
         </section>
