@@ -60,6 +60,10 @@ export function calcularFechaLimite(fechaInicioStr, terminoDias, esDiasHabiles) 
   const fechaInicio = new Date(fechaInicioStr + 'T00:00:00Z')
   if (isNaN(fechaInicio.getTime())) return null
 
+  // Validar año en rango razonable (evita años absurdos como 222222)
+  const año = fechaInicio.getUTCFullYear()
+  if (año < 1900 || año > 2100) return null
+
   const resultado = esDiasHabiles
     ? sumarDiasHabiles(fechaInicio, terminoDias)
     : sumarDiasNaturales(fechaInicio, terminoDias)
