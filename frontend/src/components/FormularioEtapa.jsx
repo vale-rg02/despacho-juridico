@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getEtapasCatalogo, registrarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
 
@@ -35,13 +35,24 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
     }
   }
 
+  const debounceRef = useRef(null)
+
   useEffect(() => {
     if (!etapaCatalogoId) return
     const etapa = catalogo.find(e => e.id === Number(etapaCatalogoId))
     if (!etapa) return
 
-    const sugerida = calcularFechaLimite(fechaInicio, etapa.terminoDias, etapa.esDiasHabiles)
-    setFechaLimite(sugerida ?? '')
+    // Debounce: evita recalcular en cada tecleo mientras se escribe la fecha manualmente
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(() => {
+      const sugerida = calcularFechaLimite(fechaInicio, etapa.terminoDias, etapa.esDiasHabiles)
+      setFechaLimite(sugerida ?? '')
+    }, 300)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [etapaCatalogoId, fechaInicio, catalogo])
 
   async function handleSubmit(e) {
@@ -110,6 +121,7 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               type="date"
               value={fechaInicio}
               onChange={e => setFechaInicio(e.target.value)}
+              onClick={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
               className={`${inputBase} flex-1 min-w-0`}
             />
             <input
@@ -134,6 +146,7 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               type="date"
               value={fechaLimite}
               onChange={e => setFechaLimite(e.target.value)}
+              onClick={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
               className={`${inputBase} flex-1 min-w-0`}
             />
             <input
