@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Calendar } from 'lucide-react'
 import { crearCita, editarCita, eliminarCita } from '../services/citas'
+import ModalHeader from './ModalHeader'
 
 function fechaHoraALocal(fechaHoraISO) {
   const d = new Date(fechaHoraISO)
@@ -77,9 +79,11 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         onSubmit={handleSubmit}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4"
       >
-        <h3 className="text-base font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          {esEdicion ? 'Editar cita' : 'Nueva cita'}
-        </h3>
+        <ModalHeader
+          icon={Calendar}
+          tono="primary"
+          titulo={esEdicion ? 'Editar cita' : 'Nueva cita'}
+        />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">

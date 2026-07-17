@@ -1,4 +1,6 @@
+import { ClipboardList } from 'lucide-react'
 import { formatearFecha } from '../utils/formato'
+import EstadoVacio from './EstadoVacio'
 
 // El backend guarda fecha y hora "etiquetadas" como UTC sin convertirlas de
 // verdad (mismo patrón que fechaLimite/fechaAcuerdo en el resto de la app), así
@@ -26,6 +28,19 @@ function diasRestantes(fechaLimite) {
   const limite = new Date(fechaLimite)
   const diff = Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24))
   return diff
+}
+
+// Color del borde izquierdo según urgencia — usa clases border-l-* dedicadas
+// (nunca el shorthand border-{color}) para no pisar border-left-color con las
+// clases border-t/r/b-* del contenedor (mismo tipo de conflicto de utilidades
+// Tailwind que ya causó el bug visual de los inputs de fecha/hora)
+function colorUrgencia(etapa) {
+  if (etapa.fechaCompletada) return 'border-l-emerald-400'
+  if (!etapa.fechaLimite) return 'border-l-border'
+  const dias = diasRestantes(etapa.fechaLimite)
+  if (dias < 0) return 'border-l-red-400'
+  if (dias <= 7) return 'border-l-amber-400'
+  return 'border-l-accent/40'
 }
 
 function EstadoFecha({ etapa }) {
@@ -61,9 +76,11 @@ function EstadoFecha({ etapa }) {
 function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar }) {
   if (etapas.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-4">
-        Sin etapas registradas todavía
-      </p>
+      <EstadoVacio
+        icon={ClipboardList}
+        titulo="Sin etapas registradas todavía"
+        subtitulo="Registra la primera etapa procesal para comenzar a darle seguimiento."
+      />
     )
   }
 
@@ -74,8 +91,8 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
         return (
           <div
             key={etapa.id}
-            className={`rounded-md p-3 border ${
-              activa ? 'bg-accent/5 border-accent/20' : 'border-border'
+            className={`rounded-md p-3 border-t border-r border-b border-l-4 transition hover:shadow-md hover:-translate-y-0.5 ${colorUrgencia(etapa)} ${
+              activa ? 'bg-accent/5 border-t-accent/20 border-r-accent/20 border-b-accent/20' : 'border-t-border border-r-border border-b-border'
             }`}
           >
             <div className="flex justify-between items-start mb-1.5">

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock, XCircle, CheckCircle, Filter, ChevronDown } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import EstadoVacio from '../components/EstadoVacio'
 import { getUsuario } from '../services/auth'
 import { getPanelNotificaciones, getUsuariosDisponibles, marcarAtendida } from '../services/notificaciones'
 import { formatearFechaCorta } from '../utils/formato'
@@ -18,15 +19,11 @@ function textoDiasRestantes(dias) {
   return `en ${dias} días`
 }
 
-function VacioMsg({ texto }) {
-  return <p className="text-sm text-muted-foreground text-center py-10">{texto}</p>
-}
-
 function CardUrgente({ exp, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="text-left bg-card border border-border rounded-lg p-4 hover:border-accent/40 transition"
+      className="text-left bg-card border border-border rounded-lg p-4 transition hover:border-accent/40 hover:shadow-md hover:-translate-y-0.5"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="text-xs font-medium text-accent" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -266,7 +263,11 @@ function Notificaciones() {
             <div className="flex-1 min-w-0">
               {seccionActiva === 'urgentes' && (
                 panel.expedientesUrgentes.length === 0 ? (
-                  <VacioMsg texto="Sin expedientes urgentes" />
+                  <EstadoVacio
+                    icon={AlertTriangle}
+                    titulo="Sin expedientes urgentes"
+                    subtitulo="Cuando un expediente entre en estado urgente aparecerá en esta lista."
+                  />
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {panel.expedientesUrgentes.map(exp => (
@@ -278,7 +279,11 @@ function Notificaciones() {
 
               {seccionActiva === 'proximas' && (
                 panel.proximas.length === 0 ? (
-                  <VacioMsg texto="Sin etapas próximas a vencer" />
+                  <EstadoVacio
+                    icon={Clock}
+                    titulo="Sin etapas próximas a vencer"
+                    subtitulo="Las etapas con fecha límite cercana se mostrarán aquí."
+                  />
                 ) : (
                   <div className="bg-card border border-border rounded-lg overflow-hidden">
                     {panel.proximas.map(item => (
@@ -290,7 +295,11 @@ function Notificaciones() {
 
               {seccionActiva === 'vencidas' && (
                 panel.vencidas.length === 0 ? (
-                  <VacioMsg texto="Sin etapas vencidas" />
+                  <EstadoVacio
+                    icon={XCircle}
+                    titulo="Sin etapas vencidas"
+                    subtitulo="Buen trabajo — no hay plazos vencidos pendientes."
+                  />
                 ) : (
                   <div className="bg-card border border-border rounded-lg overflow-hidden">
                     {panel.vencidas.map(item => (
@@ -302,7 +311,11 @@ function Notificaciones() {
 
               {seccionActiva === 'atendidas' && (
                 panel.atendidas.length === 0 ? (
-                  <VacioMsg texto="Sin etapas atendidas" />
+                  <EstadoVacio
+                    icon={CheckCircle}
+                    titulo="Sin etapas atendidas"
+                    subtitulo="Las etapas que marques como atendidas aparecerán aquí."
+                  />
                 ) : (
                   <div className="bg-card border border-border rounded-lg overflow-hidden">
                     {panel.atendidas.map(item => (

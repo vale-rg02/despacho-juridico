@@ -178,7 +178,7 @@ function Topbar({ breadcrumb }) {
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={14} className="text-accent" />
                     <span
-                      className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+                      className="text-xs font-medium uppercase tracking-widest text-foreground"
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
                       Alertas próximas

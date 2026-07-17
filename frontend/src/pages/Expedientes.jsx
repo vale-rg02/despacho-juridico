@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import EstadoVacio from '../components/EstadoVacio'
 import { getExpedientes, getExpedientesPorUsuario } from '../services/expedientes'
 import { getExpedientesConAcuerdosNoVistos } from '../services/acuerdos'
 import { getUsuario } from '../services/auth'
@@ -44,7 +45,11 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
 
   if (expedientes.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground text-sm">No se encontraron expedientes.</div>
+      <EstadoVacio
+        icon={Search}
+        titulo="No se encontraron expedientes"
+        subtitulo="Ajusta la búsqueda o los filtros para ver más resultados."
+      />
     )
   }
 
@@ -71,7 +76,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
             <tr
               key={exp.id}
               onClick={() => onRowClick(exp.id)}
-              className={`border-b border-border last:border-0 hover:bg-accent/5 hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
+              className={`border-b border-border last:border-0 hover:bg-accent/5 hover:shadow-[inset_2px_0_0_var(--accent)] hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
             >
               <td className="px-4 py-3.5 whitespace-nowrap">
                 <span className="inline-flex items-center gap-1.5">

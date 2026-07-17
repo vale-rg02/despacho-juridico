@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Calendar } from 'lucide-react'
 import { editarEtapa } from '../services/etapas'
+import ModalHeader from './ModalHeader'
 
 // Extrae "HH:MM" directo del string ISO, sin pasar por new Date() (desfasaría
 // la hora según la zona horaria del navegador); '' si es medianoche o no hay fecha
@@ -47,14 +49,12 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
       <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-xl space-y-4">
-        <div>
-          <h3 className="text-base font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-            {modalEtapa.etapaNombre}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
-            Exp. {modalEtapa.numeroExpediente}
-          </p>
-        </div>
+        <ModalHeader
+          icon={Calendar}
+          tono="accent"
+          titulo={modalEtapa.etapaNombre}
+          subtitulo={`Exp. ${modalEtapa.numeroExpediente}`}
+        />
 
         <div className="space-y-3">
           <div>

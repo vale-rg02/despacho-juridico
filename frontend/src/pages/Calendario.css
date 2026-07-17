@@ -25,6 +25,21 @@
   font-size: 0.75rem;
   text-transform: capitalize;
   box-shadow: none !important;
+  border-radius: 9999px !important;
+  margin: 0 !important;
+}
+
+/* Pastillas independientes en vez del grupo de botones unido por defecto de
+   FullCalendar (bordes cuadrados fusionados) */
+.fc-wrapper .fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fc-wrapper .fc-button-group {
+  display: flex;
+  gap: 6px;
 }
 
 .fc-wrapper .fc-col-header-cell-cushion,

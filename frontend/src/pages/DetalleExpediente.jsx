@@ -14,6 +14,8 @@ import { getUsuario } from '../services/auth'
 import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
+import EtiquetaSeccion from '../components/EtiquetaSeccion'
+import EstadoVacio from '../components/EstadoVacio'
 
 const estadoConfig = {
   Abierto: {
@@ -370,12 +372,7 @@ function DetalleExpediente() {
 
         {/* Info grid */}
         <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            Información del expediente
-          </h2>
+          <EtiquetaSeccion className="mb-3">Información del expediente</EtiquetaSeccion>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
             <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
@@ -390,7 +387,7 @@ function DetalleExpediente() {
             <div className="flex items-center gap-2 mb-3">
               <StickyNote size={14} className="text-accent" />
               <span
-                className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-widest text-foreground"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 Notas del expediente
@@ -405,12 +402,7 @@ function DetalleExpediente() {
         {/* Etapas */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2
-              className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              Historial de etapas procesales
-            </h2>
+            <EtiquetaSeccion>Historial de etapas procesales</EtiquetaSeccion>
             {!mostrarFormEtapa && (
               <button
                 onClick={() => setMostrarFormEtapa(true)}
@@ -459,10 +451,10 @@ function DetalleExpediente() {
         {/* Acuerdos del Poder Judicial */}
         <section>
           <h2
-            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+            className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
-            <Scale size={13} />
+            <Scale size={13} className="text-accent" />
             Acuerdos del Poder Judicial
             {acuerdosNuevosIds.size > 0 && (
               <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
@@ -473,9 +465,11 @@ function DetalleExpediente() {
 
           {acuerdos.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-5">
-              <p className="text-sm text-muted-foreground text-center py-2">
-                Sin acuerdos registrados del Poder Judicial
-              </p>
+              <EstadoVacio
+                icon={Scale}
+                titulo="Sin acuerdos registrados"
+                subtitulo="Los acuerdos del Poder Judicial aparecerán aquí automáticamente."
+              />
             </div>
           ) : (
             <div className="space-y-3">
@@ -513,17 +507,19 @@ function DetalleExpediente() {
         {usuario?.rol === 'Socio' && (
           <section>
             <h2
-              className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+              className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <ClipboardList size={13} />
+              <ClipboardList size={13} className="text-accent" />
               Bitácora de cambios
             </h2>
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               {bitacora.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  Sin registros todavía
-                </p>
+                <EstadoVacio
+                  icon={ClipboardList}
+                  titulo="Sin registros todavía"
+                  subtitulo="Los cambios realizados en este expediente se registrarán aquí."
+                />
               ) : (
                 <table className="w-full text-sm border-collapse">
                   <thead>
