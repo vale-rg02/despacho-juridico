@@ -115,6 +115,8 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
                 value={fechaInicio}
                 onChange={e => setFechaInicio(e.target.value)}
                 onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+                min="1900-01-01"
+                max="2100-12-31"
                 className={`${inputBase} flex-1 min-w-0`}
               />
               <input
@@ -135,6 +137,8 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
                 value={fechaLimite}
                 onChange={e => setFechaLimite(e.target.value)}
                 onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+                min="1900-01-01"
+                max="2100-12-31"
                 className={`${inputBase} flex-1 min-w-0`}
               />
               <input

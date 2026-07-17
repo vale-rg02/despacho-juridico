@@ -123,6 +123,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
+              min="1900-01-01"
+              max="2100-12-31"
               className={inputClass}
             />
           </div>
