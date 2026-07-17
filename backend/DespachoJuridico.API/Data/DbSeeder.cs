@@ -41,14 +41,24 @@ public static class DbSeeder
 
     private static async Task SeedBancosAsync(AppDbContext context)
     {
-        if (await context.Bancos.AnyAsync()) return;
-
-        context.Bancos.AddRange(
+        // Cada banco se revisa individualmente (en vez de "si ya hay alguno, no tocar nada")
+        // para poder agregar bancos nuevos a bases de datos ya sembradas, como producción.
+        var bancos = new[]
+        {
             new Banco { Nombre = "BBVA México", Telefono = "800-226-2663" },
             new Banco { Nombre = "HSBC", Telefono = "800-712-4722" },
             new Banco { Nombre = "Santander", Telefono = "800-501-0000" },
-            new Banco { Nombre = "Banco Azteca", Telefono = "800-912-3456" }
-        );
+            new Banco { Nombre = "Banco Azteca", Telefono = "800-912-3456" },
+            new Banco { Nombre = "Scotiabank", Telefono = "800-704-5900" }
+        };
+
+        var nombresExistentes = await context.Bancos.Select(b => b.Nombre).ToListAsync();
+
+        foreach (var banco in bancos)
+        {
+            if (!nombresExistentes.Contains(banco.Nombre))
+                context.Bancos.Add(banco);
+        }
 
         await context.SaveChangesAsync();
     }
