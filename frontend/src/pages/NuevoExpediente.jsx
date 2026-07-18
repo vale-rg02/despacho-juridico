@@ -5,7 +5,7 @@ import Topbar from '../components/Topbar'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios } from '../services/catalogos'
 
-const MATERIAS = ['Civil', 'Mercantil', 'Familiar']
+const MATERIAS = ['Civil', 'Mercantil', 'Familiar', 'Arrendamiento']
 const TIPOS_JUICIO = ['Hipotecario', 'Oral Mercantil', 'Arrendamiento', 'Familiar']
 const PRIORIDADES = [
   { valor: 0, etiqueta: 'Normal' },
