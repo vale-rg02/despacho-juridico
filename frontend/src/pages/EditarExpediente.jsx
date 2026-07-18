@@ -5,8 +5,8 @@ import Topbar from '../components/Topbar'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios } from '../services/catalogos'
 
-const MATERIAS = ['Hipotecario', 'Mercantil', 'Arrendamiento', 'Familiar']
-const TIPOS_JUICIO = ['Civil', 'Oral Mercantil', 'Familiar', 'Arrendamiento']
+const MATERIAS = ['Civil', 'Mercantil', 'Familiar']
+const TIPOS_JUICIO = ['Hipotecario', 'Oral Mercantil', 'Arrendamiento', 'Familiar']
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
