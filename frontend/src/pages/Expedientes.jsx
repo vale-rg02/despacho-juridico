@@ -178,7 +178,7 @@ function Expedientes() {
   const [expedientesConAcuerdosNuevos, setExpedientesConAcuerdosNuevos] = useState(new Set())
 
   useEffect(() => {
-    if (esSocioPrincipal) cargarUsuarios()
+    cargarUsuarios()
     cargarAcuerdosNoVistos()
   }, [])
 
@@ -195,7 +195,9 @@ function Expedientes() {
   async function cargarUsuarios() {
     try {
       const res = await api.get('/usuarios?excluirSoporte=true')
-      setUsuarios(res.data.filter(u => u.activo))
+      // Para no-admins el backend ya regresa solo Id/Nombre (sin "activo") y ya
+      // filtrados a usuarios activos; para admins sí trae el campo y lo filtramos aquí
+      setUsuarios(res.data.filter(u => u.activo !== false))
     } catch {
       // silencioso
     }
@@ -205,7 +207,7 @@ function Expedientes() {
     setCargando(true)
     setError('')
     try {
-      if (esSocioPrincipal && filtroUsuarioId === 0) {
+      if (filtroUsuarioId === 0) {
         const [porUsuario, cerrados] = await Promise.all([
           getExpedientesPorUsuario(busqueda),
           getExpedientes({ estado: 'Cerrado', busqueda, usuarioId: 0 }),
@@ -250,7 +252,6 @@ function Expedientes() {
   }
 
   const nombreFiltroUsuario = useMemo(() => {
-    if (!esSocioPrincipal) return null
     if (filtroUsuarioId === 0) return 'Todos los usuarios'
     if (filtroUsuarioId === usuario?.id) return 'Mis expedientes'
     const u = usuarios.find(u => u.id === filtroUsuarioId)
@@ -258,7 +259,6 @@ function Expedientes() {
   }, [filtroUsuarioId, usuarios])
 
   const tituloBloque = useMemo(() => {
-    if (!esSocioPrincipal) return `Expedientes de ${usuario?.nombre}`
     if (filtroUsuarioId === 0) return null
     if (filtroUsuarioId === usuario?.id) return 'Mis expedientes'
     const u = usuarios.find(u => u.id === filtroUsuarioId)
@@ -288,45 +288,43 @@ function Expedientes() {
             )}
           </div>
 
-          {/* Filtro de usuario — solo Socio Principal */}
-          {esSocioPrincipal && (
-            <div className="relative">
-              <button
-                onClick={() => setDropdownUsuarioOpen(o => !o)}
-                className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
-              >
-                <Filter size={12} className="text-muted-foreground" />
-                <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
-                <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {dropdownUsuarioOpen && (
-                <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
+          {/* Filtro de usuario — todos/mis expedientes/un compañero específico */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownUsuarioOpen(o => !o)}
+              className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+            >
+              <Filter size={12} className="text-muted-foreground" />
+              <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
+              <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {dropdownUsuarioOpen && (
+              <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
+                <button
+                  onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
+                >
+                  Todos los usuarios
+                </button>
+                <button
+                  onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                >
+                  Mis expedientes
+                </button>
+                <div className="border-t border-border" />
+                {usuarios.filter(u => u.id !== usuario?.id).map(u => (
                   <button
-                    onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
+                    key={u.id}
+                    onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
                   >
-                    Todos los usuarios
+                    {u.nombre}
                   </button>
-                  <button
-                    onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
-                  >
-                    Mis expedientes
-                  </button>
-                  <div className="border-t border-border" />
-                  {usuarios.filter(u => u.id !== usuario?.id).map(u => (
-                    <button
-                      key={u.id}
-                      onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
-                    >
-                      {u.nombre}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => navigate('/expedientes/nuevo')}
@@ -348,8 +346,8 @@ function Expedientes() {
           </div>
         )}
 
-        {/* Bloques por usuario cuando Socio Principal selecciona Todos */}
-        {esSocioPrincipal && filtroUsuarioId === 0 ? (
+        {/* Bloques agrupados por usuario cuando se selecciona "Todos" */}
+        {filtroUsuarioId === 0 ? (
           expedientesPorUsuario.map(grupo => (
             <BloqueExpandible
               key={grupo.usuarioId}

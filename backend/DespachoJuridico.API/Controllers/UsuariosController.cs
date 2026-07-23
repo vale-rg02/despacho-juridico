@@ -44,6 +44,7 @@ public class UsuariosController : ControllerBase
         if (!esAdmin)
         {
             var usuariosBasico = await query
+                .Where(u => u.Activo)
                 .OrderBy(u => u.Nombre)
                 .Select(u => new UsuarioBasicoResponse
                 {

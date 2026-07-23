@@ -1,4 +1,5 @@
 using DespachoJuridico.API.Data;
+using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +13,12 @@ namespace DespachoJuridico.API.Controllers;
 public class AcuerdosController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IAccesoExpedientesService _acceso;
 
-    public AcuerdosController(AppDbContext context)
+    public AcuerdosController(AppDbContext context, IAccesoExpedientesService acceso)
     {
         _context = context;
+        _acceso = acceso;
     }
 
     // GET /api/acuerdos/no-vistos
@@ -47,7 +50,7 @@ public class AcuerdosController : ControllerBase
     {
         var usuarioIdActual = ObtenerUsuarioId();
         var expediente = await _context.Expedientes.FindAsync(expedienteId);
-        if (expediente == null || (usuarioIdActual != 1 && expediente.UsuarioAsignadoId != usuarioIdActual))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var acuerdos = await _context.AcuerdosScrapeados
@@ -79,7 +82,7 @@ public class AcuerdosController : ControllerBase
             .Include(a => a.Expediente)
             .FirstOrDefaultAsync(a => a.Id == id);
 
-        if (acuerdo == null || (usuarioIdActual != 1 && acuerdo.Expediente.UsuarioAsignadoId != usuarioIdActual))
+        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId))
             return NotFound(new { mensaje = "Acuerdo no encontrado" });
 
         acuerdo.Visto = true;
