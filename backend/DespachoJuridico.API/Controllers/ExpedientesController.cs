@@ -77,8 +77,11 @@ public class ExpedientesController : ControllerBase
         }
         else if (esCuentaSoporte)
         {
-            // Cuentas de soporte (dev1/dev2): sin cambios, solo ven lo suyo
-            query = query.Where(e => e.UsuarioAsignadoId == usuarioIdActual);
+            // Cuentas de soporte (dev1/dev2): ven lo suyo, más lo que tengan
+            // como colaborador (ej. entre dev1/dev2 para probar el feature)
+            query = query.Where(e =>
+                e.UsuarioAsignadoId == usuarioIdActual ||
+                e.Accesos.Any(a => a.UsuarioId == usuarioIdActual));
         }
         else
         {
