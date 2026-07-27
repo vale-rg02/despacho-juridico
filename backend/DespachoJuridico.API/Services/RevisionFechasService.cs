@@ -120,6 +120,16 @@ public class RevisionFechasService : BackgroundService
                 if (expediente.UsuarioAsignado != null)
                     destinatarios.Add((expediente.UsuarioAsignado.Nombre, expediente.UsuarioAsignado.Email));
 
+                // Colaboradores reciben el mismo aviso que el Titular (mismo mecanismo
+                // anti-duplicados de abajo, ya que se procesan en el mismo foreach)
+                var colaboradores = await context.ExpedienteAccesos
+                    .Include(a => a.Usuario)
+                    .Where(a => a.ExpedienteId == historial.ExpedienteId)
+                    .ToListAsync(ct);
+
+                foreach (var colaborador in colaboradores)
+                    destinatarios.Add((colaborador.Usuario.Nombre, colaborador.Usuario.Email));
+
                 if (expediente.Prioridad == Prioridad.Urgente)
                 {
                     foreach (var socio in socios)

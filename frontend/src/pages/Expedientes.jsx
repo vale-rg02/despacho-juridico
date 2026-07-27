@@ -265,6 +265,14 @@ function Expedientes() {
     return u ? `Expedientes de ${u.nombre}` : 'Expedientes'
   }, [filtroUsuarioId, usuarios])
 
+  // Al ver los expedientes propios, separamos los que son como Titular de
+  // aquellos donde solo se es Colaborador (el backend los mezcla en la misma lista)
+  const esVistaPropia = filtroUsuarioId !== 0 && filtroUsuarioId === usuario?.id
+  const activosTitular = esVistaPropia ? expedientesActivos.filter(e => !e.esColaborador) : expedientesActivos
+  const activosColaborador = esVistaPropia ? expedientesActivos.filter(e => e.esColaborador) : []
+  const muertosTitular = esVistaPropia ? expedientesMuertos.filter(e => !e.esColaborador) : expedientesMuertos
+  const muertosColaborador = esVistaPropia ? expedientesMuertos.filter(e => e.esColaborador) : []
+
   return (
     <div className="min-h-screen bg-background">
       <Topbar />
@@ -363,23 +371,38 @@ function Expedientes() {
             />
           ))
         ) : (
-          <BloqueExpandible
-            titulo={tituloBloque ?? 'Expedientes'}
-            expedientes={ordenar(expedientesActivos)}
-            cargando={cargando}
-            onRowClick={id => navigate(`/expedientes/${id}`)}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            defaultAbierto={true}
-            expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
-          />
+          <>
+            <BloqueExpandible
+              titulo={tituloBloque ?? 'Expedientes'}
+              expedientes={ordenar(activosTitular)}
+              cargando={cargando}
+              onRowClick={id => navigate(`/expedientes/${id}`)}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              defaultAbierto={true}
+              expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+            />
+            {esVistaPropia && activosColaborador.length > 0 && (
+              <BloqueExpandible
+                titulo="Como colaborador"
+                expedientes={ordenar(activosColaborador)}
+                cargando={cargando}
+                onRowClick={id => navigate(`/expedientes/${id}`)}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+                defaultAbierto={true}
+                expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+              />
+            )}
+          </>
         )}
 
         {/* Bloque de expedientes cerrados */}
         <BloqueExpandible
           titulo="Expedientes cerrados"
-          expedientes={ordenar(expedientesMuertos)}
+          expedientes={ordenar(muertosTitular)}
           cargando={cargando}
           onRowClick={id => navigate(`/expedientes/${id}`)}
           sortKey={sortKey}
@@ -388,6 +411,19 @@ function Expedientes() {
           defaultAbierto={false}
           expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
         />
+        {esVistaPropia && muertosColaborador.length > 0 && (
+          <BloqueExpandible
+            titulo="Expedientes cerrados — como colaborador"
+            expedientes={ordenar(muertosColaborador)}
+            cargando={cargando}
+            onRowClick={id => navigate(`/expedientes/${id}`)}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            defaultAbierto={false}
+            expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+          />
+        )}
       </main>
     </div>
   )

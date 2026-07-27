@@ -50,7 +50,7 @@ public class AcuerdosController : ControllerBase
     {
         var usuarioIdActual = ObtenerUsuarioId();
         var expediente = await _context.Expedientes.FindAsync(expedienteId);
-        if (expediente == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, expediente.UsuarioAsignadoId, expedienteId))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var acuerdos = await _context.AcuerdosScrapeados
@@ -82,7 +82,7 @@ public class AcuerdosController : ControllerBase
             .Include(a => a.Expediente)
             .FirstOrDefaultAsync(a => a.Id == id);
 
-        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId))
+        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId, acuerdo.ExpedienteId))
             return NotFound(new { mensaje = "Acuerdo no encontrado" });
 
         acuerdo.Visto = true;

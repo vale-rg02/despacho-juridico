@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
     public DbSet<Cita> Citas => Set<Cita>();
     public DbSet<Exhorto> Exhortos => Set<Exhorto>();
+    public DbSet<ExpedienteAcceso> ExpedienteAccesos => Set<ExpedienteAcceso>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,5 +78,22 @@ public class AppDbContext : DbContext
             .WithMany(h => h.Notificaciones)
             .HasForeignKey(n => n.HistorialEtapaId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasOne(a => a.Expediente)
+            .WithMany(e => e.Accesos)
+            .HasForeignKey(a => a.ExpedienteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasOne(a => a.Usuario)
+            .WithMany()
+            .HasForeignKey(a => a.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Evita agregar al mismo usuario dos veces como colaborador del mismo expediente
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasIndex(a => new { a.ExpedienteId, a.UsuarioId })
+            .IsUnique();
     }
 }

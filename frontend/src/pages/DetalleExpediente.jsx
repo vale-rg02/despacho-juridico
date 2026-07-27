@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -12,10 +12,13 @@ import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import FormularioExhorto from '../components/FormularioExhorto'
 import ListaExhortos from '../components/ListaExhortos'
 import ModalEditarExhorto from '../components/ModalEditarExhorto'
+import Colaboradores from '../components/Colaboradores'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getExhortos, eliminarExhorto } from '../services/exhortos'
 import { getUsuario } from '../services/auth'
 import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
+import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
+import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 import EtiquetaSeccion from '../components/EtiquetaSeccion'
@@ -151,6 +154,8 @@ function DetalleExpediente() {
   const [exhortos, setExhortos] = useState([])
   const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
   const [exhortoEditando, setExhortoEditando] = useState(null)
+  const [accesos, setAccesos] = useState([])
+  const [usuarios, setUsuarios] = useState([])
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -172,6 +177,12 @@ function DetalleExpediente() {
 
       const dataExhortos = await getExhortos(id)
       setExhortos(dataExhortos)
+
+      const dataAccesos = await getAccesos(id)
+      setAccesos(dataAccesos)
+
+      const dataUsuarios = await getUsuarios()
+      setUsuarios(dataUsuarios)
 
       const dataAcuerdos = await getAcuerdos(id)
       setAcuerdos(dataAcuerdos)
@@ -276,6 +287,24 @@ function DetalleExpediente() {
       setTimeout(() => setExito(''), 3000)
     } catch {
       setError('No se pudo eliminar el exhorto')
+    }
+  }
+
+  async function handleAgregarColaborador(usuarioId) {
+    await agregarAcceso(id, usuarioId)
+    await cargarDatos()
+    setExito('Colaborador agregado correctamente')
+    setTimeout(() => setExito(''), 3000)
+  }
+
+  async function handleQuitarColaborador(accesoId) {
+    try {
+      await quitarAcceso(id, accesoId)
+      await cargarDatos()
+      setExito('Colaborador removido correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo quitar al colaborador')
     }
   }
 
@@ -428,6 +457,29 @@ function DetalleExpediente() {
             <p className="text-sm text-foreground leading-relaxed">
               {expediente.notas || 'Sin notas registradas.'}
             </p>
+          </div>
+        </section>
+
+        {/* Colaboradores */}
+        <section>
+          <h2
+            className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            <Users size={13} className="text-accent" />
+            Colaboradores
+          </h2>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <Colaboradores
+              accesos={accesos}
+              usuariosDisponibles={usuarios.filter(u =>
+                u.id !== expediente.usuarioAsignadoId &&
+                !accesos.some(a => a.usuarioId === u.id)
+              )}
+              puedeGestionar={usuario?.id === 1 || usuario?.id === expediente.usuarioAsignadoId}
+              onAgregar={handleAgregarColaborador}
+              onQuitar={handleQuitarColaborador}
+            />
           </div>
         </section>
 

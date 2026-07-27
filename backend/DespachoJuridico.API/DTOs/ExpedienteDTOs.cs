@@ -25,6 +25,23 @@ public class ExpedienteResponse
     public string? UsuarioAsignadoNombre { get; set; }
 
     public int? ExpedienteRelacionadoId { get; set; }
+
+    // true cuando el usuario en sesión es colaborador de este expediente (no el Titular)
+    public bool EsColaborador { get; set; }
+}
+
+public class ExpedienteAccesoResponse
+{
+    public int Id { get; set; }
+    public int UsuarioId { get; set; }
+    public string UsuarioNombre { get; set; } = string.Empty;
+    public string UsuarioEmail { get; set; } = string.Empty;
+    public DateTime CreadoEn { get; set; }
+}
+
+public class AgregarAccesoRequest
+{
+    [Required] public int UsuarioId { get; set; }
 }
 
 // Lo que se recibe al crear un expediente
