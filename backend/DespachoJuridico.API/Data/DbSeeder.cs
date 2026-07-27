@@ -65,12 +65,14 @@ public static class DbSeeder
 
     private static async Task SeedEtapasCatalogoAsync(AppDbContext context)
     {
-        if (await context.EtapasCatalogo.AnyAsync()) return;
-
-        context.EtapasCatalogo.AddRange(
+        // Cada etapa se revisa individualmente por (Nombre, TipoJuicio), en vez de
+        // "si ya hay alguna, no tocar nada", para poder agregar etapas nuevas al
+        // catálogo de bases de datos ya sembradas, como producción (ver DJ-68/69).
+        var etapas = new[]
+        {
             // Hipotecario (materia Civil) — incluye pasos de remate (Certificado
-            // de Gravamen, Avalúos, Diligencia de Remate, Lanzamiento), propios
-            // de un juicio hipotecario y no de un civil ordinario genérico
+            // de Gravamen, Avalúos, Diligencia de Remate, Almonedas, Lanzamiento,
+            // Ejecución Forzosa), propios de un juicio hipotecario
             new EtapaCatalogo { Nombre = "Demanda", TipoJuicio = "Hipotecario", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Radicación", TipoJuicio = "Hipotecario", Orden = 2, TerminoDias = 7, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Emplazamiento", TipoJuicio = "Hipotecario", Orden = 3, TerminoDias = 180, EsDiasHabiles = false },
@@ -83,7 +85,11 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Certificado de Gravamen", TipoJuicio = "Hipotecario", Orden = 10, TerminoDias = 180, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Avalúos", TipoJuicio = "Hipotecario", Orden = 11, TerminoDias = 180, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Diligencia de Remate", TipoJuicio = "Hipotecario", Orden = 12, TerminoDias = null, EsDiasHabiles = true },
-            new EtapaCatalogo { Nombre = "Lanzamiento", TipoJuicio = "Hipotecario", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "1ra Almoneda", TipoJuicio = "Hipotecario", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "2da Almoneda", TipoJuicio = "Hipotecario", Orden = 14, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "3ra Almoneda", TipoJuicio = "Hipotecario", Orden = 15, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Lanzamiento", TipoJuicio = "Hipotecario", Orden = 16, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Ejecución Forzosa", TipoJuicio = "Hipotecario", Orden = 17, TerminoDias = null, EsDiasHabiles = true },
 
             // Oral Mercantil
             new EtapaCatalogo { Nombre = "Demanda", TipoJuicio = "Oral Mercantil", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
@@ -94,8 +100,23 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Audiencia de Juicio", TipoJuicio = "Oral Mercantil", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia de Sentencia", TipoJuicio = "Oral Mercantil", Orden = 7, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Sentencia", TipoJuicio = "Oral Mercantil", Orden = 8, TerminoDias = null, EsDiasHabiles = true },
-            new EtapaCatalogo { Nombre = "Amparo", TipoJuicio = "Oral Mercantil", Orden = 9, TerminoDias = null, EsDiasHabiles = true }
-        );
+            new EtapaCatalogo { Nombre = "Amparo", TipoJuicio = "Oral Mercantil", Orden = 9, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Certificado de Gravamen", TipoJuicio = "Oral Mercantil", Orden = 10, TerminoDias = 180, EsDiasHabiles = false },
+            new EtapaCatalogo { Nombre = "1ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 11, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "2da Almoneda", TipoJuicio = "Oral Mercantil", Orden = 12, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "3ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Ejecución Forzosa", TipoJuicio = "Oral Mercantil", Orden = 14, TerminoDias = null, EsDiasHabiles = true }
+        };
+
+        var existentes = await context.EtapasCatalogo
+            .Select(e => new { e.Nombre, e.TipoJuicio })
+            .ToListAsync();
+
+        foreach (var etapa in etapas)
+        {
+            if (!existentes.Any(e => e.Nombre == etapa.Nombre && e.TipoJuicio == etapa.TipoJuicio))
+                context.EtapasCatalogo.Add(etapa);
+        }
 
         await context.SaveChangesAsync();
     }
