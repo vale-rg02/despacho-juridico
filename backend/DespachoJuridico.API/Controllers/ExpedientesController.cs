@@ -770,8 +770,19 @@ public class ExpedientesController : ControllerBase
         if (request.UsuarioId == expediente.UsuarioAsignadoId)
             return BadRequest(new { mensaje = "El usuario ya es el titular de este expediente" });
 
-        var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Id == request.UsuarioId && u.Activo && !u.EsCuentaSoporte);
+        // Igual que en UsuariosController.GetAll: solo se excluyen cuentas de soporte
+        // si quien agrega NO es cuenta de soporte — un dev necesita poder agregar a
+        // otro dev como colaborador de sus propios expedientes de prueba.
+        var actualEsSoporte = !esSocioPrincipal && await _context.Usuarios
+            .Where(u => u.Id == usuarioIdActual)
+            .Select(u => u.EsCuentaSoporte)
+            .FirstOrDefaultAsync();
+
+        var usuarioQuery = _context.Usuarios.Where(u => u.Id == request.UsuarioId && u.Activo);
+        if (!actualEsSoporte)
+            usuarioQuery = usuarioQuery.Where(u => !u.EsCuentaSoporte);
+
+        var usuario = await usuarioQuery.FirstOrDefaultAsync();
 
         if (usuario == null)
             return BadRequest(new { mensaje = "Usuario no válido" });

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -12,7 +12,6 @@ import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import FormularioExhorto from '../components/FormularioExhorto'
 import ListaExhortos from '../components/ListaExhortos'
 import ModalEditarExhorto from '../components/ModalEditarExhorto'
-import Colaboradores from '../components/Colaboradores'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getExhortos, eliminarExhorto } from '../services/exhortos'
 import { getUsuario } from '../services/auth'
@@ -133,6 +132,70 @@ function DropdownPrioridad({ valor, onChange }) {
               {etiqueta}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
+  const [abierto, setAbierto] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  async function handleSeleccionar(usuarioId) {
+    setError('')
+    setGuardando(true)
+    try {
+      await onAgregar(usuarioId)
+      setAbierto(false)
+    } catch (err) {
+      setError(err.response?.data?.mensaje ?? 'No se pudo agregar al colaborador')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAbierto(v => !v)}
+        className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        <UserPlus size={12} />
+        Agregar colaborador
+        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] max-h-64 overflow-y-auto">
+          {error && (
+            <p className="px-3 py-2 text-xs text-red-600 border-b border-border">{error}</p>
+          )}
+          {usuariosDisponibles.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>
+          ) : (
+            usuariosDisponibles.map(u => (
+              <button
+                key={u.id}
+                disabled={guardando}
+                onClick={() => handleSeleccionar(u.id)}
+                className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                {u.nombre}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -346,6 +409,12 @@ function DetalleExpediente() {
     )
   }
 
+  const puedeGestionarColaboradores = usuario?.id === 1 || usuario?.id === expediente.usuarioAsignadoId
+  const usuariosDisponiblesColaborador = usuarios.filter(u =>
+    u.id !== expediente.usuarioAsignadoId &&
+    !accesos.some(a => a.usuarioId === u.id)
+  )
+
   return (
     <div className="min-h-screen bg-background">
       <Topbar
@@ -410,6 +479,13 @@ function DetalleExpediente() {
               onChange={handleCambiarPrioridad}
             />
 
+            {puedeGestionarColaboradores && (
+              <DropdownAgregarColaborador
+                usuariosDisponibles={usuariosDisponiblesColaborador}
+                onAgregar={handleAgregarColaborador}
+              />
+            )}
+
             {/* Botón Editar */}
             <button
               onClick={() => navigate(`/expedientes/${id}/editar`)}
@@ -438,6 +514,32 @@ function DetalleExpediente() {
             <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
             <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
             <InfoCard icon={User}     label="Asignado a"           value={expediente.usuarioAsignadoNombre ?? '—'} />
+            <InfoCard
+              icon={Users}
+              label="Visible para"
+              value={
+                accesos.length === 0 ? '—' : (
+                  <div className="flex flex-wrap gap-1">
+                    {accesos.map(acceso => (
+                      <span
+                        key={acceso.id}
+                        className="inline-flex items-center gap-1 bg-secondary text-foreground text-xs px-2 py-0.5 rounded-full"
+                      >
+                        {acceso.usuarioNombre}
+                        {puedeGestionarColaboradores && (
+                          <button
+                            onClick={() => handleQuitarColaborador(acceso.id)}
+                            className="text-muted-foreground hover:text-destructive transition"
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )
+              }
+            />
             <InfoCard icon={BookOpen} label="Materia"              value={expediente.materia ?? '—'} />
             <InfoCard icon={Landmark} label="Banco"                value={expediente.bancoNombre ?? '—'} />
             <InfoCard icon={Clock}    label="Última actualización" value={formatearFecha(expediente.actualizadoEn)} />
@@ -457,29 +559,6 @@ function DetalleExpediente() {
             <p className="text-sm text-foreground leading-relaxed">
               {expediente.notas || 'Sin notas registradas.'}
             </p>
-          </div>
-        </section>
-
-        {/* Colaboradores */}
-        <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            <Users size={13} className="text-accent" />
-            Colaboradores
-          </h2>
-          <div className="bg-card border border-border rounded-lg p-4">
-            <Colaboradores
-              accesos={accesos}
-              usuariosDisponibles={usuarios.filter(u =>
-                u.id !== expediente.usuarioAsignadoId &&
-                !accesos.some(a => a.usuarioId === u.id)
-              )}
-              puedeGestionar={usuario?.id === 1 || usuario?.id === expediente.usuarioAsignadoId}
-              onAgregar={handleAgregarColaborador}
-              onQuitar={handleQuitarColaborador}
-            />
           </div>
         </section>
 

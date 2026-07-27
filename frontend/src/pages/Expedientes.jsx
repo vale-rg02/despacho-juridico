@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react'
+import { Search, ChevronDown, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, UserPlus } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import EstadoVacio from '../components/EstadoVacio'
 import { getExpedientes, getExpedientesPorUsuario } from '../services/expedientes'
 import { getExpedientesConAcuerdosNoVistos } from '../services/acuerdos'
+import { agregarAcceso } from '../services/accesos'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 
@@ -29,7 +30,7 @@ const COLUMNAS = [
   { key: 'prioridad',        label: 'Prioridad' },
 ]
 
-function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir, onSort, expedientesConAcuerdosNuevos }) {
+function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir, onSort, expedientesConAcuerdosNuevos, seleccionados, onToggleSeleccion, onToggleSeleccionarTodos }) {
   function SortIcon({ col }) {
     if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
     return sortDir === 'asc'
@@ -53,11 +54,21 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
     )
   }
 
+  const todosSeleccionados = expedientes.every(e => seleccionados.has(e.id))
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b border-border bg-secondary/60">
+            <th className="px-4 py-3 w-8">
+              <input
+                type="checkbox"
+                checked={todosSeleccionados}
+                onChange={() => onToggleSeleccionarTodos(expedientes.map(e => e.id))}
+                className="accent-accent cursor-pointer"
+              />
+            </th>
             {COLUMNAS.map(col => (
               <th
                 key={col.key}
@@ -78,6 +89,14 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
               onClick={() => onRowClick(exp.id)}
               className={`border-b border-border last:border-0 hover:bg-accent/5 hover:shadow-[inset_2px_0_0_var(--accent)] hover:cursor-pointer transition-colors group ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}
             >
+              <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={seleccionados.has(exp.id)}
+                  onChange={() => onToggleSeleccion(exp.id)}
+                  className="accent-accent cursor-pointer"
+                />
+              </td>
               <td className="px-4 py-3.5 whitespace-nowrap">
                 <span className="inline-flex items-center gap-1.5">
                   {expedientesConAcuerdosNuevos?.has(exp.id) && (
@@ -118,7 +137,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
   )
 }
 
-function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, sortDir, onSort, defaultAbierto = true, expedientesConAcuerdosNuevos }) {
+function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, sortDir, onSort, defaultAbierto = true, expedientesConAcuerdosNuevos, seleccionados, onToggleSeleccion, onToggleSeleccionarTodos }) {
   const [abierto, setAbierto] = useState(defaultAbierto)
 
   return (
@@ -150,9 +169,66 @@ function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, 
             sortDir={sortDir}
             onSort={onSort}
             expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+            seleccionados={seleccionados}
+            onToggleSeleccion={onToggleSeleccion}
+            onToggleSeleccionarTodos={onToggleSeleccionarTodos}
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCompletado }) {
+  const [usuarioId, setUsuarioId] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  async function handleAgregar() {
+    if (!usuarioId) return
+    setGuardando(true)
+    const resultados = await Promise.allSettled(
+      expedienteIds.map(id => agregarAcceso(id, Number(usuarioId)))
+    )
+    const exitosos = resultados.filter(r => r.status === 'fulfilled').length
+    setGuardando(false)
+    onCompletado(exitosos, resultados.length - exitosos)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
+      <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <h3 className="text-sm font-medium text-foreground mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+          Agregar colaborador
+        </h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Se agregará a {expedienteIds.length} expediente{expedienteIds.length !== 1 ? 's' : ''} seleccionado{expedienteIds.length !== 1 ? 's' : ''}.
+        </p>
+        <select
+          value={usuarioId}
+          onChange={e => setUsuarioId(e.target.value)}
+          className="w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition mb-4"
+        >
+          <option value="">Selecciona un usuario…</option>
+          {usuarios.map(u => (
+            <option key={u.id} value={u.id}>{u.nombre}</option>
+          ))}
+        </select>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCerrar}
+            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAgregar}
+            disabled={!usuarioId || guardando}
+            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+          >
+            {guardando ? 'Agregando...' : 'Agregar'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -176,6 +252,10 @@ function Expedientes() {
 
   const [usuarios, setUsuarios] = useState([])
   const [expedientesConAcuerdosNuevos, setExpedientesConAcuerdosNuevos] = useState(new Set())
+
+  const [seleccionados, setSeleccionados] = useState(new Set())
+  const [mostrarModalColaborador, setMostrarModalColaborador] = useState(false)
+  const [exito, setExito] = useState('')
 
   useEffect(() => {
     cargarUsuarios()
@@ -206,6 +286,7 @@ function Expedientes() {
   async function cargarExpedientes() {
     setCargando(true)
     setError('')
+    setSeleccionados(new Set())
     try {
       if (filtroUsuarioId === 0) {
         const [porUsuario, cerrados] = await Promise.all([
@@ -249,6 +330,35 @@ function Expedientes() {
       return sortDir === 'asc' ? av.localeCompare(bv, 'es') : bv.localeCompare(av, 'es')
     })
     return list
+  }
+
+  function handleToggleSeleccion(id) {
+    setSeleccionados(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleToggleSeleccionarTodos(ids) {
+    setSeleccionados(prev => {
+      const todosSeleccionados = ids.length > 0 && ids.every(id => prev.has(id))
+      const next = new Set(prev)
+      ids.forEach(id => todosSeleccionados ? next.delete(id) : next.add(id))
+      return next
+    })
+  }
+
+  function handleColaboradorMasivoCompletado(exitosos, fallidos) {
+    setMostrarModalColaborador(false)
+    setSeleccionados(new Set())
+    if (fallidos === 0) {
+      setExito(`Colaborador agregado a ${exitosos} expediente${exitosos !== 1 ? 's' : ''}`)
+    } else {
+      setExito(`Colaborador agregado a ${exitosos} expediente${exitosos !== 1 ? 's' : ''}; ${fallidos} no se pudieron actualizar`)
+    }
+    setTimeout(() => setExito(''), 4000)
   }
 
   const nombreFiltroUsuario = useMemo(() => {
@@ -354,6 +464,35 @@ function Expedientes() {
           </div>
         )}
 
+        {exito && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-md px-3 py-2">
+            {exito}
+          </div>
+        )}
+
+        {seleccionados.size > 0 && (
+          <div className="mb-4 flex items-center justify-between bg-accent/10 border border-accent/30 rounded-lg px-4 py-2.5">
+            <span className="text-sm text-foreground">
+              {seleccionados.size} expediente{seleccionados.size !== 1 ? 's' : ''} seleccionado{seleccionados.size !== 1 ? 's' : ''}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSeleccionados(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground transition"
+              >
+                Cancelar selección
+              </button>
+              <button
+                onClick={() => setMostrarModalColaborador(true)}
+                className="flex items-center gap-1.5 bg-accent text-accent-foreground px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
+              >
+                <UserPlus size={12} />
+                Agregar colaborador
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Bloques agrupados por usuario cuando se selecciona "Todos" */}
         {filtroUsuarioId === 0 ? (
           expedientesPorUsuario.map(grupo => (
@@ -368,6 +507,9 @@ function Expedientes() {
               onSort={handleSort}
               defaultAbierto={true}
               expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+              seleccionados={seleccionados}
+              onToggleSeleccion={handleToggleSeleccion}
+              onToggleSeleccionarTodos={handleToggleSeleccionarTodos}
             />
           ))
         ) : (
@@ -382,6 +524,9 @@ function Expedientes() {
               onSort={handleSort}
               defaultAbierto={true}
               expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+              seleccionados={seleccionados}
+              onToggleSeleccion={handleToggleSeleccion}
+              onToggleSeleccionarTodos={handleToggleSeleccionarTodos}
             />
             {esVistaPropia && activosColaborador.length > 0 && (
               <BloqueExpandible
@@ -394,6 +539,9 @@ function Expedientes() {
                 onSort={handleSort}
                 defaultAbierto={true}
                 expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+                seleccionados={seleccionados}
+                onToggleSeleccion={handleToggleSeleccion}
+                onToggleSeleccionarTodos={handleToggleSeleccionarTodos}
               />
             )}
           </>
@@ -410,6 +558,9 @@ function Expedientes() {
           onSort={handleSort}
           defaultAbierto={false}
           expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+          seleccionados={seleccionados}
+          onToggleSeleccion={handleToggleSeleccion}
+          onToggleSeleccionarTodos={handleToggleSeleccionarTodos}
         />
         {esVistaPropia && muertosColaborador.length > 0 && (
           <BloqueExpandible
@@ -422,6 +573,18 @@ function Expedientes() {
             onSort={handleSort}
             defaultAbierto={false}
             expedientesConAcuerdosNuevos={expedientesConAcuerdosNuevos}
+            seleccionados={seleccionados}
+            onToggleSeleccion={handleToggleSeleccion}
+            onToggleSeleccionarTodos={handleToggleSeleccionarTodos}
+          />
+        )}
+
+        {mostrarModalColaborador && (
+          <ModalAgregarColaboradorMasivo
+            expedienteIds={[...seleccionados]}
+            usuarios={usuarios}
+            onCerrar={() => setMostrarModalColaborador(false)}
+            onCompletado={handleColaboradorMasivoCompletado}
           />
         )}
       </main>
