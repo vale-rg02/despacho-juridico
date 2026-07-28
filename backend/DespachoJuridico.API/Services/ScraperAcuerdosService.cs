@@ -82,7 +82,7 @@ public class ScraperAcuerdosService : BackgroundService
 
         foreach (var (idUnidad, nombreJuzgado) in Juzgados)
         {
-            List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo)> acuerdos;
+            List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)> acuerdos;
 
             try
             {
@@ -137,7 +137,12 @@ public class ScraperAcuerdosService : BackgroundService
                         Partes = acuerdo.Partes,
                         Sintesis = acuerdo.Sintesis,
                         FechaAcuerdo = fecha,
-                        NotificacionEnviada = false
+                        NotificacionEnviada = false,
+                        TipoAsunto = acuerdo.TipoAsunto,
+                        // ADISON no expone el estado/ciudad destino de un exhorto — solo
+                        // detectamos que hubo actividad relacionada por la síntesis; el
+                        // destino se captura manualmente después si aplica
+                        EsExhorto = acuerdo.Sintesis.Contains("exhorto", StringComparison.OrdinalIgnoreCase)
                     };
 
                     context.AcuerdosScrapeados.Add(nuevoAcuerdo);
@@ -173,10 +178,10 @@ public class ScraperAcuerdosService : BackgroundService
         return resultado;
     }
 
-    private async Task<List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo)>> ScrapearJuzgadoAsync(
+    private async Task<List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)>> ScrapearJuzgadoAsync(
         int idUnidad, string nombreJuzgado, DateOnly fecha)
     {
-        var resultado = new List<(string, string, string, DateOnly)>();
+        var resultado = new List<(string, string, string, DateOnly, string?)>();
 
         var formData = new FormUrlEncodedContent(new[]
         {
@@ -206,13 +211,14 @@ public class ScraperAcuerdosService : BackgroundService
             var anio = item.TryGetProperty("Anio", out var an) ? an.GetString() ?? "" : "";
             var partes = item.TryGetProperty("Partes", out var p) ? p.GetString() ?? "" : "";
             var sintesis = item.TryGetProperty("Sintesis", out var s) ? s.GetString() ?? "" : "";
+            var tipoAsunto = item.TryGetProperty("TipoAsunto", out var t) ? t.GetString() : null;
 
             // Construir número de expediente completo
             var numeroExpediente = string.IsNullOrWhiteSpace(anio) ? asunto : $"{asunto}/{anio}";
 
             if (string.IsNullOrWhiteSpace(asunto)) continue;
 
-            resultado.Add((numeroExpediente, partes, sintesis, fecha));
+            resultado.Add((numeroExpediente, partes, sintesis, fecha, tipoAsunto));
         }
 
             _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados", idUnidad, resultado.Count);

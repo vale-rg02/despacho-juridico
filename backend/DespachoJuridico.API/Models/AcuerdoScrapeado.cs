@@ -14,5 +14,15 @@ public class AcuerdoScrapeado
     public bool NotificacionEnviada { get; set; } = false;
 
     public bool Visto { get; set; } = false;
+
+    // Clasificación cruda que trae ADISON (ej. "Exp.", "Exh.", "Amp.", "Toca")
+    public string? TipoAsunto { get; set; }
+
+    // true cuando la síntesis del acuerdo menciona un exhorto (envío/recepción/
+    // diligenciación); ADISON no expone el estado/ciudad destino, así que ese
+    // dato se captura manualmente en CiudadDestino
+    public bool EsExhorto { get; set; } = false;
+    public string? CiudadDestino { get; set; }
+
     public Expediente Expediente { get; set; } = null!;
 }

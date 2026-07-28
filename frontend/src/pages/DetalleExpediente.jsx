@@ -2,20 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
 import FormularioEtapa from '../components/FormularioEtapa'
 import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
-import FormularioExhorto from '../components/FormularioExhorto'
-import ListaExhortos from '../components/ListaExhortos'
-import ModalEditarExhorto from '../components/ModalEditarExhorto'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
-import { getExhortos, eliminarExhorto } from '../services/exhortos'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto } from '../services/acuerdos'
 import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
 import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -202,6 +198,61 @@ function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
   )
 }
 
+function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  if (!editando) {
+    return (
+      <button
+        onClick={() => setEditando(true)}
+        className="text-xs text-accent hover:underline font-medium flex items-center gap-1"
+      >
+        <MapPin size={11} />
+        + Agregar destino
+      </button>
+    )
+  }
+
+  async function handleGuardar() {
+    if (!valor.trim()) return
+    setGuardando(true)
+    try {
+      await onGuardar(acuerdoId, valor.trim())
+      setEditando(false)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={valor}
+        onChange={e => setValor(e.target.value)}
+        placeholder="Ej. Guadalajara, Jalisco"
+        autoFocus
+        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+      />
+      <button
+        onClick={handleGuardar}
+        disabled={!valor.trim() || guardando}
+        className="text-xs text-accent hover:underline font-medium disabled:opacity-50"
+      >
+        {guardando ? 'Guardando...' : 'Guardar'}
+      </button>
+      <button
+        onClick={() => setEditando(false)}
+        className="text-xs text-muted-foreground hover:text-foreground transition"
+      >
+        Cancelar
+      </button>
+    </div>
+  )
+}
+
 function DetalleExpediente() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -214,9 +265,6 @@ function DetalleExpediente() {
   const [acuerdosNuevosIds, setAcuerdosNuevosIds] = useState(new Set())
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
   const [etapaEditando, setEtapaEditando] = useState(null)
-  const [exhortos, setExhortos] = useState([])
-  const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
-  const [exhortoEditando, setExhortoEditando] = useState(null)
   const [accesos, setAccesos] = useState([])
   const [usuarios, setUsuarios] = useState([])
 
@@ -237,9 +285,6 @@ function DetalleExpediente() {
 
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
-
-      const dataExhortos = await getExhortos(id)
-      setExhortos(dataExhortos)
 
       const dataAccesos = await getAccesos(id)
       setAccesos(dataAccesos)
@@ -331,25 +376,12 @@ function DetalleExpediente() {
     }
   }
 
-  function handleEditarExhorto(exhorto) {
-    setExhortoEditando(exhorto)
-  }
-
-  async function handleGuardarEdicionExhorto() {
-    setExhortoEditando(null)
-    await cargarDatos()
-    setExito('Exhorto actualizado correctamente')
-    setTimeout(() => setExito(''), 3000)
-  }
-
-  async function handleEliminarExhorto(exhortoId) {
+  async function handleGuardarDestinoExhorto(acuerdoId, ciudadDestino) {
     try {
-      await eliminarExhorto(id, exhortoId)
+      await actualizarDestinoExhorto(acuerdoId, ciudadDestino)
       await cargarDatos()
-      setExito('Exhorto eliminado correctamente')
-      setTimeout(() => setExito(''), 3000)
     } catch {
-      setError('No se pudo eliminar el exhorto')
+      setError('No se pudo guardar el destino del exhorto')
     }
   }
 
@@ -611,51 +643,6 @@ function DetalleExpediente() {
           )}
         </section>
 
-        {/* Exhortos */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <EtiquetaSeccion>Exhortos</EtiquetaSeccion>
-            {!mostrarFormExhorto && (
-              <button
-                onClick={() => setMostrarFormExhorto(true)}
-                className="text-xs text-accent hover:underline font-medium"
-              >
-                + Registrar exhorto
-              </button>
-            )}
-          </div>
-
-          {mostrarFormExhorto && (
-            <div className="mb-3">
-              <FormularioExhorto
-                expedienteId={id}
-                onGuardado={() => {
-                  setMostrarFormExhorto(false)
-                  cargarDatos()
-                }}
-                onCancelar={() => setMostrarFormExhorto(false)}
-              />
-            </div>
-          )}
-
-          <div className="bg-card border border-border rounded-lg p-4">
-            <ListaExhortos
-              exhortos={exhortos}
-              onEditar={handleEditarExhorto}
-              onEliminar={handleEliminarExhorto}
-            />
-          </div>
-
-          {exhortoEditando && (
-            <ModalEditarExhorto
-              expedienteId={id}
-              exhorto={exhortoEditando}
-              onGuardado={handleGuardarEdicionExhorto}
-              onCerrar={() => setExhortoEditando(null)}
-            />
-          )}
-        </section>
-
         {/* Acuerdos del Poder Judicial */}
         <section>
           <h2
@@ -689,6 +676,12 @@ function DetalleExpediente() {
                       <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                         <Gavel size={12} className="text-accent" />
                         {acuerdo.nombreJuzgado}
+                        {acuerdo.esExhorto && (
+                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                            <Send size={9} />
+                            Exhorto
+                          </span>
+                        )}
                         {acuerdosNuevosIds.has(acuerdo.id) && (
                           <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -705,6 +698,18 @@ function DetalleExpediente() {
                     </div>
                     <p className="text-xs text-muted-foreground mb-2">{acuerdo.partes}</p>
                     <p className="text-sm text-foreground leading-relaxed">{acuerdo.sintesis}</p>
+                    {acuerdo.esExhorto && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        {acuerdo.ciudadDestino ? (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <MapPin size={11} className="text-accent" />
+                            Destino: <span className="text-foreground font-medium">{acuerdo.ciudadDestino}</span>
+                          </p>
+                        ) : (
+                          <CapturarDestinoExhorto acuerdoId={acuerdo.id} onGuardar={handleGuardarDestinoExhorto} />
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>

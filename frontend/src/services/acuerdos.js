@@ -10,6 +10,11 @@ export async function marcarAcuerdoVisto(acuerdoId) {
   return response.data
 }
 
+export async function actualizarDestinoExhorto(acuerdoId, ciudadDestino) {
+  const response = await api.patch(`/acuerdos/${acuerdoId}/destino`, { ciudadDestino })
+  return response.data
+}
+
 // GET /api/acuerdos/no-vistos regresa los acuerdos (no los expedientes) con
 // visto=false asignados al usuario autenticado; se reduce a expedienteId único.
 export async function getExpedientesConAcuerdosNoVistos() {
