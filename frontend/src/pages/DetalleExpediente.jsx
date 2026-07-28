@@ -11,7 +11,7 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual } from '../services/acuerdos'
 import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
 import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -267,6 +267,13 @@ function DetalleExpediente() {
   const [etapaEditando, setEtapaEditando] = useState(null)
   const [accesos, setAccesos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
+  const [formExhorto, setFormExhorto] = useState({
+    sintesis: '',
+    fechaAcuerdo: '',
+    nombreJuzgado: '',
+    ciudadDestino: ''
+  })
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -385,6 +392,36 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleGuardarExhortoManual() {
+    try {
+      await registrarExhortoManual(id, {
+        sintesis: formExhorto.sintesis,
+        fechaAcuerdo: formExhorto.fechaAcuerdo,
+        nombreJuzgado: formExhorto.nombreJuzgado || null,
+        ciudadDestino: formExhorto.ciudadDestino || null,
+      })
+      setMostrarFormExhorto(false)
+      setFormExhorto({ sintesis: '', fechaAcuerdo: '', nombreJuzgado: '', ciudadDestino: '' })
+      await cargarDatos()
+      setExito('Exhorto registrado correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo registrar el exhorto')
+    }
+  }
+
+  async function handleEliminarAcuerdoManual(acuerdoId) {
+    if (!window.confirm('¿Eliminar este exhorto registrado manualmente?')) return
+    try {
+      await eliminarAcuerdoManual(acuerdoId)
+      await cargarDatos()
+      setExito('Registro eliminado correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo eliminar el registro')
+    }
+  }
+
   async function handleAgregarColaborador(usuarioId) {
     await agregarAcceso(id, usuarioId)
     await cargarDatos()
@@ -446,6 +483,9 @@ function DetalleExpediente() {
     u.id !== expediente.usuarioAsignadoId &&
     !accesos.some(a => a.usuarioId === u.id)
   )
+
+  const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
   return (
     <div className="min-h-screen bg-background">
@@ -645,18 +685,89 @@ function DetalleExpediente() {
 
         {/* Acuerdos del Poder Judicial */}
         <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            <Scale size={13} className="text-accent" />
-            Acuerdos del Poder Judicial
-            {acuerdosNuevosIds.size > 0 && (
-              <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
-                {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
-              </span>
+          <div className="flex items-center justify-between mb-3">
+            <h2
+              className="text-xs font-medium uppercase tracking-widest text-foreground flex items-center gap-2"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              <Scale size={13} className="text-accent" />
+              Acuerdos del Poder Judicial
+              {acuerdosNuevosIds.size > 0 && (
+                <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                  {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
+                </span>
+              )}
+            </h2>
+            {!mostrarFormExhorto && (
+              <button
+                onClick={() => setMostrarFormExhorto(true)}
+                className="text-xs text-accent hover:underline font-medium"
+              >
+                + Registrar exhorto manualmente
+              </button>
             )}
-          </h2>
+          </div>
+
+          {mostrarFormExhorto && (
+            <div className="bg-secondary/40 border border-border rounded-lg p-4 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
+                  <input
+                    type="date"
+                    value={formExhorto.fechaAcuerdo}
+                    onChange={e => setFormExhorto(f => ({ ...f, fechaAcuerdo: e.target.value }))}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                  <input
+                    type="text"
+                    value={formExhorto.nombreJuzgado}
+                    onChange={e => setFormExhorto(f => ({ ...f, nombreJuzgado: e.target.value }))}
+                    placeholder="Ej. 1ro Civil Hermosillo"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
+                <input
+                  type="text"
+                  value={formExhorto.ciudadDestino}
+                  onChange={e => setFormExhorto(f => ({ ...f, ciudadDestino: e.target.value }))}
+                  placeholder="Ej. Guadalajara, Jalisco"
+                  className={inputClass}
+                />
+              </div>
+              <div className="mb-3">
+                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
+                <textarea
+                  value={formExhorto.sintesis}
+                  onChange={e => setFormExhorto(f => ({ ...f, sintesis: e.target.value }))}
+                  rows={3}
+                  placeholder="Descripción del exhorto..."
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setMostrarFormExhorto(false)}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarExhortoManual}
+                  disabled={!formExhorto.sintesis || !formExhorto.fechaAcuerdo}
+                  className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                >
+                  Guardar exhorto
+                </button>
+              </div>
+            </div>
+          )}
 
           {acuerdos.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-5">
@@ -680,7 +791,19 @@ function DetalleExpediente() {
                           <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
                             <Send size={9} />
                             Exhorto
+                            {acuerdo.registradoManualmente && (
+                              <span className="italic font-normal">(manual)</span>
+                            )}
                           </span>
+                        )}
+                        {acuerdo.registradoManualmente && (
+                          <button
+                            onClick={() => handleEliminarAcuerdoManual(acuerdo.id)}
+                            className="text-xs text-red-400 hover:text-red-600 transition"
+                            title="Eliminar registro manual"
+                          >
+                            Eliminar
+                          </button>
                         )}
                         {acuerdosNuevosIds.has(acuerdo.id) && (
                           <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">

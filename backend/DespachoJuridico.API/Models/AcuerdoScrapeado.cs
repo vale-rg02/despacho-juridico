@@ -24,5 +24,9 @@ public class AcuerdoScrapeado
     public bool EsExhorto { get; set; } = false;
     public string? CiudadDestino { get; set; }
 
+    // true cuando el usuario lo capturó a mano (el scraper no lo detectó);
+    // solo estos registros se pueden eliminar desde la UI
+    public bool RegistradoManualmente { get; set; } = false;
+
     public Expediente Expediente { get; set; } = null!;
 }

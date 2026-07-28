@@ -15,6 +15,15 @@ export async function actualizarDestinoExhorto(acuerdoId, ciudadDestino) {
   return response.data
 }
 
+export async function registrarExhortoManual(expedienteId, datos) {
+  const response = await api.post(`/acuerdos/${expedienteId}/manual`, datos)
+  return response.data
+}
+
+export async function eliminarAcuerdoManual(acuerdoId) {
+  await api.delete(`/acuerdos/${acuerdoId}`)
+}
+
 // GET /api/acuerdos/no-vistos regresa los acuerdos (no los expedientes) con
 // visto=false asignados al usuario autenticado; se reduce a expedienteId único.
 export async function getExpedientesConAcuerdosNoVistos() {

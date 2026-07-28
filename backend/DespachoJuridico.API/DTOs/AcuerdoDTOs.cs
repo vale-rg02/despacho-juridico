@@ -15,6 +15,7 @@ public class AcuerdoResponse
     public bool Visto { get; set; }
     public bool EsExhorto { get; set; }
     public string? CiudadDestino { get; set; }
+    public bool RegistradoManualmente { get; set; }
 }
 
 public class ActualizarDestinoExhortoRequest
@@ -22,4 +23,19 @@ public class ActualizarDestinoExhortoRequest
     [Required(ErrorMessage = "La ciudad destino es obligatoria")]
     [StringLength(150)]
     public string CiudadDestino { get; set; } = string.Empty;
+}
+
+public class RegistrarExhortoManualRequest
+{
+    [Required(ErrorMessage = "La síntesis es obligatoria")]
+    public string Sintesis { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La fecha del acuerdo es obligatoria")]
+    public DateOnly FechaAcuerdo { get; set; }
+
+    [StringLength(150)]
+    public string? NombreJuzgado { get; set; }
+
+    [StringLength(150)]
+    public string? CiudadDestino { get; set; }
 }
