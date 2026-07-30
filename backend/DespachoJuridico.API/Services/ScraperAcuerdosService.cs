@@ -19,6 +19,7 @@ public class ScraperAcuerdosService : BackgroundService
 
     private static readonly Dictionary<int, string> Juzgados = new()
     {
+        // ── HERMOSILLO ─────────────────────────────────────────────────────
         { 152, "1ro Civil Hermosillo" },
         { 153, "2do Civil Hermosillo" },
         { 154, "3ro Civil Hermosillo" },
@@ -31,9 +32,103 @@ public class ScraperAcuerdosService : BackgroundService
         { 156, "2do Familiar Hermosillo" },
         { 157, "3ro Familiar Hermosillo" },
         { 296, "4to Familiar Hermosillo" },
-        { 276, "1er Tribunal Colegiado" },
-        { 277, "2do Tribunal Colegiado" },
-        { 175, "Secretaría General de Acuerdos" },
+        { 905, "Juzgado Especializado Violencia de Género Hermosillo" },
+        { 276, "1er Tribunal Colegiado 1er Circuito" },
+        { 277, "2do Tribunal Colegiado 1er Circuito" },
+        { 175, "Secretaría General de Acuerdos Hermosillo" },
+
+        // ── CAJEME (Ciudad Obregón) ────────────────────────────────────────
+        { 135, "1ro Civil Cajeme" },
+        { 136, "2do Civil Cajeme" },
+        { 137, "3ro Civil Cajeme" },
+        { 138, "4to Civil Cajeme" },
+        { 139, "1ro Familiar Cajeme" },
+        { 140, "2do Familiar Cajeme" },
+        { 141, "3ro Familiar Cajeme" },
+        { 901, "Juzgado Especial Familiar Cajeme" },
+        { 142, "1ro Penal Cajeme" },
+        { 232, "Juzgado Oral Penal Cajeme" },
+        { 146, "2do Mixto Cajeme" },
+        { 278, "1ro Mixto Cajeme" },
+        { 275, "1er Tribunal Colegiado 2do Circuito" },
+        { 324, "Tribunal Laboral Cajeme" },
+
+        // ── AGUA PRIETA ───────────────────────────────────────────────────
+        { 127, "Juzgado 1ro Civil/Mercantil/Penal Agua Prieta" },
+        { 128, "Juzgado 1ro Mixto Agua Prieta" },
+        { 230, "Juzgado Oral Penal Agua Prieta" },
+
+        // ── ÁLAMOS ────────────────────────────────────────────────────────
+        { 129, "Juzgado Mixto Álamos" },
+
+        // ── CABORCA ───────────────────────────────────────────────────────
+        { 131, "Juzgado 1ro Civil Caborca" },
+        { 231, "Juzgado Oral Penal Caborca" },
+        { 299, "Juzgado Mixto Especializado Caborca" },
+        { 274, "1er Tribunal Colegiado Caborca" },
+
+        // ── CANANEA ───────────────────────────────────────────────────────
+        { 133, "Juzgado Mixto Cananea" },
+        { 904, "Sala Oral Penal Cananea" },
+
+        // ── CUMPAS ────────────────────────────────────────────────────────
+        { 147, "Juzgado Mixto Cumpas" },
+
+        // ── GUAYMAS ───────────────────────────────────────────────────────
+        { 148, "Juzgado 1ro Civil Guaymas" },
+        { 150, "Juzgado Civil/Familiar Especializado Guaymas" },
+        { 207, "Juzgado 1ro Familiar Guaymas" },
+        { 233, "Juzgado Oral Penal Guaymas" },
+        { 325, "Tribunal Laboral Guaymas" },
+
+        // ── HUATABAMPO ────────────────────────────────────────────────────
+        { 179, "Juzgado 1ro Civil Huatabampo" },
+        { 180, "Juzgado 1ro Penal Huatabampo" },
+        { 262, "Sala Oral Penal Huatabampo" },
+
+        // ── MAGDALENA ─────────────────────────────────────────────────────
+        { 183, "Juzgado Mixto Magdalena" },
+
+        // ── NAVOJOA ───────────────────────────────────────────────────────
+        { 184, "Juzgado 1ro Civil Navojoa" },
+        { 185, "Juzgado 1ro Familiar Navojoa" },
+        { 234, "Juzgado Oral Penal Navojoa" },
+        { 326, "Tribunal Laboral Navojoa" },
+
+        // ── NOGALES ───────────────────────────────────────────────────────
+        { 188, "Juzgado 1ro Civil Nogales" },
+        { 189, "Juzgado 1ro Familiar Nogales" },
+        { 190, "Juzgado 2do Familiar Nogales" },
+        { 235, "Juzgado Oral Penal Nogales" },
+        { 327, "Tribunal Laboral Nogales" },
+
+        // ── PUERTO PEÑASCO ────────────────────────────────────────────────
+        { 203, "Juzgado 1ro Civil Puerto Peñasco" },
+        { 264, "Sala Oral Penal Puerto Peñasco" },
+        { 328, "Tribunal Laboral Puerto Peñasco" },
+
+        // ── SAHUARIPA ─────────────────────────────────────────────────────
+        { 194, "Juzgado Mixto Sahuaripa" },
+
+        // ── SAN LUIS RÍO COLORADO ─────────────────────────────────────────
+        { 195, "Juzgado 1ro Civil San Luis Río Colorado" },
+        { 206, "Juzgado Familiar San Luis Río Colorado" },
+        { 302, "Juzgado Penal/Familiar San Luis Río Colorado" },
+        { 236, "Juzgado Oral Penal San Luis Río Colorado" },
+        { 329, "Tribunal Laboral San Luis Río Colorado" },
+
+        // ── URES ──────────────────────────────────────────────────────────
+        { 200, "Juzgado Mixto Ures" },
+    };
+
+    // IdUnidad de los juzgados de Hermosillo — donde viven los expedientes del
+    // despacho. El resto son juzgados foráneos (reciben exhortos): ahí el
+    // "Juzgado" registrado en el expediente no corresponde al juzgado que
+    // publica el acuerdo, así que el match se hace solo por número de expediente.
+    private static readonly HashSet<int> JuzgadosHermosillo = new()
+    {
+        152, 153, 154, 155, 156, 157, 158, 159, 160,
+        161, 174, 175, 276, 277, 296, 905
     };
 
     public ScraperAcuerdosService(
@@ -113,9 +208,21 @@ public class ScraperAcuerdosService : BackgroundService
                 try
                 {
                     // Buscar match con expedientes del despacho
-                    var expediente = expedientes.FirstOrDefault(e =>
-                        NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
-                        JuzgadoCoincide(e.Juzgado ?? "", nombreJuzgado));
+                    Expediente? expediente;
+                    if (JuzgadosHermosillo.Contains(idUnidad))
+                    {
+                        // Juzgados de Hermosillo: match por número Y juzgado
+                        expediente = expedientes.FirstOrDefault(e =>
+                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
+                            JuzgadoCoincide(e.Juzgado ?? "", nombreJuzgado));
+                    }
+                    else
+                    {
+                        // Juzgados foráneos: match solo por número de expediente
+                        // (el juzgado registrado en el expediente es el de Hermosillo, no el receptor del exhorto)
+                        expediente = expedientes.FirstOrDefault(e =>
+                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente));
+                    }
 
                     if (expediente == null) continue;
 
