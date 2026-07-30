@@ -227,6 +227,7 @@ function NuevoExpediente() {
                 {TIPOS_JUICIO.map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
+                <option value="Jurisdiccion Voluntaria">Jurisdicción Voluntaria</option>
               </select>
             </div>
 

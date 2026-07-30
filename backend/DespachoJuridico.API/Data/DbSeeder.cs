@@ -105,7 +105,12 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "1ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 11, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "2da Almoneda", TipoJuicio = "Oral Mercantil", Orden = 12, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "3ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
-            new EtapaCatalogo { Nombre = "Ejecución Forzosa", TipoJuicio = "Oral Mercantil", Orden = 14, TerminoDias = null, EsDiasHabiles = true }
+            new EtapaCatalogo { Nombre = "Ejecución Forzosa", TipoJuicio = "Oral Mercantil", Orden = 14, TerminoDias = null, EsDiasHabiles = true },
+
+            // Jurisdicción Voluntaria (materia Civil) — sin plazos definidos por ahora
+            new EtapaCatalogo { Nombre = "Solicitud", TipoJuicio = "Jurisdiccion Voluntaria", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Citación", TipoJuicio = "Jurisdiccion Voluntaria", Orden = 2, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Resolución", TipoJuicio = "Jurisdiccion Voluntaria", Orden = 3, TerminoDias = null, EsDiasHabiles = true }
         };
 
         var existentes = await context.EtapasCatalogo
