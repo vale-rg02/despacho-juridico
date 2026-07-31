@@ -199,7 +199,7 @@ public class ScraperAcuerdosService : BackgroundService
                         idUnidad, nombreJuzgado, fallos);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(2));
+                await Task.Delay(TimeSpan.FromSeconds(5));
                 continue;
             }
 
