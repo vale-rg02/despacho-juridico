@@ -218,10 +218,16 @@ public class ScraperAcuerdosService : BackgroundService
                     }
                     else
                     {
-                        // Juzgados foráneos: match solo por número de expediente
-                        // (el juzgado registrado en el expediente es el de Hermosillo, no el receptor del exhorto)
+                        // Juzgados foráneos: el "Juzgado" del expediente es el de origen
+                        // (Hermosillo), no el que recibe el exhorto, así que no podemos
+                        // validarlo aquí como con Hermosillo. El número de expediente por
+                        // sí solo no basta — se repite entre juzgados de todo el estado y
+                        // generaba falsos positivos (acuerdos de casos ajenos emparejados
+                        // con expedientes del despacho). Exigimos además que las partes
+                        // scrapeadas mencionen a la parte demandada del expediente.
                         expediente = expedientes.FirstOrDefault(e =>
-                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente));
+                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
+                            PartesCoinciden(e.ParteDemandada, acuerdo.Partes));
                     }
 
                     if (expediente == null) continue;
@@ -475,6 +481,27 @@ public class ScraperAcuerdosService : BackgroundService
             return $"{num}/{anio}";
         }
         return numero.Trim().ToUpperInvariant().TrimStart('0');
+    }
+
+    // Segunda validación para juzgados foráneos, donde no se puede comparar el
+    // juzgado. Verifica que el texto de "partes" que trae ADISON mencione a la
+    // parte demandada del expediente (comparación laxa: sin acentos/mayúsculas
+    // ni espacios de más, buscada como substring dentro de las partes).
+    private static bool PartesCoinciden(string parteDemandada, string partesScrapeadas)
+    {
+        if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
+            return false;
+
+        return NormalizarTexto(partesScrapeadas).Contains(NormalizarTexto(parteDemandada));
+    }
+
+    private static string NormalizarTexto(string texto)
+    {
+        var normalizado = texto.Trim().ToUpperInvariant();
+        var sinAcentos = string.Concat(
+            normalizado.Normalize(System.Text.NormalizationForm.FormD)
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark));
+        return System.Text.RegularExpressions.Regex.Replace(sinAcentos, @"\s+", " ");
     }
 
     private static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
