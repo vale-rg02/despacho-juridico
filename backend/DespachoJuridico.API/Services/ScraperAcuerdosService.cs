@@ -469,7 +469,22 @@ public class ScraperAcuerdosService : BackgroundService
         if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
             return false;
 
-        return NormalizarTexto(partesScrapeadas).Contains(NormalizarTexto(parteDemandada));
+        var parteRelevante = QuitarSufijoOtroDemandado(parteDemandada);
+        return NormalizarTexto(partesScrapeadas).Contains(NormalizarTexto(parteRelevante));
+    }
+
+    // "Y OTRA"/"Y OTRO"/"Y OTROS"/"Y OTRAS" es un sufijo genérico que el despacho
+    // usa al capturar ParteDemandada cuando hay codemandados sin nombrar — pero
+    // ADISON sí los nombra explícitamente, así que ese sufijo nunca aparece tal
+    // cual en el texto de "partes" aunque sea el mismo caso. Comparamos solo lo
+    // que viene antes del sufijo (validado con datos reales de julio 2026: 1 de
+    // 273 matches foráneos pasó de Baja a Alta con este ajuste, sin generar
+    // nuevos falsos positivos en el resto).
+    private static string QuitarSufijoOtroDemandado(string parteDemandada)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            parteDemandada, @"^(.*?)\s+Y\s+OTR[OA]S?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : parteDemandada;
     }
 
     private static string NormalizarTexto(string texto)
