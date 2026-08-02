@@ -218,16 +218,15 @@ public class ScraperAcuerdosService : BackgroundService
                     }
                     else
                     {
-                        // Juzgados foráneos: el "Juzgado" del expediente es el de origen
-                        // (Hermosillo), no el que recibe el exhorto, así que no podemos
-                        // validarlo aquí como con Hermosillo. El número de expediente por
-                        // sí solo no basta — se repite entre juzgados de todo el estado y
-                        // generaba falsos positivos (acuerdos de casos ajenos emparejados
-                        // con expedientes del despacho). Exigimos además que las partes
-                        // scrapeadas mencionen a la parte demandada del expediente.
+                        // Juzgados foráneos: match solo por número de expediente
+                        // (el juzgado registrado en el expediente es el de Hermosillo, no el
+                        // receptor del exhorto). El número por sí solo no basta — se repite
+                        // entre juzgados de todo el estado y generó falsos positivos reales
+                        // en el backfill de julio 2026. La confianza del match (comparando
+                        // Partes) se evalúa más abajo, pero por ahora solo clasifica — no
+                        // filtra — mientras se revisa en dry-run (ver Fase 1/Fase 2).
                         expediente = expedientes.FirstOrDefault(e =>
-                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
-                            PartesCoinciden(e.ParteDemandada, acuerdo.Partes));
+                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente));
                     }
 
                     if (expediente == null) continue;
@@ -446,31 +445,6 @@ public class ScraperAcuerdosService : BackgroundService
             cuerpo);
     }
 
-    // Quita acentos y normaliza mayúsculas/espacios para comparaciones tolerantes
-    private static string NormalizarTexto(string texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
-
-        var normalizado = texto.Normalize(System.Text.NormalizationForm.FormD);
-        var sinAcentos = new string(normalizado
-            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
-            .ToArray());
-
-        return sinAcentos.ToLowerInvariant().Trim();
-    }
-
-    // Confianza del match foráneo: ¿la parte demandada del expediente aparece
-    // dentro del texto de "Partes" que trae ADISON? No es infalible (hay
-    // variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el ruido
-    // de coincidencias que son solo por número y no tienen relación real.
-    private static bool PartesCoinciden(string parteDemandada, string partesAcuerdo)
-    {
-        if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesAcuerdo))
-            return false;
-
-        return NormalizarTexto(partesAcuerdo).Contains(NormalizarTexto(parteDemandada));
-    }
-
     private static string NormalizarNumero(string numero)
     {
         var partes = numero.Trim().Replace(" ", "").Split('/', '-');
@@ -483,10 +457,13 @@ public class ScraperAcuerdosService : BackgroundService
         return numero.Trim().ToUpperInvariant().TrimStart('0');
     }
 
-    // Segunda validación para juzgados foráneos, donde no se puede comparar el
-    // juzgado. Verifica que el texto de "partes" que trae ADISON mencione a la
-    // parte demandada del expediente (comparación laxa: sin acentos/mayúsculas
-    // ni espacios de más, buscada como substring dentro de las partes).
+    // Confianza del match foráneo (no se puede comparar el juzgado ahí, a
+    // diferencia de Hermosillo): ¿el texto de "partes" que trae ADISON menciona
+    // a la parte demandada del expediente? (comparación laxa: sin acentos ni
+    // mayúsculas ni espacios de más, buscada como substring). No es infalible
+    // (hay variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el
+    // ruido de coincidencias que son solo por número y no tienen relación real.
+    // Solo clasifica (Alta/Baja) — no filtra nada todavía, ver Fase 1/Fase 2.
     private static bool PartesCoinciden(string parteDemandada, string partesScrapeadas)
     {
         if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
