@@ -18,21 +18,24 @@ public class ScraperController : ControllerBase
 
     // POST /api/scraper/ejecutar
     // POST /api/scraper/ejecutar?fecha=2026-06-15
+    // POST /api/scraper/ejecutar?fecha=2026-06-15&dryRun=true — no escribe en BD ni envía correo
     [HttpPost("ejecutar")]
-    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha)
+    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false)
     {
-        var resultado = await _scraper.EjecutarScrapingAsync(fecha);
+        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun);
         return Ok(resultado);
     }
 
     // POST /api/scraper/ejecutar-rango?fechaInicio=2026-07-14&fechaFin=2026-07-29
+    // POST /api/scraper/ejecutar-rango?...&dryRun=true — no escribe en BD ni envía correo
     // Procesa varios días hábiles en una sola llamada (para recuperar histórico
     // antes de activar el scraper diario). Limitado a 5 días por llamada y con
     // una pausa de 30s entre fechas para no sobrecargar ADISON.
     [HttpPost("ejecutar-rango")]
     public async Task<IActionResult> EjecutarRango(
         [FromQuery] string fechaInicio,
-        [FromQuery] string fechaFin)
+        [FromQuery] string fechaFin,
+        [FromQuery] bool dryRun = false)
     {
         if (!DateOnly.TryParse(fechaInicio, out var inicio) ||
             !DateOnly.TryParse(fechaFin, out var fin))
@@ -60,13 +63,14 @@ public class ScraperController : ControllerBase
 
         foreach (var dia in diasHabiles)
         {
-            var resultado = await _scraper.EjecutarScrapingAsync(dia);
+            var resultado = await _scraper.EjecutarScrapingAsync(dia, dryRun);
             resultados.Add(new
             {
                 fecha = dia.ToString("yyyy-MM-dd"),
                 resultado.ExpedientesConsultados,
                 resultado.AcuerdosDetectados,
-                resultado.JuzgadosConError
+                resultado.JuzgadosConError,
+                resultado.MatchesForaneosEvaluados
             });
 
             // Pausa entre fechas para no sobrecargar ADISON
@@ -76,6 +80,7 @@ public class ScraperController : ControllerBase
 
         return Ok(new
         {
+            dryRun,
             diasProcesados = diasHabiles.Count,
             resultados
         });

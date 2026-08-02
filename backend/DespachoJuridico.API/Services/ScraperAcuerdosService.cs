@@ -155,12 +155,12 @@ public class ScraperAcuerdosService : BackgroundService
         }
     }
 
-    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null)
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false)
     {
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(DateTime.Now);
-        _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha}", fecha);
+        _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha} (dryRun={DryRun})", fecha, dryRun);
 
-        var resultado = new ResultadoScrapingResponse { Fecha = fecha };
+        var resultado = new ResultadoScrapingResponse { Fecha = fecha, DryRun = dryRun };
 
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -225,6 +225,50 @@ public class ScraperAcuerdosService : BackgroundService
                     }
 
                     if (expediente == null) continue;
+
+                    var esForaneo = !JuzgadosHermosillo.Contains(idUnidad);
+
+                    if (esForaneo)
+                    {
+                        // Verificación por Partes: el matching foráneo solo compara número
+                        // de expediente (ver comentario arriba), lo que causó falsos positivos
+                        // reales en el backfill de julio 2026 (ej. exp. 258/2026 coincidiendo
+                        // entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua Prieta).
+                        // Esto no filtra nada todavía — solo clasifica, para poder revisar en
+                        // dry-run antes de decidir la política real.
+                        var confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes) ? "Alta" : "Baja";
+
+                        if (dryRun)
+                        {
+                            resultado.MatchesForaneosEvaluados.Add(new MatchForaneoEvaluado
+                            {
+                                NumeroExpediente = expediente.NumeroExpediente,
+                                Juzgado = nombreJuzgado,
+                                ParteDemandadaExpediente = expediente.ParteDemandada,
+                                PartesAcuerdo = acuerdo.Partes,
+                                Confianza = confianza,
+                                Sintesis = acuerdo.Sintesis,
+                                FechaAcuerdo = acuerdo.FechaAcuerdo
+                            });
+                        }
+                        else
+                        {
+                            // TODO (Fase 2, pendiente de confirmar con Valeria después de
+                            // revisar el reporte de dry-run): no enviar correo si
+                            // confianza == "Baja". Qué hacer con el registro en sí (guardarlo
+                            // oculto/marcado, o no guardarlo) también queda pendiente — no
+                            // cambiar el comportamiento real todavía.
+                            _logger.LogInformation(
+                                "Match foráneo Exp {Numero} en {Juzgado}: confianza={Confianza}",
+                                expediente.NumeroExpediente, nombreJuzgado, confianza);
+                        }
+                    }
+
+                    if (dryRun)
+                    {
+                        // Modo de prueba: no se escribe en AcuerdosScrapeados ni se envía correo.
+                        continue;
+                    }
 
                     // Verificar si ya existe este acuerdo
                     var yaExiste = await context.AcuerdosScrapeados.AnyAsync(a =>
@@ -394,6 +438,31 @@ public class ScraperAcuerdosService : BackgroundService
             expediente.UsuarioAsignado.Nombre,
             asunto,
             cuerpo);
+    }
+
+    // Quita acentos y normaliza mayúsculas/espacios para comparaciones tolerantes
+    private static string NormalizarTexto(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        var normalizado = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var sinAcentos = new string(normalizado
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray());
+
+        return sinAcentos.ToLowerInvariant().Trim();
+    }
+
+    // Confianza del match foráneo: ¿la parte demandada del expediente aparece
+    // dentro del texto de "Partes" que trae ADISON? No es infalible (hay
+    // variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el ruido
+    // de coincidencias que son solo por número y no tienen relación real.
+    private static bool PartesCoinciden(string parteDemandada, string partesAcuerdo)
+    {
+        if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesAcuerdo))
+            return false;
+
+        return NormalizarTexto(partesAcuerdo).Contains(NormalizarTexto(parteDemandada));
     }
 
     private static string NormalizarNumero(string numero)
