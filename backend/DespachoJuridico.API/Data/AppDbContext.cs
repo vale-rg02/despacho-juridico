@@ -16,7 +16,6 @@ public class AppDbContext : DbContext
     public DbSet<BitacoraCambio> BitacoraCambios => Set<BitacoraCambio>();
     public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
     public DbSet<Cita> Citas => Set<Cita>();
-    public DbSet<Exhorto> Exhortos => Set<Exhorto>();
     public DbSet<ExpedienteAcceso> ExpedienteAccesos => Set<ExpedienteAcceso>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
