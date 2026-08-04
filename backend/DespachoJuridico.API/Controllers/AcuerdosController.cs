@@ -29,7 +29,7 @@ public class AcuerdosController : ControllerBase
         var usuarioIdActual = ObtenerUsuarioId();
 
         var noVistos = await _context.AcuerdosScrapeados
-            .Where(a => !a.Visto && a.Expediente.UsuarioAsignadoId == usuarioIdActual)
+            .Where(a => !a.Visto && !a.Oculto && a.Expediente.UsuarioAsignadoId == usuarioIdActual)
             .OrderByDescending(a => a.FechaAcuerdo)
             .Select(a => new
             {
@@ -55,7 +55,7 @@ public class AcuerdosController : ControllerBase
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var acuerdos = await _context.AcuerdosScrapeados
-            .Where(a => a.ExpedienteId == expedienteId)
+            .Where(a => a.ExpedienteId == expedienteId && !a.Oculto)
             .OrderByDescending(a => a.FechaAcuerdo)
             .Select(a => new AcuerdoResponse
             {
@@ -70,7 +70,8 @@ public class AcuerdosController : ControllerBase
                 Visto = a.Visto,
                 EsExhorto = a.EsExhorto,
                 CiudadDestino = a.CiudadDestino,
-                RegistradoManualmente = a.RegistradoManualmente
+                RegistradoManualmente = a.RegistradoManualmente,
+                Confianza = a.Confianza
             })
             .ToListAsync();
 
@@ -124,7 +125,8 @@ public class AcuerdosController : ControllerBase
             Visto = acuerdo.Visto,
             EsExhorto = acuerdo.EsExhorto,
             CiudadDestino = acuerdo.CiudadDestino,
-            RegistradoManualmente = acuerdo.RegistradoManualmente
+            RegistradoManualmente = acuerdo.RegistradoManualmente,
+            Confianza = acuerdo.Confianza
         });
     }
 
@@ -185,7 +187,8 @@ public class AcuerdosController : ControllerBase
             Visto = acuerdo.Visto,
             EsExhorto = acuerdo.EsExhorto,
             CiudadDestino = acuerdo.CiudadDestino,
-            RegistradoManualmente = acuerdo.RegistradoManualmente
+            RegistradoManualmente = acuerdo.RegistradoManualmente,
+            Confianza = acuerdo.Confianza
         });
     }
 

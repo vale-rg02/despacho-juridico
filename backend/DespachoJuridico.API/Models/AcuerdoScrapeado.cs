@@ -28,5 +28,15 @@ public class AcuerdoScrapeado
     // solo estos registros se pueden eliminar desde la UI
     public bool RegistradoManualmente { get; set; } = false;
 
+    // Confianza del match foráneo ("Alta"/"Baja") — null para matches de Hermosillo,
+    // que no pasan por esta verificación (ya se validan por juzgado). Fase 2.
+    public string? Confianza { get; set; }
+
+    // true cuando es un match foráneo de baja confianza: se guarda para poder
+    // revisarlo después (el criterio no es perfecto — hay casos reales que salen
+    // baja confianza por diferencias de formato), pero no se muestra en la UI
+    // normal ni se envía correo. Fase 2.
+    public bool Oculto { get; set; } = false;
+
     public Expediente Expediente { get; set; } = null!;
 }

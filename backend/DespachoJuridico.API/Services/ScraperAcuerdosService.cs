@@ -232,6 +232,8 @@ public class ScraperAcuerdosService : BackgroundService
                     if (expediente == null) continue;
 
                     var esForaneo = !JuzgadosHermosillo.Contains(idUnidad);
+                    string? confianza = null;
+                    var oculto = false;
 
                     if (esForaneo)
                     {
@@ -239,9 +241,14 @@ public class ScraperAcuerdosService : BackgroundService
                         // de expediente (ver comentario arriba), lo que causó falsos positivos
                         // reales en el backfill de julio 2026 (ej. exp. 258/2026 coincidiendo
                         // entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua Prieta).
-                        // Esto no filtra nada todavía — solo clasifica, para poder revisar en
-                        // dry-run antes de decidir la política real.
-                        var confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes) ? "Alta" : "Baja";
+                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes) ? "Alta" : "Baja";
+
+                        // Fase 2: los de baja confianza se guardan ocultos (Opción B) — no se
+                        // pierden por si el criterio se equivoca (hay casos reales que salen
+                        // baja confianza solo por diferencias de formato entre cómo el despacho
+                        // captura las partes y cómo las publica ADISON), pero no se notifican
+                        // ni se muestran en la sección de Acuerdos hasta revisarlos.
+                        oculto = confianza == "Baja";
 
                         if (dryRun)
                         {
@@ -255,17 +262,6 @@ public class ScraperAcuerdosService : BackgroundService
                                 Sintesis = acuerdo.Sintesis,
                                 FechaAcuerdo = acuerdo.FechaAcuerdo
                             });
-                        }
-                        else
-                        {
-                            // TODO (Fase 2, pendiente de confirmar con Valeria después de
-                            // revisar el reporte de dry-run): no enviar correo si
-                            // confianza == "Baja". Qué hacer con el registro en sí (guardarlo
-                            // oculto/marcado, o no guardarlo) también queda pendiente — no
-                            // cambiar el comportamiento real todavía.
-                            _logger.LogInformation(
-                                "Match foráneo Exp {Numero} en {Juzgado}: confianza={Confianza}",
-                                expediente.NumeroExpediente, nombreJuzgado, confianza);
                         }
                     }
 
@@ -298,26 +294,37 @@ public class ScraperAcuerdosService : BackgroundService
                         // ADISON no expone el estado/ciudad destino de un exhorto — solo
                         // detectamos que hubo actividad relacionada por la síntesis; el
                         // destino se captura manualmente después si aplica
-                        EsExhorto = acuerdo.Sintesis.Contains("exhorto", StringComparison.OrdinalIgnoreCase)
+                        EsExhorto = acuerdo.Sintesis.Contains("exhorto", StringComparison.OrdinalIgnoreCase),
+                        Confianza = confianza,
+                        Oculto = oculto
                     };
 
                     context.AcuerdosScrapeados.Add(nuevoAcuerdo);
                     await context.SaveChangesAsync();
 
-                    // Enviar notificación por correo
-                    await EnviarNotificacionAsync(emailService, expediente, nuevoAcuerdo);
-                    nuevoAcuerdo.NotificacionEnviada = true;
-                    await context.SaveChangesAsync();
-
-                    resultado.AcuerdosDetectados.Add(new AcuerdoDetectadoResumen
+                    if (!oculto)
                     {
-                        NumeroExpediente = expediente.NumeroExpediente,
-                        Juzgado = nombreJuzgado,
-                        Sintesis = acuerdo.Sintesis,
-                        FechaAcuerdo = acuerdo.FechaAcuerdo
-                    });
+                        // Enviar notificación por correo
+                        await EnviarNotificacionAsync(emailService, expediente, nuevoAcuerdo);
+                        nuevoAcuerdo.NotificacionEnviada = true;
+                        await context.SaveChangesAsync();
 
-                    _logger.LogInformation("Acuerdo detectado: Exp {Numero} en {Juzgado}", expediente.NumeroExpediente, nombreJuzgado);
+                        resultado.AcuerdosDetectados.Add(new AcuerdoDetectadoResumen
+                        {
+                            NumeroExpediente = expediente.NumeroExpediente,
+                            Juzgado = nombreJuzgado,
+                            Sintesis = acuerdo.Sintesis,
+                            FechaAcuerdo = acuerdo.FechaAcuerdo
+                        });
+
+                        _logger.LogInformation("Acuerdo detectado: Exp {Numero} en {Juzgado}", expediente.NumeroExpediente, nombreJuzgado);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Acuerdo oculto (baja confianza) Exp {Numero} en {Juzgado} — no se notifica",
+                            expediente.NumeroExpediente, nombreJuzgado);
+                    }
                 }
                 catch (Exception ex)
                 {

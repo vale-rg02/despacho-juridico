@@ -16,6 +16,7 @@ public class AcuerdoResponse
     public bool EsExhorto { get; set; }
     public string? CiudadDestino { get; set; }
     public bool RegistradoManualmente { get; set; }
+    public string? Confianza { get; set; }
 }
 
 public class ActualizarDestinoExhortoRequest
