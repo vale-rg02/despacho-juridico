@@ -4,9 +4,8 @@ import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios } from '../services/catalogos'
+import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
-const MATERIAS = ['Civil', 'Mercantil', 'Familiar', 'Arrendamiento']
-const TIPOS_JUICIO = ['Hipotecario', 'Oral Mercantil', 'Arrendamiento', 'Familiar']
 const PRIORIDADES = [
   { valor: 0, etiqueta: 'Normal' },
   { valor: 1, etiqueta: 'Prioritario' },
@@ -60,7 +59,16 @@ function NuevoExpediente() {
 
   function handleChange(e) {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
+    setForm(prev => {
+      if (name === 'materia') {
+        // Si el tipo de juicio ya elegido no aplica a la nueva materia, se limpia
+        // (DJ-82) — evita dejar guardada una combinación inconsistente
+        const opcionesValidas = tiposJuicioDisponibles(value).map(t => t.valor)
+        const tipoJuicioSigueValido = opcionesValidas.includes(prev.tipoJuicio)
+        return { ...prev, materia: value, tipoJuicio: tipoJuicioSigueValido ? prev.tipoJuicio : '' }
+      }
+      return { ...prev, [name]: value }
+    })
   }
 
   async function handleSubmit(e) {
@@ -224,10 +232,9 @@ function NuevoExpediente() {
                 className={`${inputBase} cursor-pointer`}
               >
                 <option value="">— Selecciona —</option>
-                {TIPOS_JUICIO.map(t => (
-                  <option key={t} value={t}>{t}</option>
+                {tiposJuicioDisponibles(form.materia).map(t => (
+                  <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
                 ))}
-                <option value="Jurisdiccion Voluntaria">Jurisdicción Voluntaria</option>
               </select>
             </div>
 
