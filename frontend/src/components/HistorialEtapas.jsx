@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 import { formatearFecha } from '../utils/formato'
 import EstadoVacio from './EstadoVacio'
+import ModalConfirmacion from './ModalConfirmacion'
 
 // El backend guarda fecha y hora "etiquetadas" como UTC sin convertirlas de
 // verdad (mismo patrón que fechaLimite/fechaAcuerdo en el resto de la app), así
@@ -74,6 +76,14 @@ function EstadoFecha({ etapa }) {
 }
 
 function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar }) {
+  const [confirmacion, setConfirmacion] = useState(null) // { tipo: 'revertir' | 'eliminar', etapaId }
+
+  function confirmar() {
+    if (confirmacion.tipo === 'revertir') onRevertir(confirmacion.etapaId)
+    else onEliminar(confirmacion.etapaId)
+    setConfirmacion(null)
+  }
+
   if (etapas.length === 0) {
     return (
       <EstadoVacio
@@ -119,11 +129,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    if (window.confirm('¿Estás seguro de que deseas revertir esta etapa a pendiente?')) {
-                      onRevertir(etapa.id)
-                    }
-                  }}
+                  onClick={() => setConfirmacion({ tipo: 'revertir', etapaId: etapa.id })}
                   className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
                 >
                   Revertir a pendiente
@@ -136,11 +142,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                 Editar
               </button>
               <button
-                onClick={() => {
-                  if (window.confirm('¿Estás seguro de que deseas eliminar esta etapa? Esta acción no se puede deshacer.')) {
-                    onEliminar(etapa.id)
-                  }
-                }}
+                onClick={() => setConfirmacion({ tipo: 'eliminar', etapaId: etapa.id })}
                 className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
               >
                 Eliminar
@@ -149,6 +151,21 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
           </div>
         )
       })}
+
+      {confirmacion && (
+        <ModalConfirmacion
+          titulo={confirmacion.tipo === 'eliminar' ? 'Eliminar etapa' : 'Revertir etapa'}
+          mensaje={
+            confirmacion.tipo === 'eliminar'
+              ? '¿Estás seguro de que deseas eliminar esta etapa? Esta acción no se puede deshacer.'
+              : '¿Estás seguro de que deseas revertir esta etapa a pendiente?'
+          }
+          confirmLabel={confirmacion.tipo === 'eliminar' ? 'Eliminar' : 'Revertir'}
+          peligroso={confirmacion.tipo === 'eliminar'}
+          onConfirmar={confirmar}
+          onCancelar={() => setConfirmacion(null)}
+        />
+      )}
     </div>
   )
 }

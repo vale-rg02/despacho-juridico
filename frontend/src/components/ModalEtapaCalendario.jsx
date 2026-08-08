@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Calendar } from 'lucide-react'
 import { editarEtapa } from '../services/etapas'
 import ModalHeader from './ModalHeader'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 // Extrae "HH:MM" directo del string ISO, sin pasar por new Date() (desfasaría
 // la hora según la zona horaria del navegador); '' si es medianoche o no hay fecha
@@ -18,6 +19,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
   const [hora, setHora] = useState(modalEtapa.horaLimite)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+
+  useCerrarConEscape(() => setModalEtapa(null))
 
   async function handleGuardar() {
     if (!fecha) return
@@ -47,8 +50,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
   const inputClass = "w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50"
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-      <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-xl space-y-4">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setModalEtapa(null)}>
+      <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
         <ModalHeader
           icon={Calendar}
           tono="accent"

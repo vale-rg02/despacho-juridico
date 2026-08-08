@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Calendar } from 'lucide-react'
 import { crearCita, editarCita, eliminarCita } from '../services/citas'
 import ModalHeader from './ModalHeader'
+import ModalConfirmacion from './ModalConfirmacion'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 function fechaHoraALocal(fechaHoraISO) {
   const d = new Date(fechaHoraISO)
@@ -24,6 +26,9 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
 
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
+
+  useCerrarConEscape(() => setModalCita(null))
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -58,7 +63,6 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   }
 
   async function handleEliminar() {
-    if (!window.confirm('¿Eliminar esta cita?')) return
     setGuardando(true)
     try {
       await eliminarCita(modalCita.cita.id)
@@ -74,9 +78,13 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+      onClick={() => setModalCita(null)}
+    >
       <form
         onSubmit={handleSubmit}
+        onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4"
       >
         <ModalHeader
@@ -154,7 +162,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
           {esEdicion ? (
             <button
               type="button"
-              onClick={handleEliminar}
+              onClick={() => setConfirmandoEliminar(true)}
               disabled={guardando}
               className="text-sm text-red-400 hover:text-red-600 transition disabled:opacity-50"
             >
@@ -180,6 +188,17 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
           </div>
         </div>
       </form>
+
+      {confirmandoEliminar && (
+        <ModalConfirmacion
+          titulo="Eliminar cita"
+          mensaje="¿Eliminar esta cita?"
+          confirmLabel="Eliminar"
+          peligroso
+          onConfirmar={() => { setConfirmandoEliminar(false); handleEliminar() }}
+          onCancelar={() => setConfirmandoEliminar(false)}
+        />
+      )}
     </div>
   )
 }

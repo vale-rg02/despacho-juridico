@@ -8,6 +8,7 @@ import { getExpedientesConAcuerdosNoVistos } from '../services/acuerdos'
 import { agregarAcceso } from '../services/accesos'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
@@ -182,6 +183,8 @@ function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, 
 function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCompletado }) {
   const [usuarioId, setUsuarioId] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  useCerrarConEscape(onCerrar)
 
   async function handleAgregar() {
     if (!usuarioId) return
@@ -400,7 +403,11 @@ function Expedientes() {
               className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
             />
             {busqueda && (
-              <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition">
+              <button
+                onClick={() => setBusqueda('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                aria-label="Limpiar búsqueda"
+              >
                 <X size={12} />
               </button>
             )}

@@ -154,6 +154,7 @@ function Topbar({ breadcrumb }) {
             onClick={() => navigate('/calendario')}
             className="p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
             title="Calendario"
+            aria-label="Ir al calendario"
           >
             <Calendar size={17} />
           </button>
@@ -163,6 +164,7 @@ function Topbar({ breadcrumb }) {
             <button
               onClick={() => setBellOpen(o => !o)}
               className="relative p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
+              aria-label="Ver alertas próximas"
             >
               <Bell size={17} />
               {alertas.length > 0 && (
@@ -281,6 +283,7 @@ function Topbar({ breadcrumb }) {
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-xs text-primary-foreground/50 hover:text-primary-foreground/90 transition px-2 py-1.5 rounded hover:bg-white/10"
             title="Cerrar sesión"
+            aria-label="Cerrar sesión"
           >
             <LogOut size={14} />
             <span className="hidden sm:inline">Salir</span>

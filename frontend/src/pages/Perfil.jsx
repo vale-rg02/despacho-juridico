@@ -4,6 +4,7 @@ import { User, Lock, ShieldCheck, Users, Download, Pencil, Plus, X, Check } from
 import Topbar from '../components/Topbar'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 const SOCIO_PRINCIPAL_ID = 1
 
@@ -50,6 +51,9 @@ function Perfil() {
   const [usuarios, setUsuarios] = useState([])
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false)
   const [modalUsuario, setModalUsuario] = useState(null)
+
+  useCerrarConEscape(() => setModalUsuario(null))
+
   const [formUsuario, setFormUsuario] = useState({ nombre: '', email: '', password: '', rol: 'Litigante', nivelAcceso: 0 })
   const [errorUsuario, setErrorUsuario] = useState('')
   const [msgUsuario, setMsgUsuario] = useState('')
@@ -363,12 +367,14 @@ function Perfil() {
                                 {u.id !== SOCIO_PRINCIPAL_ID && (
                                   <>
                                     <button onClick={() => abrirEditar(u)}
-                                      className="text-muted-foreground hover:text-foreground transition" title="Editar">
+                                      className="text-muted-foreground hover:text-foreground transition" title="Editar"
+                                      aria-label={`Editar a ${u.nombre}`}>
                                       <Pencil size={13} />
                                     </button>
                                     <button onClick={() => handleToggleActivo(u)}
                                       className={`transition text-xs ${u.activo ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
-                                      title={u.activo ? 'Desactivar' : 'Activar'}>
+                                      title={u.activo ? 'Desactivar' : 'Activar'}
+                                      aria-label={`${u.activo ? 'Desactivar' : 'Activar'} a ${u.nombre}`}>
                                       {u.activo ? <X size={13} /> : <Check size={13} />}
                                     </button>
                                   </>
@@ -385,8 +391,8 @@ function Perfil() {
 
               {/* Modal crear/editar — solo Socio Principal */}
               {modalUsuario && puedeVerAdmin && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-                  <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setModalUsuario(null)}>
+                  <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
                     <h3 className="text-base font-medium text-foreground" style={serifStyle}>
                       {modalUsuario === 'crear' ? 'Nuevo usuario' : 'Editar usuario'}
                     </h3>

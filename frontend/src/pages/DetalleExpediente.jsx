@@ -18,6 +18,7 @@ import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumer
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 import EtiquetaSeccion from '../components/EtiquetaSeccion'
 import EstadoVacio from '../components/EstadoVacio'
+import ModalConfirmacion from '../components/ModalConfirmacion'
 
 const estadoConfig = {
   Abierto: {
@@ -277,6 +278,7 @@ function DetalleExpediente() {
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [confirmacion, setConfirmacion] = useState(null) // { tipo: 'eliminarAcuerdo' | 'eliminarExpediente', acuerdoId? }
   const [exito, setExito] = useState('')
 
   useEffect(() => {
@@ -411,7 +413,6 @@ function DetalleExpediente() {
   }
 
   async function handleEliminarAcuerdoManual(acuerdoId) {
-    if (!window.confirm('¿Eliminar este exhorto registrado manualmente?')) return
     try {
       await eliminarAcuerdoManual(acuerdoId)
       await cargarDatos()
@@ -441,7 +442,6 @@ function DetalleExpediente() {
   }
 
   async function handleEliminar() {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
     try {
       await eliminarExpediente(id)
       navigate('/expedientes')
@@ -569,7 +569,7 @@ function DetalleExpediente() {
 
             {/* Botón Eliminar */}
             <button
-              onClick={handleEliminar}
+              onClick={() => setConfirmacion({ tipo: 'eliminarExpediente' })}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
             >
               <Trash2 size={11} />
@@ -602,6 +602,7 @@ function DetalleExpediente() {
                           <button
                             onClick={() => handleQuitarColaborador(acceso.id)}
                             className="text-muted-foreground hover:text-destructive transition"
+                            aria-label={`Quitar a ${acceso.usuarioNombre} como colaborador`}
                           >
                             <X size={10} />
                           </button>
@@ -798,7 +799,7 @@ function DetalleExpediente() {
                         )}
                         {acuerdo.registradoManualmente && (
                           <button
-                            onClick={() => handleEliminarAcuerdoManual(acuerdo.id)}
+                            onClick={() => setConfirmacion({ tipo: 'eliminarAcuerdo', acuerdoId: acuerdo.id })}
                             className="text-xs text-red-400 hover:text-red-600 transition"
                             title="Eliminar registro manual"
                           >
@@ -903,6 +904,25 @@ function DetalleExpediente() {
             Volver al listado
           </button>
         </div>
+
+        {confirmacion && (
+          <ModalConfirmacion
+            titulo={confirmacion.tipo === 'eliminarExpediente' ? 'Eliminar expediente' : 'Eliminar registro'}
+            mensaje={
+              confirmacion.tipo === 'eliminarExpediente'
+                ? `¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`
+                : '¿Eliminar este exhorto registrado manualmente?'
+            }
+            confirmLabel="Eliminar"
+            peligroso
+            onConfirmar={() => {
+              if (confirmacion.tipo === 'eliminarExpediente') handleEliminar()
+              else handleEliminarAcuerdoManual(confirmacion.acuerdoId)
+              setConfirmacion(null)
+            }}
+            onCancelar={() => setConfirmacion(null)}
+          />
+        )}
       </main>
     </div>
   )

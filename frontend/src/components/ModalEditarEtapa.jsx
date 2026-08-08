@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react'
 import { getEtapasCatalogo, editarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
 import ModalHeader from './ModalHeader'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 // Extrae "HH:MM" directo del string ISO (sin pasar por new Date(), que convertiría
 // a la zona horaria del navegador y desfasaría la hora) si trae una hora real, no medianoche
@@ -28,6 +29,8 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  useCerrarConEscape(onCerrar)
 
   useEffect(() => {
     cargarCatalogo()
@@ -78,9 +81,10 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
   const inputClass = `w-full ${inputBase}`
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
       <form
         onSubmit={handleSubmit}
+        onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4"
       >
         <ModalHeader icon={Pencil} tono="accent" titulo="Editar etapa" />
