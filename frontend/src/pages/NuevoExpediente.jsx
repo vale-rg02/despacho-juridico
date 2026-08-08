@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import { createExpediente } from '../services/expedientes'
-import { getBancos, getUsuarios, getJuzgados } from '../services/catalogos'
+import { getBancos, getUsuarios } from '../services/catalogos'
 import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const PRIORIDADES = [
@@ -20,7 +20,6 @@ function NuevoExpediente() {
 
   const [bancos, setBancos] = useState([])
   const [usuarios, setUsuarios] = useState([])
-  const [juzgados, setJuzgados] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
 
   const [form, setForm] = useState({
@@ -45,14 +44,12 @@ function NuevoExpediente() {
 
   async function cargarCatalogos() {
     try {
-      const [dataBancos, dataUsuarios, dataJuzgados] = await Promise.all([
+      const [dataBancos, dataUsuarios] = await Promise.all([
         getBancos(),
         getUsuarios(),
-        getJuzgados(),
       ])
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
-      setJuzgados(dataJuzgados)
     } catch {
       setErrorGeneral('No se pudieron cargar los catálogos de bancos y usuarios')
     } finally {
@@ -188,17 +185,11 @@ function NuevoExpediente() {
               <input
                 type="text"
                 name="juzgado"
-                list="juzgados-lista"
                 value={form.juzgado}
                 onChange={handleChange}
                 placeholder="Ej. 1ro Civil"
                 className={inputBase}
               />
-              <datalist id="juzgados-lista">
-                {juzgados.map(j => (
-                  <option key={j} value={j} />
-                ))}
-              </datalist>
             </div>
 
             <div>

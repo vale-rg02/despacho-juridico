@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
-import { getBancos, getUsuarios, getJuzgados } from '../services/catalogos'
+import { getBancos, getUsuarios } from '../services/catalogos'
 import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
@@ -15,7 +15,6 @@ function EditarExpediente() {
 
   const [bancos, setBancos] = useState([])
   const [usuarios, setUsuarios] = useState([])
-  const [juzgados, setJuzgados] = useState([])
   const [cargando, setCargando] = useState(true)
 
   const [form, setForm] = useState({
@@ -40,11 +39,10 @@ function EditarExpediente() {
   async function cargarDatos() {
     setCargando(true)
     try {
-      const [expediente, dataBancos, dataUsuarios, dataJuzgados] = await Promise.all([
+      const [expediente, dataBancos, dataUsuarios] = await Promise.all([
         getExpedienteById(id),
         getBancos(),
         getUsuarios(),
-        getJuzgados(),
       ])
 
       setForm({
@@ -60,7 +58,6 @@ function EditarExpediente() {
 
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
-      setJuzgados(dataJuzgados)
     } catch {
       setErrorGeneral('No se pudo cargar el expediente')
     } finally {
@@ -204,16 +201,10 @@ function EditarExpediente() {
               <input
                 type="text"
                 name="juzgado"
-                list="juzgados-lista"
                 value={form.juzgado}
                 onChange={handleChange}
                 className={inputBase}
               />
-              <datalist id="juzgados-lista">
-                {juzgados.map(j => (
-                  <option key={j} value={j} />
-                ))}
-              </datalist>
             </div>
 
             <div>

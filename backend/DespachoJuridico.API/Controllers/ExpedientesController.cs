@@ -723,24 +723,6 @@ public class ExpedientesController : ControllerBase
         return Ok(new { mensaje = "Colaborador removido correctamente" });
     }
 
-    // GET /api/expedientes/juzgados
-    // Juzgados ya capturados en algún expediente, sin repetidos — para el
-    // selector con autocompletar del campo Juzgado (DJ-87). No es información
-    // sensible (son nombres de juzgados, no datos de un caso), así que no se
-    // filtra por usuario.
-    [HttpGet("juzgados")]
-    public async Task<IActionResult> GetJuzgados()
-    {
-        var juzgados = await _context.Expedientes
-            .Where(e => e.Juzgado != null && e.Juzgado != "")
-            .Select(e => e.Juzgado!)
-            .Distinct()
-            .OrderBy(j => j)
-            .ToListAsync();
-
-        return Ok(juzgados);
-    }
-
     // GET /api/expedientes/por-usuario
 [HttpGet("por-usuario")]
 public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
