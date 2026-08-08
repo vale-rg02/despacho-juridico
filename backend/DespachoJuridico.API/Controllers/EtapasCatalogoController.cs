@@ -23,14 +23,17 @@ public class EtapasCatalogoController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? tipoJuicio)
     {
-        var query = _context.EtapasCatalogo.AsQueryable();
+        // Sin tipoJuicio no hay catálogo que mostrar. Antes esto no aplicaba filtro
+        // y regresaba las etapas de TODOS los tipos de juicio mezcladas (DJ-75):
+        // expedientes sin tipo de juicio capturado (campo opcional; frecuente en los
+        // de prueba de cuentas de soporte, que suelen crearse rápido sin llenarlo)
+        // mostraban duplicados los pasos que comparten nombre entre catálogos
+        // (Amparo, Sentencia, Demanda, Radicación, Contestación...).
+        if (string.IsNullOrWhiteSpace(tipoJuicio))
+            return Ok(new List<EtapaCatalogoResponse>());
 
-        if (!string.IsNullOrWhiteSpace(tipoJuicio))
-        {
-            query = query.Where(e => e.TipoJuicio == tipoJuicio);
-        }
-
-        var etapas = await query
+        var etapas = await _context.EtapasCatalogo
+            .Where(e => e.TipoJuicio == tipoJuicio)
             .OrderBy(e => e.Orden)
             .Select(e => new EtapaCatalogoResponse
             {

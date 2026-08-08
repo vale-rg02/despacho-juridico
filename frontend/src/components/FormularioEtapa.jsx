@@ -111,6 +111,11 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
             <option key={e.id} value={e.id}>{e.nombre}</option>
           ))}
         </select>
+        {!cargandoCatalogo && catalogo.length === 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
