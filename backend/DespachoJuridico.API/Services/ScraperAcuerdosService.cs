@@ -151,7 +151,14 @@ public class ScraperAcuerdosService : BackgroundService
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            await EjecutarScrapingAsync();
+            try
+            {
+                await EjecutarScrapingAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error durante el ciclo automático de scraping de acuerdos");
+            }
         }
     }
 
