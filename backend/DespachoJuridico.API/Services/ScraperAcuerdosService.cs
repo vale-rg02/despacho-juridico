@@ -27,6 +27,11 @@ public class ScraperAcuerdosService : BackgroundService
         { 159, "2do Mercantil Hermosillo" },
         { 160, "3ro Mercantil Hermosillo" },
         { 161, "4to Mercantil Hermosillo" },
+        // Oral Mercantil es un ramo y juzgado distintos al Mercantil tradicional
+        // (IdUnidad propio en ADISON, numeración de expedientes independiente) —
+        // no agregar sin también validar JuzgadoCoincide, ver nota ahí abajo.
+        { 173, "1ro Oral Mercantil Hermosillo" },
+        { 300, "2do Oral Mercantil Hermosillo" },
         { 174, "Arrendamiento Hermosillo" },
         { 155, "1ro Familiar Hermosillo" },
         { 156, "2do Familiar Hermosillo" },
@@ -36,6 +41,24 @@ public class ScraperAcuerdosService : BackgroundService
         { 276, "1er Tribunal Colegiado 1er Circuito" },
         { 277, "2do Tribunal Colegiado 1er Circuito" },
         { 175, "Secretaría General de Acuerdos Hermosillo" },
+
+        // Agregados tras auditoría contra el catálogo oficial de ADISON (agosto
+        // 2026) — juzgados de Hermosillo que nunca se habían consultado. No están
+        // en JuzgadosHermosillo (más abajo): no hay un patrón de JuzgadoCoincide
+        // ya probado para Penal/Laboral/Adolescentes, así que pasan por la ruta
+        // foránea (match por número + verificación de Partes) en vez de asumir
+        // coincidencia solo por juzgado.
+        { 162, "1ro Penal Hermosillo" },
+        { 163, "2do Penal Hermosillo" },
+        { 164, "3ro Penal Hermosillo" },
+        { 166, "5to Penal Hermosillo" },
+        { 205, "Juzgado Oral Penal Hermosillo" },
+        { 171, "Juzgado Adolescentes Hermosillo" },
+        { 178, "Tribunal Unitario Regional Adolescentes/Penal Oral Hermosillo" },
+        { 208, "Juzgado Ejecución de Sanciones Hermosillo" },
+        { 322, "1er Tribunal Laboral Hermosillo" },
+        { 332, "2do Tribunal Laboral Hermosillo" },
+        { 333, "3er Tribunal Laboral Hermosillo" },
 
         // ── CAJEME (Ciudad Obregón) ────────────────────────────────────────
         { 135, "1ro Civil Cajeme" },
@@ -106,9 +129,15 @@ public class ScraperAcuerdosService : BackgroundService
         { 203, "Juzgado 1ro Civil Puerto Peñasco" },
         { 264, "Sala Oral Penal Puerto Peñasco" },
         { 328, "Tribunal Laboral Puerto Peñasco" },
+        { 204, "Juzgado 1ro Penal Puerto Peñasco" },
 
         // ── SAHUARIPA ─────────────────────────────────────────────────────
         { 194, "Juzgado Mixto Sahuaripa" },
+
+        // ── SIN DISTRITO CONFIRMADO ───────────────────────────────────────
+        // ADISON no especifica distrito en el nombre oficial; no se confirmó su
+        // ubicación, así que no entra a JuzgadosHermosillo (ruta foránea, más segura).
+        { 297, "Juzgado Familiar Competencia Especializada" },
 
         // ── SAN LUIS RÍO COLORADO ─────────────────────────────────────────
         { 195, "Juzgado 1ro Civil San Luis Río Colorado" },
@@ -128,7 +157,7 @@ public class ScraperAcuerdosService : BackgroundService
     private static readonly HashSet<int> JuzgadosHermosillo = new()
     {
         152, 153, 154, 155, 156, 157, 158, 159, 160,
-        161, 174, 175, 276, 277, 296, 905
+        161, 174, 175, 276, 277, 296, 905, 173, 300
     };
 
     public ScraperAcuerdosService(
@@ -164,7 +193,8 @@ public class ScraperAcuerdosService : BackgroundService
 
     public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false)
     {
-        var fecha = fechaConsulta ?? DateOnly.FromDateTime(DateTime.Now);
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha} (dryRun={DryRun})", fecha, dryRun);
 
         var resultado = new ResultadoScrapingResponse { Fecha = fecha, DryRun = dryRun };
@@ -524,10 +554,17 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("2do civil");
         if (exp.Contains("3ro civil") || exp.Contains("tercero civil"))
             return scr.Contains("3ro civil");
-        if (exp.Contains("1ro mercantil") || exp.Contains("primero mercantil") || exp.Contains("1ro oral mercantil"))
-            return scr.Contains("1ro mercantil");
-        if (exp.Contains("2do mercantil") || exp.Contains("segundo mercantil") || exp.Contains("2do oral mecantil") || exp.Contains("2do oral mercantil"))
-            return scr.Contains("2do mercantil");
+        // Oral Mercantil es un juzgado distinto al Mercantil tradicional (mismo
+        // número de juzgado, pero ramo y numeración de expedientes independientes)
+        // — "oral" nunca debe cruzarse con "no oral", en ningún sentido.
+        if (exp.Contains("1ro oral mercantil") || exp.Contains("primero oral mercantil"))
+            return scr.Contains("1ro oral mercantil");
+        if (exp.Contains("1ro mercantil") || exp.Contains("primero mercantil"))
+            return scr.Contains("1ro mercantil") && !scr.Contains("oral");
+        if (exp.Contains("2do oral mercantil") || exp.Contains("2do oral mecantil") || exp.Contains("segundo oral mercantil"))
+            return scr.Contains("2do oral mercantil");
+        if (exp.Contains("2do mercantil") || exp.Contains("segundo mercantil"))
+            return scr.Contains("2do mercantil") && !scr.Contains("oral");
         if (exp.Contains("3ro mercantil") || exp.Contains("tercero mercantil"))
             return scr.Contains("3ro mercantil");
         if (exp.Contains("4to mercantil") || exp.Contains("cuarto mercantil"))
