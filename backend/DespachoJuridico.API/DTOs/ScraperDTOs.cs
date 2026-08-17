@@ -20,6 +20,11 @@ public class ResultadoScrapingResponse
     // de expediente coincide) pero sin guardar ni notificar, para poder revisar
     // la calidad del criterio de verificación por Partes antes de activarlo.
     public List<MatchForaneoEvaluado> MatchesForaneosEvaluados { get; set; } = new();
+
+    // Solo se llena en dry-run: matches de juzgados de Hermosillo (número +
+    // juzgado coinciden, sin verificación de Partes) evaluados pero sin guardar
+    // ni notificar — para poder revisar el resultado antes de que se guarde.
+    public List<MatchHermosilloEvaluado> MatchesHermosilloEvaluados { get; set; } = new();
 }
 
 public class MatchForaneoEvaluado
@@ -32,6 +37,19 @@ public class MatchForaneoEvaluado
     // "Alta" si ParteDemandada del expediente aparece dentro de Partes del
     // acuerdo (case-insensitive, tolerante a acentos); "Baja" si no.
     public string Confianza { get; set; } = string.Empty;
+    public string Sintesis { get; set; } = string.Empty;
+    public DateOnly FechaAcuerdo { get; set; }
+}
+
+public class MatchHermosilloEvaluado
+{
+    public string NumeroExpediente { get; set; } = string.Empty;
+    public string Juzgado { get; set; } = string.Empty;
+    public string ParteDemandadaExpediente { get; set; } = string.Empty;
+
+    // Texto de Partes que trae ADISON, mostrado solo como referencia — el
+    // matching de Hermosillo no lo compara (confía en número + juzgado).
+    public string PartesAcuerdo { get; set; } = string.Empty;
     public string Sintesis { get; set; } = string.Empty;
     public DateOnly FechaAcuerdo { get; set; }
 }

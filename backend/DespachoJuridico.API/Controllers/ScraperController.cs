@@ -19,10 +19,11 @@ public class ScraperController : ControllerBase
     // POST /api/scraper/ejecutar
     // POST /api/scraper/ejecutar?fecha=2026-06-15
     // POST /api/scraper/ejecutar?fecha=2026-06-15&dryRun=true — no escribe en BD ni envía correo
+    // POST /api/scraper/ejecutar?idsUnidad=173,300 — acota el escaneo a esos juzgados solamente
     [HttpPost("ejecutar")]
-    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false)
+    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false, [FromQuery] string? idsUnidad = null)
     {
-        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun);
+        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad));
         return Ok(resultado);
     }
 
@@ -35,8 +36,10 @@ public class ScraperController : ControllerBase
     public async Task<IActionResult> EjecutarRango(
         [FromQuery] string fechaInicio,
         [FromQuery] string fechaFin,
-        [FromQuery] bool dryRun = false)
+        [FromQuery] bool dryRun = false,
+        [FromQuery] string? idsUnidad = null)
     {
+        var idsUnidadSet = ParseIdsUnidad(idsUnidad);
         if (!DateOnly.TryParse(fechaInicio, out var inicio) ||
             !DateOnly.TryParse(fechaFin, out var fin))
             return BadRequest(new { mensaje = "Formato de fecha inválido. Usar YYYY-MM-DD" });
@@ -63,14 +66,15 @@ public class ScraperController : ControllerBase
 
         foreach (var dia in diasHabiles)
         {
-            var resultado = await _scraper.EjecutarScrapingAsync(dia, dryRun);
+            var resultado = await _scraper.EjecutarScrapingAsync(dia, dryRun, idsUnidadSet);
             resultados.Add(new
             {
                 fecha = dia.ToString("yyyy-MM-dd"),
                 resultado.ExpedientesConsultados,
                 resultado.AcuerdosDetectados,
                 resultado.JuzgadosConError,
-                resultado.MatchesForaneosEvaluados
+                resultado.MatchesForaneosEvaluados,
+                resultado.MatchesHermosilloEvaluados
             });
 
             // Pausa entre fechas para no sobrecargar ADISON
@@ -84,5 +88,15 @@ public class ScraperController : ControllerBase
             diasProcesados = diasHabiles.Count,
             resultados
         });
+    }
+
+    private static HashSet<int>? ParseIdsUnidad(string? idsUnidad)
+    {
+        if (string.IsNullOrWhiteSpace(idsUnidad)) return null;
+
+        return idsUnidad
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(int.Parse)
+            .ToHashSet();
     }
 }

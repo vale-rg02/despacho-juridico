@@ -191,7 +191,7 @@ public class ScraperAcuerdosService : BackgroundService
         }
     }
 
-    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false)
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
@@ -214,6 +214,8 @@ public class ScraperAcuerdosService : BackgroundService
 
         foreach (var (idUnidad, nombreJuzgado) in Juzgados)
         {
+            if (idsUnidad != null && !idsUnidad.Contains(idUnidad)) continue;
+
             List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)> acuerdos;
 
             try
@@ -300,6 +302,20 @@ public class ScraperAcuerdosService : BackgroundService
                                 FechaAcuerdo = acuerdo.FechaAcuerdo
                             });
                         }
+                    }
+                    else if (dryRun)
+                    {
+                        // Hermosillo: no hay verificación de Partes, pero en dry-run se
+                        // muestra el texto de ADISON de todos modos como referencia visual.
+                        resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                        {
+                            NumeroExpediente = expediente.NumeroExpediente,
+                            Juzgado = nombreJuzgado,
+                            ParteDemandadaExpediente = expediente.ParteDemandada,
+                            PartesAcuerdo = acuerdo.Partes,
+                            Sintesis = acuerdo.Sintesis,
+                            FechaAcuerdo = acuerdo.FechaAcuerdo
+                        });
                     }
 
                     if (dryRun)
