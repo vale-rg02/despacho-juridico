@@ -173,13 +173,39 @@ public class ScraperAcuerdosService : BackgroundService
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; DespachoBot/1.0)");
     }
 
+    // Corre varias veces al día en vez de una sola vez — ADISON sigue publicando
+    // acuerdos durante el día (no todo de golpe a medianoche), así que una sola
+    // corrida diaria se queda con lo que ya estaba listo esa madrugada y nunca
+    // vuelve a revisar el día anterior. Horario configurable, por defecto cada
+    // 2 horas de 00:05 a 18:05 hora de Hermosillo — fuera de esa ventana no corre,
+    // para no pegarle a ADISON de madrugada sin actividad real.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var intervaloMinutos = _config.GetValue<int>("ScraperAcuerdos:IntervaloMinutos", 1440);
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(intervaloMinutos));
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var intervaloHoras = _config.GetValue<int>("ScraperAcuerdos:IntervaloHorasDiurno", 2);
+        var horaInicio = _config.GetValue<int>("ScraperAcuerdos:HoraInicioLocal", 0);
+        var horaFin = _config.GetValue<int>("ScraperAcuerdos:HoraFinLocal", 18);
 
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria);
+            var proximaCorridaLocal = ProximaCorridaProgramada(ahoraLocal, horaInicio, horaFin, intervaloHoras);
+            var proximaCorridaUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(proximaCorridaLocal, DateTimeKind.Unspecified), zonaHoraria);
+            var espera = proximaCorridaUtc - DateTime.UtcNow;
+
+            if (espera > TimeSpan.Zero)
+            {
+                try
+                {
+                    await Task.Delay(espera, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
             try
             {
                 await EjecutarScrapingAsync();
@@ -189,6 +215,23 @@ public class ScraperAcuerdosService : BackgroundService
                 _logger.LogError(ex, "Error durante el ciclo automático de scraping de acuerdos");
             }
         }
+    }
+
+    // Calcula la siguiente hora programada (cada intervaloHoras, entre horaInicio
+    // y horaFin, minuto :05) a partir de "ahora" en hora local de Hermosillo. Si
+    // ya pasaron todas las corridas de hoy, programa la primera de mañana.
+    internal static DateTime ProximaCorridaProgramada(DateTime ahoraLocal, int horaInicio, int horaFin, int intervaloHoras)
+    {
+        var hoy = ahoraLocal.Date;
+
+        for (var hora = horaInicio; hora <= horaFin; hora += intervaloHoras)
+        {
+            var candidato = hoy.AddHours(hora).AddMinutes(5);
+            if (candidato > ahoraLocal)
+                return candidato;
+        }
+
+        return hoy.AddDays(1).AddHours(horaInicio).AddMinutes(5);
     }
 
     public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null)
