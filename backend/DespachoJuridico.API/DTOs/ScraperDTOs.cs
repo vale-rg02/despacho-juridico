@@ -53,3 +53,22 @@ public class MatchHermosilloEvaluado
     public string Sintesis { get; set; } = string.Empty;
     public DateOnly FechaAcuerdo { get; set; }
 }
+
+// Un registro real de AcuerdosScrapeados (visible u oculto) para el endpoint de
+// diagnóstico GET /api/scraper/registros — a diferencia de los DTOs de arriba,
+// que solo existen durante dryRun, este refleja lo que de verdad quedó guardado.
+public class RegistroScraperDiaResponse
+{
+    public int Id { get; set; }
+    public string NumeroExpediente { get; set; } = string.Empty;
+    public string NombreJuzgado { get; set; } = string.Empty;
+    public string? Asignado { get; set; }
+    public DateOnly FechaAcuerdo { get; set; }
+    public DateTime FechaDetectado { get; set; }
+    public string? Confianza { get; set; }
+    public bool Oculto { get; set; }
+    public bool NotificacionEnviada { get; set; }
+    public string Partes { get; set; } = string.Empty;
+    public string ParteDemandada { get; set; } = string.Empty;
+    public bool RegistradoManualmente { get; set; }
+}
