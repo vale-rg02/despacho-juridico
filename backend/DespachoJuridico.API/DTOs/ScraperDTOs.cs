@@ -46,10 +46,12 @@ public class MatchHermosilloEvaluado
     public string NumeroExpediente { get; set; } = string.Empty;
     public string Juzgado { get; set; } = string.Empty;
     public string ParteDemandadaExpediente { get; set; } = string.Empty;
-
-    // Texto de Partes que trae ADISON, mostrado solo como referencia — el
-    // matching de Hermosillo no lo compara (confía en número + juzgado).
     public string PartesAcuerdo { get; set; } = string.Empty;
+
+    // "Alta"/"Baja" si ADISON trajo un nombre reconocible en Partes y se pudo
+    // verificar; null si no traía nombre y se confió en número+juzgado sin
+    // comparar (ver PartesTieneNombre).
+    public string? Confianza { get; set; }
     public string Sintesis { get; set; } = string.Empty;
     public DateOnly FechaAcuerdo { get; set; }
 }

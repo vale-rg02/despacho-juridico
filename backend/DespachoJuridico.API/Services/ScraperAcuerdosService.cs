@@ -240,6 +240,13 @@ public class ScraperAcuerdosService : BackgroundService
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha} (dryRun={DryRun})", fecha, dryRun);
 
+        // Umbral de similitud aproximada para PartesCoinciden (0.0 a 1.0) — cuando
+        // la coincidencia exacta por substring falla, se acepta igual si el nombre
+        // se parece lo suficiente (tolera variaciones de ortografía entre cómo el
+        // despacho captura la parte y cómo la publica el juzgado, ej. "Corona" vs
+        // "Coronado"). Configurable sin redeploy vía ScraperAcuerdos:UmbralSimilitudPartes.
+        var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
+
         var resultado = new ResultadoScrapingResponse { Fecha = fecha, DryRun = dryRun };
 
         using var scope = _scopeFactory.CreateScope();
@@ -323,7 +330,7 @@ public class ScraperAcuerdosService : BackgroundService
                         // de expediente (ver comentario arriba), lo que causó falsos positivos
                         // reales en el backfill de julio 2026 (ej. exp. 258/2026 coincidiendo
                         // entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua Prieta).
-                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes) ? "Alta" : "Baja";
+                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
 
                         // Fase 2: los de baja confianza se guardan ocultos (Opción B) — no se
                         // pierden por si el criterio se equivoca (hay casos reales que salen
@@ -346,16 +353,44 @@ public class ScraperAcuerdosService : BackgroundService
                             });
                         }
                     }
+                    else if (PartesTieneNombre(acuerdo.Partes))
+                    {
+                        // Hermosillo normalmente confía en número+juzgado sin verificar
+                        // Partes (ver comentario en JuzgadosHermosillo) — pero esa confianza
+                        // también puede fallar (hallazgo real del 20 de agosto 2026, exp.
+                        // 150/2023: coincidencia de número con un caso ajeno). Cuando ADISON
+                        // sí trae un nombre reconocible, vale la pena verificarlo igual que
+                        // en foráneos; cuando no trae nombre (pasa seguido: "---", solo el
+                        // tipo de trámite, etc.) no hay nada que comparar y se sigue confiando
+                        // en número+juzgado como siempre.
+                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
+                        oculto = confianza == "Baja";
+
+                        if (dryRun)
+                        {
+                            resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                            {
+                                NumeroExpediente = expediente.NumeroExpediente,
+                                Juzgado = nombreJuzgado,
+                                ParteDemandadaExpediente = expediente.ParteDemandada,
+                                PartesAcuerdo = acuerdo.Partes,
+                                Confianza = confianza,
+                                Sintesis = acuerdo.Sintesis,
+                                FechaAcuerdo = acuerdo.FechaAcuerdo
+                            });
+                        }
+                    }
                     else if (dryRun)
                     {
-                        // Hermosillo: no hay verificación de Partes, pero en dry-run se
-                        // muestra el texto de ADISON de todos modos como referencia visual.
+                        // Hermosillo sin nombre en Partes: nada que verificar, se sigue
+                        // confiando en número+juzgado como siempre.
                         resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
                         {
                             NumeroExpediente = expediente.NumeroExpediente,
                             Juzgado = nombreJuzgado,
                             ParteDemandadaExpediente = expediente.ParteDemandada,
                             PartesAcuerdo = acuerdo.Partes,
+                            Confianza = null,
                             Sintesis = acuerdo.Sintesis,
                             FechaAcuerdo = acuerdo.FechaAcuerdo
                         });
@@ -560,6 +595,25 @@ public class ScraperAcuerdosService : BackgroundService
         return numero.Trim().ToUpperInvariant().TrimStart('0');
     }
 
+    // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de
+    // persona o empresa, o es solo texto genérico ("---", tipo de trámite sin
+    // nombres, etc.)? Si no hay nombre, no hay nada que verificar contra
+    // ParteDemandada — se sigue confiando en número+juzgado como antes.
+    internal static bool PartesTieneNombre(string partes)
+    {
+        if (string.IsNullOrWhiteSpace(partes)) return false;
+
+        // Los nombres suelen venir después del último separador ("-" o ".-") que
+        // cierra la descripción del tipo de trámite — el texto antes de eso casi
+        // siempre es terminología genérica ("ESPECIAL HIPOTECARIO", "ORAL
+        // MERCANTIL", etc.) que por sí sola no cuenta como nombre real.
+        var ultimoGuion = partes.LastIndexOf('-');
+        var textoRelevante = ultimoGuion >= 0 ? partes[(ultimoGuion + 1)..] : partes;
+
+        var palabras = System.Text.RegularExpressions.Regex.Matches(textoRelevante, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
+        return palabras.Count >= 2;
+    }
+
     // Confianza del match foráneo (no se puede comparar el juzgado ahí, a
     // diferencia de Hermosillo): ¿el texto de "partes" que trae ADISON menciona
     // a la parte demandada del expediente? (comparación laxa: sin acentos ni
@@ -567,13 +621,86 @@ public class ScraperAcuerdosService : BackgroundService
     // (hay variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el
     // ruido de coincidencias que son solo por número y no tienen relación real.
     // Solo clasifica (Alta/Baja) — no filtra nada todavía, ver Fase 1/Fase 2.
-    private static bool PartesCoinciden(string parteDemandada, string partesScrapeadas)
+    internal static bool PartesCoinciden(string parteDemandada, string partesScrapeadas, double umbralSimilitud = 0.8)
     {
         if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
             return false;
 
         var parteRelevante = QuitarSufijoOtroDemandado(parteDemandada);
-        return NormalizarTexto(partesScrapeadas).Contains(NormalizarTexto(parteRelevante));
+        var textoNormalizado = NormalizarTexto(partesScrapeadas);
+        var patronNormalizado = NormalizarTexto(parteRelevante);
+
+        if (textoNormalizado.Contains(patronNormalizado))
+            return true;
+
+        // La coincidencia exacta por substring falló — antes de descartar el
+        // match, probar tolerancia a variaciones de ortografía entre cómo el
+        // despacho captura la parte y cómo la publica el juzgado (ej. "Corona"
+        // vs "Coronado" — hallazgo real del 20 de agosto 2026, exp. 127/2023).
+        return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado) >= umbralSimilitud;
+    }
+
+    // Busca, dentro de "texto", la subcadena (de CUALQUIER longitud, no solo la
+    // de "patron") que más se le parezca — a diferencia de comparar ventanas de
+    // longitud fija, esto sí maneja bien inserciones/omisiones en medio del
+    // nombre (ej. "CORONA" vs "CORONADO": la ventana de longitud fija corta mal
+    // el resto del nombre y da una similitud artificialmente baja). Es la técnica
+    // estándar de "coincidencia aproximada de subcadena": una fila de Levenshtein
+    // donde empezar en cualquier punto de "texto" no cuesta nada, y se toma el
+    // mínimo de la última fila (terminar en cualquier punto tampoco cuesta).
+    internal static double SimilitudMaximaSubcadena(string patron, string texto)
+    {
+        if (string.IsNullOrEmpty(patron) || string.IsNullOrEmpty(texto)) return 0.0;
+
+        var m = patron.Length;
+        var n = texto.Length;
+        var anterior = new int[n + 1];
+        var actual = new int[n + 1];
+
+        for (var i = 1; i <= m; i++)
+        {
+            actual[0] = i;
+            for (var j = 1; j <= n; j++)
+            {
+                var costo = patron[i - 1] == texto[j - 1] ? 0 : 1;
+                actual[j] = Math.Min(Math.Min(anterior[j] + 1, actual[j - 1] + 1), anterior[j - 1] + costo);
+            }
+            (anterior, actual) = (actual, anterior);
+        }
+
+        var mejorDistancia = int.MaxValue;
+        for (var j = 0; j <= n; j++)
+            if (anterior[j] < mejorDistancia) mejorDistancia = anterior[j];
+
+        return 1.0 - (double)mejorDistancia / m;
+    }
+
+    // % de similitud (0.0 a 1.0) entre dos textos de longitud comparable, basado
+    // en distancia de Levenshtein normalizada por la longitud del más largo.
+    internal static double Similitud(string a, string b)
+    {
+        if (a.Length == 0 && b.Length == 0) return 1.0;
+        var maxLen = Math.Max(a.Length, b.Length);
+        if (maxLen == 0) return 1.0;
+        return 1.0 - (double)DistanciaLevenshtein(a, b) / maxLen;
+    }
+
+    private static int DistanciaLevenshtein(string a, string b)
+    {
+        var dp = new int[a.Length + 1, b.Length + 1];
+        for (var i = 0; i <= a.Length; i++) dp[i, 0] = i;
+        for (var j = 0; j <= b.Length; j++) dp[0, j] = j;
+
+        for (var i = 1; i <= a.Length; i++)
+        {
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var costo = a[i - 1] == b[j - 1] ? 0 : 1;
+                dp[i, j] = Math.Min(Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1), dp[i - 1, j - 1] + costo);
+            }
+        }
+
+        return dp[a.Length, b.Length];
     }
 
     // "Y OTRA"/"Y OTRO"/"Y OTROS"/"Y OTRAS" es un sufijo genérico que el despacho
