@@ -472,6 +472,67 @@ public class ScraperAcuerdosService : BackgroundService
         return resultado;
     }
 
+    // Vuelve a evaluar, con el algoritmo y umbral ACTUALES de PartesCoinciden, los
+    // acuerdos que quedaron guardados ocultos por baja confianza (matching foráneo
+    // o de Hermosillo — ver EjecutarScrapingAsync). El criterio se sigue afinando
+    // (ver comentarios de PartesCoinciden y SimilitudMaximaSubcadena), así que un
+    // ajuste no reclasifica por sí solo lo que ya se guardó antes del cambio; este
+    // método cierra ese hueco sin tener que volver a scrapear ADISON. Solo toca
+    // los registros que hoy están Oculto=true/Confianza=Baja — nunca los ya
+    // visibles ni los manuales.
+    public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
+    {
+        var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
+
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        var candidatos = await context.AcuerdosScrapeados
+            .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .Where(a => a.Oculto && a.Confianza == "Baja" && !a.RegistradoManualmente)
+            .ToListAsync();
+
+        var resultado = new ResultadoReevaluacionResponse
+        {
+            DryRun = dryRun,
+            RegistrosEvaluados = candidatos.Count
+        };
+
+        foreach (var acuerdo in candidatos)
+        {
+            var expediente = acuerdo.Expediente;
+            if (expediente == null) continue;
+
+            var ahoraCoincide = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes);
+            if (!ahoraCoincide) continue;
+
+            resultado.RegistrosDesocultados.Add(new AcuerdoDetectadoResumen
+            {
+                NumeroExpediente = acuerdo.NumeroExpediente,
+                Juzgado = acuerdo.NombreJuzgado,
+                Sintesis = acuerdo.Sintesis,
+                FechaAcuerdo = acuerdo.FechaAcuerdo
+            });
+
+            if (dryRun) continue;
+
+            acuerdo.Confianza = "Alta";
+            acuerdo.Oculto = false;
+            await context.SaveChangesAsync();
+
+            await EnviarNotificacionAsync(emailService, expediente, acuerdo);
+            acuerdo.NotificacionEnviada = true;
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza Alta) y se notificó",
+                acuerdo.NumeroExpediente, acuerdo.NombreJuzgado);
+        }
+
+        return resultado;
+    }
+
     private async Task<List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)>> ScrapearJuzgadoAsync(
         int idUnidad, string nombreJuzgado, DateOnly fecha)
     {

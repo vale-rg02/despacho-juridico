@@ -56,6 +56,13 @@ public class MatchHermosilloEvaluado
     public DateOnly FechaAcuerdo { get; set; }
 }
 
+public class ResultadoReevaluacionResponse
+{
+    public bool DryRun { get; set; }
+    public int RegistrosEvaluados { get; set; }
+    public List<AcuerdoDetectadoResumen> RegistrosDesocultados { get; set; } = new();
+}
+
 // Un registro real de AcuerdosScrapeados (visible u oculto) para el endpoint de
 // diagnóstico GET /api/scraper/registros — a diferencia de los DTOs de arriba,
 // que solo existen durante dryRun, este refleja lo que de verdad quedó guardado.

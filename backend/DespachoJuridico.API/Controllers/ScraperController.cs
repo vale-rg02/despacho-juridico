@@ -139,6 +139,20 @@ public class ScraperController : ControllerBase
         });
     }
 
+    // POST /api/scraper/reevaluar-ocultos
+    // POST /api/scraper/reevaluar-ocultos?dryRun=false — aplica los cambios y envía las notificaciones pendientes
+    // Vuelve a correr PartesCoinciden con el umbral/algoritmo ACTUALES sobre los
+    // acuerdos ya guardados con Confianza=Baja y Oculto=true (falsos negativos
+    // reales de cuando el criterio era más estricto). Los que ahora sí coinciden
+    // se desocultan, pasan a Confianza=Alta y se notifican. Por defecto dryRun=true:
+    // solo lista qué se desocultaría, sin tocar la BD ni enviar correos.
+    [HttpPost("reevaluar-ocultos")]
+    public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true)
+    {
+        var resultado = await _scraper.ReevaluarOcultosAsync(dryRun);
+        return Ok(resultado);
+    }
+
     private static HashSet<int>? ParseIdsUnidad(string? idsUnidad)
     {
         if (string.IsNullOrWhiteSpace(idsUnidad)) return null;
