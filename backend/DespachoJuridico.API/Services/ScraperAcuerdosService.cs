@@ -256,6 +256,7 @@ public class ScraperAcuerdosService : BackgroundService
         // Obtener todos los números de expediente activos
         var expedientes = await context.Expedientes
             .Include(e => e.UsuarioAsignado)
+            .Include(e => e.Banco)
             .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
             .ToListAsync();
 
@@ -324,7 +325,50 @@ public class ScraperAcuerdosService : BackgroundService
                     string? confianza = null;
                     var oculto = false;
 
-                    if (esForaneo)
+                    if (EsJurisdiccionVoluntaria(expediente.TipoJuicio))
+                    {
+                        // La Jurisdicción Voluntaria no es un procedimiento adversarial: no
+                        // existe "parte demandada" en sentido procesal, solo un promovente
+                        // (típicamente un banco) que le pide al juzgado realizar un acto. ADISON
+                        // solo publica al promovente — el nombre capturado en ParteDemandada
+                        // (la persona a la que el trámite afecta o se busca notificar) nunca
+                        // aparece en el texto, así que PartesCoinciden contra ese campo siempre
+                        // fallaría aquí. Se compara contra el banco del expediente en su lugar,
+                        // pero solo para trazabilidad/auditoría: este tipo de juicio NUNCA se
+                        // oculta ni deja de notificar, sin importar si el banco coincide o si
+                        // ni siquiera está capturado (caso real: exp. 434/2026, quedó oculto sin
+                        // notificar pese a ser un match real — ver docs/mecanica-legal-sonora.md).
+                        (confianza, oculto) = EvaluarJurisdiccionVoluntaria(expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes);
+
+                        if (dryRun)
+                        {
+                            var nombreBanco = expediente.Banco?.Nombre ?? "(sin banco capturado)";
+
+                            if (esForaneo)
+                                resultado.MatchesForaneosEvaluados.Add(new MatchForaneoEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = nombreBanco,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
+                            else
+                                resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = nombreBanco,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
+                        }
+                    }
+                    else if (esForaneo)
                     {
                         // Verificación por Partes: el matching foráneo solo compara número
                         // de expediente (ver comentario arriba), lo que causó falsos positivos
@@ -654,6 +698,28 @@ public class ScraperAcuerdosService : BackgroundService
             return $"{num}/{anio}";
         }
         return numero.Trim().ToUpperInvariant().TrimStart('0');
+    }
+
+    // ¿El expediente es de Jurisdicción Voluntaria? Comparación tolerante a mayúsculas
+    // y acentos (reutiliza NormalizarTexto) porque el valor se captura a mano en el
+    // despacho y no hay garantía de que siempre se escriba idéntico ("Jurisdicción
+    // Voluntaria", "jurisdiccion voluntaria", etc.).
+    internal static bool EsJurisdiccionVoluntaria(string? tipoJuicio)
+    {
+        if (string.IsNullOrWhiteSpace(tipoJuicio)) return false;
+        return NormalizarTexto(tipoJuicio) == "JURISDICCION VOLUNTARIA";
+    }
+
+    // Confianza/Oculto para un acuerdo de Jurisdicción Voluntaria: la confianza refleja
+    // si el banco del expediente aparece en el texto (útil para auditar después cuáles
+    // matches fueron "a ciegas"), pero Oculto siempre es false — a diferencia de todos
+    // los demás tipos de juicio, aquí nunca hay señal suficiente para ocultar sin
+    // arriesgarse a que un acuerdo real (como el del exp. 434/2026) quede invisible.
+    internal static (string Confianza, bool Oculto) EvaluarJurisdiccionVoluntaria(
+        string? nombreBanco, string partesScrapeadas, double umbralSimilitud = 0.8)
+    {
+        var confianza = PartesCoinciden(nombreBanco ?? "", partesScrapeadas, umbralSimilitud) ? "Alta" : "Baja";
+        return (confianza, false);
     }
 
     // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de

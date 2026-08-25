@@ -122,4 +122,64 @@ public class PartesCoincidenTests
 
         Assert.True(similitud > 0.8, $"Se esperaba > 0.8, se obtuvo {similitud}");
     }
+
+    [Theory]
+    [InlineData("Jurisdiccion Voluntaria", true)]
+    [InlineData("Jurisdicción Voluntaria", true)]
+    [InlineData("JURISDICCION VOLUNTARIA", true)]
+    [InlineData("  jurisdiccion   voluntaria  ", true)]
+    [InlineData("Ejecutivo Mercantil", false)]
+    [InlineData("Especial Hipotecario", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void EsJurisdiccionVoluntaria_ToleraMayusculasYAcentos(string? tipoJuicio, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.EsJurisdiccionVoluntaria(tipoJuicio));
+    }
+
+    [Fact]
+    public void EvaluarJurisdiccionVoluntaria_BancoCoincide_ConfianzaAltaYNuncaOculto()
+    {
+        // Caso real: exp. 434/2026, Mario/BBVA — el texto de ADISON en la radicación
+        // solo nombra al banco promovente, nunca a la parte capturada como demandada.
+        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- BBVA MEXICO SA INSTITUCION DE BANCA MULTILPLE GRUPO FINANCIERO BBVA MEXICO";
+
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("BBVA México", partes);
+
+        Assert.Equal("Alta", confianza);
+        Assert.False(oculto);
+    }
+
+    [Fact]
+    public void EvaluarJurisdiccionVoluntaria_BancoNoCoincide_ConfianzaBajaPeroSigueSinOcultar()
+    {
+        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- SANTANDER MEXICO SA";
+
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("BBVA México", partes);
+
+        Assert.Equal("Baja", confianza);
+        Assert.False(oculto);
+    }
+
+    [Fact]
+    public void EvaluarJurisdiccionVoluntaria_SinBancoCapturado_ConfianzaBajaPeroSigueSinOcultar()
+    {
+        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- BBVA MEXICO SA";
+
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria(null, partes);
+
+        Assert.Equal("Baja", confianza);
+        Assert.False(oculto);
+    }
+
+    [Fact]
+    public void PartesCoinciden_TipoJuicioNormal_SigueUsandoParteDemandadaSinTocarBanco()
+    {
+        // Confirma que la rama de Jurisdicción Voluntaria no reemplaza el criterio
+        // normal para el resto de tipos de juicio: sigue comparando contra
+        // ParteDemandada exactamente igual que antes de este cambio.
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO, S.A.  VS MELISSA LEON LORTA";
+
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("MELISSA LEON LORTA", partes));
+    }
 }
