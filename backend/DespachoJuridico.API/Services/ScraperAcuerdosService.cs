@@ -337,15 +337,18 @@ public class ScraperAcuerdosService : BackgroundService
                         // La Jurisdicción Voluntaria no es un procedimiento adversarial: no
                         // existe "parte demandada" en sentido procesal, solo un promovente
                         // (típicamente un banco) que le pide al juzgado realizar un acto. ADISON
-                        // solo publica al promovente — el nombre capturado en ParteDemandada
-                        // (la persona a la que el trámite afecta o se busca notificar) nunca
-                        // aparece en el texto, así que PartesCoinciden contra ese campo siempre
-                        // fallaría aquí. Se compara contra el banco del expediente en su lugar,
-                        // pero solo para trazabilidad/auditoría: este tipo de juicio NUNCA se
-                        // oculta ni deja de notificar, sin importar si el banco coincide o si
-                        // ni siquiera está capturado (caso real: exp. 434/2026, quedó oculto sin
-                        // notificar pese a ser un match real — ver docs/mecanica-legal-sonora.md).
-                        (confianza, oculto) = EvaluarJurisdiccionVoluntaria(expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes);
+                        // a veces solo publica al promovente (caso real: exp. 434/2026, "SE RADICA
+                        // DEMANDA.- BBVA MEXICO..." sin mencionar a la parte a notificar) — ahí
+                        // PartesCoinciden contra ParteDemandada solo no basta. Pero asumir que
+                        // CUALQUIER acuerdo sin ese nombre es válido tampoco funciona: el exp.
+                        // 368/2026 recibió una notificación real por un acuerdo de un caso de
+                        // concubinato totalmente ajeno en Cajeme, que coincidió por número pero no
+                        // traía ni el nombre de la parte ni el del banco. Por eso se comparan AMBOS
+                        // — ParteDemandada y Banco — y basta con que cualquiera de los dos
+                        // coincida para Alta confianza; si ninguno coincide, Baja, y se oculta
+                        // igual que el resto del sistema (ver docs/mecanica-legal-sonora.md).
+                        (confianza, oculto) = EvaluarJurisdiccionVoluntaria(
+                            expediente.ParteDemandada, expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes);
 
                         if (dryRun)
                         {
@@ -523,13 +526,14 @@ public class ScraperAcuerdosService : BackgroundService
         return resultado;
     }
 
-    // Vuelve a evaluar, con el algoritmo y umbral ACTUALES de PartesCoinciden, los
-    // acuerdos que quedaron guardados ocultos por baja confianza (matching foráneo
-    // o de Hermosillo — ver EjecutarScrapingAsync). El criterio se sigue afinando
-    // (ver comentarios de PartesCoinciden y SimilitudMaximaSubcadena), así que un
-    // ajuste no reclasifica por sí solo lo que ya se guardó antes del cambio; este
-    // método cierra ese hueco sin tener que volver a scrapear ADISON. Solo toca
-    // los registros que hoy están Oculto=true/Confianza=Baja — nunca los ya
+    // Vuelve a evaluar, con el algoritmo y umbral ACTUALES de PartesCoinciden (o de
+    // EvaluarJurisdiccionVoluntaria para ese tipo de juicio, que también compara contra
+    // el banco), los acuerdos que quedaron guardados ocultos por baja confianza
+    // (matching foráneo o de Hermosillo — ver EjecutarScrapingAsync). El criterio se
+    // sigue afinando (ver comentarios de PartesCoinciden y SimilitudMaximaSubcadena),
+    // así que un ajuste no reclasifica por sí solo lo que ya se guardó antes del
+    // cambio; este método cierra ese hueco sin tener que volver a scrapear ADISON.
+    // Solo toca los registros que hoy están Oculto=true/Confianza=Baja — nunca los ya
     // visibles ni los manuales.
     public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
     {
@@ -541,6 +545,7 @@ public class ScraperAcuerdosService : BackgroundService
 
         var candidatos = await context.AcuerdosScrapeados
             .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .Include(a => a.Expediente).ThenInclude(e => e.Banco)
             .Where(a => a.Oculto && a.Confianza == "Baja" && !a.RegistradoManualmente)
             .ToListAsync();
 
@@ -555,7 +560,12 @@ public class ScraperAcuerdosService : BackgroundService
             var expediente = acuerdo.Expediente;
             if (expediente == null) continue;
 
-            var ahoraCoincide = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes);
+            // Jurisdicción Voluntaria se reevalúa con su propio criterio (parte O banco,
+            // ver EvaluarJurisdiccionVoluntaria) — el resto sigue comparando solo contra
+            // ParteDemandada, exactamente igual que antes.
+            var ahoraCoincide = EsJurisdiccionVoluntaria(expediente.TipoJuicio)
+                ? EvaluarJurisdiccionVoluntaria(expediente.ParteDemandada, expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes).Confianza == "Alta"
+                : PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes);
             if (!ahoraCoincide) continue;
 
             resultado.RegistrosDesocultados.Add(new AcuerdoDetectadoResumen
@@ -717,16 +727,22 @@ public class ScraperAcuerdosService : BackgroundService
         return NormalizarTexto(tipoJuicio) == "JURISDICCION VOLUNTARIA";
     }
 
-    // Confianza/Oculto para un acuerdo de Jurisdicción Voluntaria: la confianza refleja
-    // si el banco del expediente aparece en el texto (útil para auditar después cuáles
-    // matches fueron "a ciegas"), pero Oculto siempre es false — a diferencia de todos
-    // los demás tipos de juicio, aquí nunca hay señal suficiente para ocultar sin
-    // arriesgarse a que un acuerdo real (como el del exp. 434/2026) quede invisible.
+    // Confianza/Oculto para un acuerdo de Jurisdicción Voluntaria: no se sabe de
+    // antemano si el texto de ADISON va a traer el nombre de la parte demandada (caso
+    // normal) o solo el del banco promovente (caso exp. 434/2026, donde ADISON publicó
+    // "SE RADICA DEMANDA.- BBVA MEXICO..." sin mencionar a la parte) — así que se
+    // prueban los dos y basta con que cualquiera coincida para Alta. Si ninguno
+    // coincide, Baja y se oculta igual que el resto del sistema: asumir válido
+    // cualquier acuerdo sin nombre reconocible fue justo lo que dejó pasar la
+    // notificación errónea del exp. 368/2026 (colisión de número con un caso de
+    // concubinato ajeno en Cajeme, sin el nombre de la parte ni el del banco).
     internal static (string Confianza, bool Oculto) EvaluarJurisdiccionVoluntaria(
-        string? nombreBanco, string partesScrapeadas, double umbralSimilitud = 0.8)
+        string parteDemandada, string? nombreBanco, string partesScrapeadas, double umbralSimilitud = 0.8)
     {
-        var confianza = PartesCoinciden(nombreBanco ?? "", partesScrapeadas, umbralSimilitud) ? "Alta" : "Baja";
-        return (confianza, false);
+        var coincide = PartesCoinciden(parteDemandada, partesScrapeadas, umbralSimilitud)
+            || PartesCoinciden(nombreBanco ?? "", partesScrapeadas, umbralSimilitud);
+        var confianza = coincide ? "Alta" : "Baja";
+        return (confianza, confianza == "Baja");
     }
 
     // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de

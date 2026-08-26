@@ -138,37 +138,54 @@ public class PartesCoincidenTests
     }
 
     [Fact]
-    public void EvaluarJurisdiccionVoluntaria_BancoCoincide_ConfianzaAltaYNuncaOculto()
+    public void EvaluarJurisdiccionVoluntaria_SoloBancoCoincide_ConfianzaAltaYVisible()
     {
         // Caso real: exp. 434/2026, Mario/BBVA — el texto de ADISON en la radicación
         // solo nombra al banco promovente, nunca a la parte capturada como demandada.
         var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- BBVA MEXICO SA INSTITUCION DE BANCA MULTILPLE GRUPO FINANCIERO BBVA MEXICO";
 
-        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("BBVA México", partes);
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("Patricia Yanet Contreras Martinez", "BBVA México", partes);
 
         Assert.Equal("Alta", confianza);
         Assert.False(oculto);
     }
 
     [Fact]
-    public void EvaluarJurisdiccionVoluntaria_BancoNoCoincide_ConfianzaBajaPeroSigueSinOcultar()
+    public void EvaluarJurisdiccionVoluntaria_SoloParteDemandadaCoincide_ConfianzaAltaYVisible()
     {
-        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- SANTANDER MEXICO SA";
+        // Cuando ADISON sí trae el nombre de la parte (no siempre pasa lo de 434/2026),
+        // ese nombre por sí solo también debe bastar, aunque el banco no aparezca.
+        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - NOTIFICACIÓN JUDICIAL.- SE NOTIFICA A PATRICIA YANET CONTRERAS MARTINEZ";
 
-        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("BBVA México", partes);
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("Patricia Yanet Contreras Martinez", "BBVA México", partes);
 
-        Assert.Equal("Baja", confianza);
+        Assert.Equal("Alta", confianza);
         Assert.False(oculto);
     }
 
     [Fact]
-    public void EvaluarJurisdiccionVoluntaria_SinBancoCapturado_ConfianzaBajaPeroSigueSinOcultar()
+    public void EvaluarJurisdiccionVoluntaria_NingunoCoincide_ConfianzaBajaYOculto()
     {
-        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- BBVA MEXICO SA";
+        // Caso real que motivó este ajuste: exp. 368/2026, colisión de número con un
+        // caso de concubinato totalmente ajeno en Cajeme — ni la parte demandada
+        // (Juan Pablo Valle Jimenez) ni el banco (BBVA México) aparecen en el texto.
+        // Con la versión anterior (Oculto siempre false) esto se notificó por error.
+        var partes = "ACREDITACIÓN DE HECHOS DE CONCUBINATO - ACREDITAR CONCUBINATO.- GILBERTA ELISA LUCERO CARRIZOZA";
 
-        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria(null, partes);
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("Juan Pablo Valle Jimenez Y Otra", "BBVA México", partes);
 
         Assert.Equal("Baja", confianza);
+        Assert.True(oculto);
+    }
+
+    [Fact]
+    public void EvaluarJurisdiccionVoluntaria_SinBancoCapturado_UsaSoloParteDemandada()
+    {
+        var partes = "JURISDICCIÓN VOLUNTARIA CIVIL - NOTIFICACIÓN JUDICIAL.- SE NOTIFICA A PATRICIA YANET CONTRERAS MARTINEZ";
+
+        var (confianza, oculto) = ScraperAcuerdosService.EvaluarJurisdiccionVoluntaria("Patricia Yanet Contreras Martinez", null, partes);
+
+        Assert.Equal("Alta", confianza);
         Assert.False(oculto);
     }
 
