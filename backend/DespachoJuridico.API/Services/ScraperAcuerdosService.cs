@@ -43,11 +43,15 @@ public class ScraperAcuerdosService : BackgroundService
         { 175, "Secretaría General de Acuerdos Hermosillo" },
 
         // Agregados tras auditoría contra el catálogo oficial de ADISON (agosto
-        // 2026) — juzgados de Hermosillo que nunca se habían consultado. No están
-        // en JuzgadosHermosillo (más abajo): no hay un patrón de JuzgadoCoincide
-        // ya probado para Penal/Laboral/Adolescentes, así que pasan por la ruta
-        // foránea (match por número + verificación de Partes) en vez de asumir
-        // coincidencia solo por juzgado.
+        // 2026) — juzgados de Hermosillo que nunca se habían consultado. Sí están
+        // en JuzgadosHermosillo (más abajo): tienen su propio patrón de
+        // JuzgadoCoincide (Penal/Laboral/Adolescentes/Ejecución de Sanciones), igual
+        // que Civil/Familiar/Mercantil — antes de esto pasaban por la ruta foránea
+        // (match solo por número), lo que generaba ruido constante: la materia de un
+        // expediente no cambia nunca, así que un civil/mercantil del despacho jamás
+        // debería "coincidir" de verdad con un juzgado Laboral o Penal, y en la
+        // práctica el 100% de esos matches (102 registros históricos) eran falsos
+        // positivos — ver docs/mecanica-legal-sonora.md.
         { 162, "1ro Penal Hermosillo" },
         { 163, "2do Penal Hermosillo" },
         { 164, "3ro Penal Hermosillo" },
@@ -157,7 +161,10 @@ public class ScraperAcuerdosService : BackgroundService
     private static readonly HashSet<int> JuzgadosHermosillo = new()
     {
         152, 153, 154, 155, 156, 157, 158, 159, 160,
-        161, 174, 175, 276, 277, 296, 905, 173, 300
+        161, 174, 175, 276, 277, 296, 905, 173, 300,
+        // Penal, Adolescentes, Ejecución de Sanciones y Laboral — agregados junto
+        // con su patrón de JuzgadoCoincide (ver comentario en el diccionario Juzgados).
+        162, 163, 164, 166, 205, 171, 178, 208, 322, 332, 333
     };
 
     public ScraperAcuerdosService(
@@ -853,7 +860,7 @@ public class ScraperAcuerdosService : BackgroundService
         return System.Text.RegularExpressions.Regex.Replace(sinAcentos, @"\s+", " ");
     }
 
-    private static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
+    internal static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
     {
         if (string.IsNullOrWhiteSpace(juzgadoExpediente)) return false;
 
@@ -898,6 +905,32 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("2do tribunal colegiado");
         if (exp.Contains("secretaría general") || exp.Contains("secretaria general"))
             return scr.Contains("secretaría general");
+
+        // Penal, Adolescentes, Ejecución de Sanciones y Laboral: mismo criterio que
+        // arriba — la materia de un expediente es fija, así que estos patrones nunca
+        // deberían cruzarse con Civil/Mercantil/Familiar ni entre ellos mismos.
+        if (exp.Contains("oral penal") || exp.Contains("penal oral"))
+            return scr.Contains("oral penal");
+        if (exp.Contains("1ro penal") || exp.Contains("primero penal"))
+            return scr.Contains("1ro penal") && !scr.Contains("oral");
+        if (exp.Contains("2do penal") || exp.Contains("segundo penal"))
+            return scr.Contains("2do penal") && !scr.Contains("oral");
+        if (exp.Contains("3ro penal") || exp.Contains("tercero penal"))
+            return scr.Contains("3ro penal") && !scr.Contains("oral");
+        if (exp.Contains("5to penal") || exp.Contains("quinto penal"))
+            return scr.Contains("5to penal") && !scr.Contains("oral");
+        if (exp.Contains("tribunal unitario") || exp.Contains("regional adolescentes"))
+            return scr.Contains("tribunal unitario regional");
+        if (exp.Contains("adolescentes"))
+            return scr.Contains("adolescentes") && !scr.Contains("tribunal unitario");
+        if (exp.Contains("ejecución de sanciones") || exp.Contains("ejecucion de sanciones"))
+            return scr.Contains("ejecución de sanciones") || scr.Contains("ejecucion de sanciones");
+        if (exp.Contains("1er tribunal laboral") || exp.Contains("primer tribunal laboral"))
+            return scr.Contains("1er tribunal laboral");
+        if (exp.Contains("2do tribunal laboral") || exp.Contains("segundo tribunal laboral"))
+            return scr.Contains("2do tribunal laboral");
+        if (exp.Contains("3er tribunal laboral") || exp.Contains("tercer tribunal laboral"))
+            return scr.Contains("3er tribunal laboral");
 
         return false;
     }

@@ -182,4 +182,33 @@ public class PartesCoincidenTests
 
         Assert.True(ScraperAcuerdosService.PartesCoinciden("MELISSA LEON LORTA", partes));
     }
+
+    [Theory]
+    [InlineData("1ro Penal", "1ro Penal Hermosillo", true)]
+    [InlineData("1ro Penal", "Juzgado Oral Penal Hermosillo", false)] // oral no cruza con no-oral
+    [InlineData("2do Penal", "2do Penal Hermosillo", true)]
+    [InlineData("Juzgado Oral Penal", "Juzgado Oral Penal Hermosillo", true)]
+    [InlineData("Juzgado Ejecución de Sanciones", "Juzgado Ejecución de Sanciones Hermosillo", true)]
+    [InlineData("1er Tribunal Laboral", "1er Tribunal Laboral Hermosillo", true)]
+    [InlineData("2do Tribunal Laboral", "3er Tribunal Laboral Hermosillo", false)]
+    [InlineData("Juzgado Adolescentes", "Juzgado Adolescentes Hermosillo", true)]
+    [InlineData("Juzgado Adolescentes", "Tribunal Unitario Regional Adolescentes/Penal Oral Hermosillo", false)]
+    [InlineData("Tribunal Unitario Regional Adolescentes", "Tribunal Unitario Regional Adolescentes/Penal Oral Hermosillo", true)]
+    public void JuzgadoCoincide_RamasNuevasPenalLaboralAdolescentesEjecucion(string juzgadoDespacho, string juzgadoAdison, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.JuzgadoCoincide(juzgadoDespacho, juzgadoAdison));
+    }
+
+    [Theory]
+    [InlineData("1ro Civil", "1er Tribunal Laboral Hermosillo")]
+    [InlineData("1ro Oral Mercantil", "Juzgado Ejecución de Sanciones Hermosillo")]
+    [InlineData("3ro Civil", "1ro Penal Hermosillo")]
+    public void JuzgadoCoincide_MateriaCivilMercantilNuncaCruzaConPenalLaboral(string juzgadoDespacho, string juzgadoAdison)
+    {
+        // Caso real que motivó extender JuzgadoCoincide a estas ramas: expedientes
+        // Civil/Mercantil del despacho coincidían por número con juzgados Laboral/Penal
+        // de Hermosillo que antes no tenían patrón propio y pasaban por la ruta
+        // foránea — el 100% de esos matches históricos eran falsos positivos.
+        Assert.False(ScraperAcuerdosService.JuzgadoCoincide(juzgadoDespacho, juzgadoAdison));
+    }
 }
