@@ -855,10 +855,20 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
     {
         if (string.IsNullOrWhiteSpace(busqueda)) return query;
 
+        // unaccent() quita acentos de los dos lados antes de comparar, así que
+        // "Mexico" encuentra "México" y viceversa — mismo tipo de variante de texto
+        // que el caso de mayúsculas, ahora cubierto en la misma pasada. unaccent()
+        // no le hace nada a "%"/"_" (no son caracteres acentuados), así que el
+        // patrón con comodines se puede envolver completo sin romper el escapado.
+        //
+        // AppDbContext.Unaccent solo puede llamarse DENTRO del lambda de abajo — es
+        // un método marcador ([DbFunction]) que EF Core traduce a SQL al armar la
+        // consulta; invocarlo fuera de una expresión LINQ lanzaría NotSupportedException
+        // porque nunca se ejecuta como C# de verdad, solo como unaccent() en Postgres.
         var patron = $"%{EscaparComodinesLike(busqueda)}%";
         return query.Where(e =>
-            EF.Functions.ILike(e.NumeroExpediente, patron) ||
-            EF.Functions.ILike(e.ParteDemandada, patron));
+            EF.Functions.ILike(AppDbContext.Unaccent(e.NumeroExpediente), AppDbContext.Unaccent(patron)) ||
+            EF.Functions.ILike(AppDbContext.Unaccent(e.ParteDemandada), AppDbContext.Unaccent(patron)));
     }
 
     // Escapa los comodines de LIKE/ILIKE ("%", "_") y el propio carácter de escape

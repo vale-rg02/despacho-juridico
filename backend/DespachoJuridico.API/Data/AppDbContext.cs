@@ -7,6 +7,14 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    // Mapea la función unaccent() de Postgres (extensión "unaccent") — permite que
+    // una búsqueda por "Mexico" encuentre "México" y viceversa. Solo se puede usar
+    // dentro de una expresión LINQ traducida por EF Core (ver
+    // ExpedientesController.AplicarFiltroBusqueda); llamarla fuera de una consulta
+    // lanza NotSupportedException a propósito.
+    [DbFunction("unaccent", IsBuiltIn = true)]
+    public static string Unaccent(string texto) => throw new NotSupportedException();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Banco> Bancos => Set<Banco>();
     public DbSet<Expediente> Expedientes => Set<Expediente>();
