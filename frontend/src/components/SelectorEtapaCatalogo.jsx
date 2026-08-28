@@ -79,7 +79,7 @@ function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, classNa
           disabled={disabled}
           className={`w-full cursor-pointer mt-2 ${inputBase}`}
         >
-          <option value="">— Elige cuál {etapasPrincipales.find(e => String(e.id) === principalId)?.nombre.toLowerCase()} —</option>
+          <option value="">— Selecciona una opción —</option>
           {subetapas.map(e => (
             <option key={e.id} value={e.id}>{e.nombre}</option>
           ))}
