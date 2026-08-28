@@ -112,12 +112,7 @@ public class ExpedientesController : ControllerBase
             query = query.Where(e => e.Estado == estadoEnum);
         }
 
-        if (!string.IsNullOrWhiteSpace(busqueda))
-        {
-            query = query.Where(e =>
-                e.NumeroExpediente.Contains(busqueda) ||
-                e.ParteDemandada.Contains(busqueda));
-        }
+        query = AplicarFiltroBusqueda(query, busqueda);
 
         var expedientes = await query
             .OrderByDescending(e => e.ActualizadoEn)
@@ -755,8 +750,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
             .Include(e => e.Accesos)
             .Where(e => e.UsuarioAsignadoId == u.Id && e.Estado != EstadoExpediente.Cerrado);
 
-        if (!string.IsNullOrWhiteSpace(busqueda))
-            query = query.Where(e => e.NumeroExpediente.Contains(busqueda) || e.ParteDemandada.Contains(busqueda));
+        query = AplicarFiltroBusqueda(query, busqueda);
 
         var expedientes = await query
             .OrderByDescending(e => e.ActualizadoEn)
@@ -849,6 +843,30 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
   </div>
 </div></body></html>";
     }
+
+    // Filtro de búsqueda compartido por GetAll y GetPorUsuario (DJ-110) — antes cada
+    // uno tenía su propia copia de la comparación, con el mismo hueco de mayúsculas
+    // en las dos. Insensible a mayúsculas/minúsculas: "Sue", "SUE" y "suE" deben
+    // encontrar lo mismo. Se usa ILIKE (nativo de Postgres) en vez de .ToLower() en
+    // ambos lados — Npgsql lo traduce directo al operador ILIKE de Postgres, sin
+    // envolver la columna en una función que además le impediría usar un índice si
+    // algún día se agrega uno.
+    internal static IQueryable<Expediente> AplicarFiltroBusqueda(IQueryable<Expediente> query, string? busqueda)
+    {
+        if (string.IsNullOrWhiteSpace(busqueda)) return query;
+
+        var patron = $"%{EscaparComodinesLike(busqueda)}%";
+        return query.Where(e =>
+            EF.Functions.ILike(e.NumeroExpediente, patron) ||
+            EF.Functions.ILike(e.ParteDemandada, patron));
+    }
+
+    // Escapa los comodines de LIKE/ILIKE ("%", "_") y el propio carácter de escape
+    // ("\") en un texto de búsqueda capturado por el usuario, para que se busque
+    // como texto literal — sin esto, alguien buscando "50%" encontraría cualquier
+    // expediente, no solo los que de verdad tienen "50%" en el texto.
+    internal static string EscaparComodinesLike(string texto) =>
+        texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
     private static ExpedienteResponse MapToResponse(Expediente e, int usuarioIdActual) => new()
     {
