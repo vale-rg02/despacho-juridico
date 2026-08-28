@@ -102,5 +102,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ExpedienteAcceso>()
             .HasIndex(a => new { a.ExpedienteId, a.UsuarioId })
             .IsUnique();
+
+        // Jerarquía de etapas para submenús (ej. Remate → Almonedas, DJ-76) —
+        // Restrict en vez de Cascade: borrar un padre nunca debe arrastrar a sus
+        // hijas en cascada, hay que desvincularlas explícitamente primero.
+        modelBuilder.Entity<EtapaCatalogo>()
+            .HasOne(e => e.EtapaPadre)
+            .WithMany(e => e.Subetapas)
+            .HasForeignKey(e => e.EtapaPadreId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -44,7 +44,8 @@ public class EtapasCatalogoController : ControllerBase
                 TipoJuicio = e.TipoJuicio,
                 TerminoDias = e.TerminoDias,
                 EsDiasHabiles = e.EsDiasHabiles,
-                Orden = e.Orden
+                Orden = e.Orden,
+                EtapaPadreId = e.EtapaPadreId
             })
             .ToListAsync();
 
