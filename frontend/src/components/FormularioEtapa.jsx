@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getEtapasCatalogo, registrarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
+import SelectorEtapaCatalogo from './SelectorEtapaCatalogo'
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
@@ -100,17 +101,13 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
       <div className="mb-3">
         <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-        <select
-          value={etapaCatalogoId}
-          onChange={e => setEtapaCatalogoId(e.target.value)}
+        <SelectorEtapaCatalogo
+          catalogo={catalogo}
+          valorId={etapaCatalogoId}
+          onCambiar={setEtapaCatalogoId}
           disabled={cargandoCatalogo}
-          className={`${inputClass} cursor-pointer max-w-sm`}
-        >
-          <option value="">— Selecciona —</option>
-          {catalogo.map(e => (
-            <option key={e.id} value={e.id}>{e.nombre}</option>
-          ))}
-        </select>
+          className="max-w-sm"
+        />
         {!cargandoCatalogo && catalogo.length === 0 && (
           <p className="text-xs text-muted-foreground mt-1">
             Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.

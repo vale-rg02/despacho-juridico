@@ -1,6 +1,9 @@
+using DespachoJuridico.API.Data;
+using DespachoJuridico.API.DTOs;
 using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DespachoJuridico.API.Controllers;
 
@@ -10,10 +13,56 @@ namespace DespachoJuridico.API.Controllers;
 public class ScraperController : ControllerBase
 {
     private readonly ScraperAcuerdosService _scraper;
+    private readonly AppDbContext _context;
 
-    public ScraperController(ScraperAcuerdosService scraper)
+    public ScraperController(ScraperAcuerdosService scraper, AppDbContext context)
     {
         _scraper = scraper;
+        _context = context;
+    }
+
+    // GET /api/scraper/registros
+    // GET /api/scraper/registros?fecha=2026-08-20
+    // Todo lo que hay en AcuerdosScrapeados detectado ese día (hora de Hermosillo),
+    // visible y oculto — para diagnosticar sin depender de acceso directo a la BD.
+    [HttpGet("registros")]
+    public async Task<IActionResult> Registros([FromQuery] DateOnly? fecha = null)
+    {
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var fechaConsulta = fecha ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
+
+        var inicioLocal = DateTime.SpecifyKind(fechaConsulta.ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified);
+        var finLocal = DateTime.SpecifyKind(fechaConsulta.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified);
+        var inicioUtc = TimeZoneInfo.ConvertTimeToUtc(inicioLocal, zonaHoraria);
+        var finUtc = TimeZoneInfo.ConvertTimeToUtc(finLocal, zonaHoraria);
+
+        var registros = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .Where(a => a.FechaDetectado >= inicioUtc && a.FechaDetectado < finUtc)
+            .OrderBy(a => a.FechaDetectado)
+            .Select(a => new RegistroScraperDiaResponse
+            {
+                Id = a.Id,
+                NumeroExpediente = a.NumeroExpediente,
+                NombreJuzgado = a.NombreJuzgado,
+                Asignado = a.Expediente.UsuarioAsignado != null ? a.Expediente.UsuarioAsignado.Nombre : null,
+                FechaAcuerdo = a.FechaAcuerdo,
+                FechaDetectado = a.FechaDetectado,
+                Confianza = a.Confianza,
+                Oculto = a.Oculto,
+                NotificacionEnviada = a.NotificacionEnviada,
+                Partes = a.Partes,
+                ParteDemandada = a.Expediente.ParteDemandada,
+                RegistradoManualmente = a.RegistradoManualmente
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            fecha = fechaConsulta.ToString("yyyy-MM-dd"),
+            totalRegistros = registros.Count,
+            registros
+        });
     }
 
     // POST /api/scraper/ejecutar
@@ -88,6 +137,20 @@ public class ScraperController : ControllerBase
             diasProcesados = diasHabiles.Count,
             resultados
         });
+    }
+
+    // POST /api/scraper/reevaluar-ocultos
+    // POST /api/scraper/reevaluar-ocultos?dryRun=false — aplica los cambios y envía las notificaciones pendientes
+    // Vuelve a correr PartesCoinciden con el umbral/algoritmo ACTUALES sobre los
+    // acuerdos ya guardados con Confianza=Baja y Oculto=true (falsos negativos
+    // reales de cuando el criterio era más estricto). Los que ahora sí coinciden
+    // se desocultan, pasan a Confianza=Alta y se notifican. Por defecto dryRun=true:
+    // solo lista qué se desocultaría, sin tocar la BD ni enviar correos.
+    [HttpPost("reevaluar-ocultos")]
+    public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true)
+    {
+        var resultado = await _scraper.ReevaluarOcultosAsync(dryRun);
+        return Ok(resultado);
     }
 
     private static HashSet<int>? ParseIdsUnidad(string? idsUnidad)

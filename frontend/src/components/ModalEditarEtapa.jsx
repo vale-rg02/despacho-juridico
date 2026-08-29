@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react'
 import { getEtapasCatalogo, editarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
 import ModalHeader from './ModalHeader'
+import SelectorEtapaCatalogo from './SelectorEtapaCatalogo'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 // Extrae "HH:MM" directo del string ISO (sin pasar por new Date(), que convertiría
@@ -97,17 +98,12 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <select
-            value={etapaCatalogoId}
-            onChange={e => setEtapaCatalogoId(e.target.value)}
+          <SelectorEtapaCatalogo
+            catalogo={catalogo}
+            valorId={etapaCatalogoId}
+            onCambiar={setEtapaCatalogoId}
             disabled={cargandoCatalogo}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">— Selecciona —</option>
-            {catalogo.map(e => (
-              <option key={e.id} value={e.id}>{e.nombre}</option>
-            ))}
-          </select>
+          />
           {!cargandoCatalogo && catalogo.length === 0 && (
             <p className="text-xs text-muted-foreground mt-1">
               Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.

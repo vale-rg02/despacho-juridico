@@ -12,6 +12,7 @@ public static class DbSeeder
         await SeedUsuariosAsync(context);
         await SeedBancosAsync(context);
         await SeedEtapasCatalogoAsync(context);
+        await MigrarAlmonedasBajoRemateAsync(context);
         await SeedExpedientesAsync(context);
     }
 
@@ -85,6 +86,11 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Certificado de Gravamen", TipoJuicio = "Hipotecario", Orden = 10, TerminoDias = 180, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Avalúos", TipoJuicio = "Hipotecario", Orden = 11, TerminoDias = 180, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Diligencia de Remate", TipoJuicio = "Hipotecario", Orden = 12, TerminoDias = null, EsDiasHabiles = true },
+            // DJ-76: "Remate" agrupa a las 3 almonedas en un submenú — ver
+            // MigrarAlmonedasBajoRemateAsync más abajo, que reparenta las almonedas
+            // ya existentes en bases de datos sembradas antes de este cambio (como
+            // producción) sin tocar ningún HistorialEtapa.
+            new EtapaCatalogo { Nombre = "Remate", TipoJuicio = "Hipotecario", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "1ra Almoneda", TipoJuicio = "Hipotecario", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "2da Almoneda", TipoJuicio = "Hipotecario", Orden = 14, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "3ra Almoneda", TipoJuicio = "Hipotecario", Orden = 15, TerminoDias = null, EsDiasHabiles = true },
@@ -102,6 +108,7 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Sentencia", TipoJuicio = "Oral Mercantil", Orden = 8, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Amparo", TipoJuicio = "Oral Mercantil", Orden = 9, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Certificado de Gravamen", TipoJuicio = "Oral Mercantil", Orden = 10, TerminoDias = 180, EsDiasHabiles = false },
+            new EtapaCatalogo { Nombre = "Remate", TipoJuicio = "Oral Mercantil", Orden = 11, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "1ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 11, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "2da Almoneda", TipoJuicio = "Oral Mercantil", Orden = 12, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "3ra Almoneda", TipoJuicio = "Oral Mercantil", Orden = 13, TerminoDias = null, EsDiasHabiles = true },
@@ -120,6 +127,34 @@ public static class DbSeeder
         {
             if (!existentes.Any(e => e.Nombre == etapa.Nombre && e.TipoJuicio == etapa.TipoJuicio))
                 context.EtapasCatalogo.Add(etapa);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    // DJ-76: reparenta las almonedas ya existentes (de bases de datos sembradas
+    // antes de este cambio, como producción) bajo su "Remate" correspondiente por
+    // TipoJuicio. Es puramente metadata del catálogo — HistorialEtapa sigue
+    // apuntando exactamente a la misma fila de "1ra/2da/3ra Almoneda" que ya
+    // apuntaba antes, así que ningún registro histórico se toca ni se reinterpreta.
+    // Idempotente: solo actualiza filas cuyo EtapaPadreId todavía sea null.
+    internal static async Task MigrarAlmonedasBajoRemateAsync(AppDbContext context)
+    {
+        var remates = await context.EtapasCatalogo
+            .Where(e => e.Nombre == "Remate")
+            .ToListAsync();
+
+        foreach (var remate in remates)
+        {
+            var almonedasSinPadre = await context.EtapasCatalogo
+                .Where(e =>
+                    e.TipoJuicio == remate.TipoJuicio &&
+                    e.EtapaPadreId == null &&
+                    (e.Nombre == "1ra Almoneda" || e.Nombre == "2da Almoneda" || e.Nombre == "3ra Almoneda"))
+                .ToListAsync();
+
+            foreach (var almoneda in almonedasSinPadre)
+                almoneda.EtapaPadreId = remate.Id;
         }
 
         await context.SaveChangesAsync();

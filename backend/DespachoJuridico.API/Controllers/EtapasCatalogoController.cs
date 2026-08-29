@@ -13,10 +13,12 @@ namespace DespachoJuridico.API.Controllers;
 public class EtapasCatalogoController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IWebHostEnvironment _env;
 
-    public EtapasCatalogoController(AppDbContext context)
+    public EtapasCatalogoController(AppDbContext context, IWebHostEnvironment env)
     {
         _context = context;
+        _env = env;
     }
 
     // GET /api/etapascatalogo?tipoJuicio=Civil
@@ -42,7 +44,8 @@ public class EtapasCatalogoController : ControllerBase
                 TipoJuicio = e.TipoJuicio,
                 TerminoDias = e.TerminoDias,
                 EsDiasHabiles = e.EsDiasHabiles,
-                Orden = e.Orden
+                Orden = e.Orden,
+                EtapaPadreId = e.EtapaPadreId
             })
             .ToListAsync();
 
@@ -50,9 +53,18 @@ public class EtapasCatalogoController : ControllerBase
     }
 
     // POST /api/etapas-catalogo
+    // Solo funciona en Development — en producción está deshabilitado (mismo
+    // candado que MigracionController). El catálogo real vive hardcodeado en
+    // Data/DbSeeder.cs; nada en el sistema espera que aparezcan entradas nuevas
+    // por esta vía, así que una llamada directa (Postman, script) puede dejar
+    // el catálogo en un estado que ningún flujo del despacho contempla —
+    // ver docs/auditoria-dj72.md.
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EtapaCatalogoCreateRequest request)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 

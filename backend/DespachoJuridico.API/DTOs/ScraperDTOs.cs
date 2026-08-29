@@ -46,10 +46,38 @@ public class MatchHermosilloEvaluado
     public string NumeroExpediente { get; set; } = string.Empty;
     public string Juzgado { get; set; } = string.Empty;
     public string ParteDemandadaExpediente { get; set; } = string.Empty;
-
-    // Texto de Partes que trae ADISON, mostrado solo como referencia — el
-    // matching de Hermosillo no lo compara (confía en número + juzgado).
     public string PartesAcuerdo { get; set; } = string.Empty;
+
+    // "Alta"/"Baja" si ADISON trajo un nombre reconocible en Partes y se pudo
+    // verificar; null si no traía nombre y se confió en número+juzgado sin
+    // comparar (ver PartesTieneNombre).
+    public string? Confianza { get; set; }
     public string Sintesis { get; set; } = string.Empty;
     public DateOnly FechaAcuerdo { get; set; }
+}
+
+public class ResultadoReevaluacionResponse
+{
+    public bool DryRun { get; set; }
+    public int RegistrosEvaluados { get; set; }
+    public List<AcuerdoDetectadoResumen> RegistrosDesocultados { get; set; } = new();
+}
+
+// Un registro real de AcuerdosScrapeados (visible u oculto) para el endpoint de
+// diagnóstico GET /api/scraper/registros — a diferencia de los DTOs de arriba,
+// que solo existen durante dryRun, este refleja lo que de verdad quedó guardado.
+public class RegistroScraperDiaResponse
+{
+    public int Id { get; set; }
+    public string NumeroExpediente { get; set; } = string.Empty;
+    public string NombreJuzgado { get; set; } = string.Empty;
+    public string? Asignado { get; set; }
+    public DateOnly FechaAcuerdo { get; set; }
+    public DateTime FechaDetectado { get; set; }
+    public string? Confianza { get; set; }
+    public bool Oculto { get; set; }
+    public bool NotificacionEnviada { get; set; }
+    public string Partes { get; set; } = string.Empty;
+    public string ParteDemandada { get; set; } = string.Empty;
+    public bool RegistradoManualmente { get; set; }
 }

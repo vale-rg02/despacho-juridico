@@ -43,11 +43,15 @@ public class ScraperAcuerdosService : BackgroundService
         { 175, "Secretaría General de Acuerdos Hermosillo" },
 
         // Agregados tras auditoría contra el catálogo oficial de ADISON (agosto
-        // 2026) — juzgados de Hermosillo que nunca se habían consultado. No están
-        // en JuzgadosHermosillo (más abajo): no hay un patrón de JuzgadoCoincide
-        // ya probado para Penal/Laboral/Adolescentes, así que pasan por la ruta
-        // foránea (match por número + verificación de Partes) en vez de asumir
-        // coincidencia solo por juzgado.
+        // 2026) — juzgados de Hermosillo que nunca se habían consultado. Sí están
+        // en JuzgadosHermosillo (más abajo): tienen su propio patrón de
+        // JuzgadoCoincide (Penal/Laboral/Adolescentes/Ejecución de Sanciones), igual
+        // que Civil/Familiar/Mercantil — antes de esto pasaban por la ruta foránea
+        // (match solo por número), lo que generaba ruido constante: la materia de un
+        // expediente no cambia nunca, así que un civil/mercantil del despacho jamás
+        // debería "coincidir" de verdad con un juzgado Laboral o Penal, y en la
+        // práctica el 100% de esos matches (102 registros históricos) eran falsos
+        // positivos — ver docs/mecanica-legal-sonora.md.
         { 162, "1ro Penal Hermosillo" },
         { 163, "2do Penal Hermosillo" },
         { 164, "3ro Penal Hermosillo" },
@@ -157,7 +161,10 @@ public class ScraperAcuerdosService : BackgroundService
     private static readonly HashSet<int> JuzgadosHermosillo = new()
     {
         152, 153, 154, 155, 156, 157, 158, 159, 160,
-        161, 174, 175, 276, 277, 296, 905, 173, 300
+        161, 174, 175, 276, 277, 296, 905, 173, 300,
+        // Penal, Adolescentes, Ejecución de Sanciones y Laboral — agregados junto
+        // con su patrón de JuzgadoCoincide (ver comentario en el diccionario Juzgados).
+        162, 163, 164, 166, 205, 171, 178, 208, 322, 332, 333
     };
 
     public ScraperAcuerdosService(
@@ -240,6 +247,13 @@ public class ScraperAcuerdosService : BackgroundService
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
         _logger.LogInformation("Iniciando scraping de acuerdos para {Fecha} (dryRun={DryRun})", fecha, dryRun);
 
+        // Umbral de similitud aproximada para PartesCoinciden (0.0 a 1.0) — cuando
+        // la coincidencia exacta por substring falla, se acepta igual si el nombre
+        // se parece lo suficiente (tolera variaciones de ortografía entre cómo el
+        // despacho captura la parte y cómo la publica el juzgado, ej. "Corona" vs
+        // "Coronado"). Configurable sin redeploy vía ScraperAcuerdos:UmbralSimilitudPartes.
+        var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
+
         var resultado = new ResultadoScrapingResponse { Fecha = fecha, DryRun = dryRun };
 
         using var scope = _scopeFactory.CreateScope();
@@ -249,6 +263,7 @@ public class ScraperAcuerdosService : BackgroundService
         // Obtener todos los números de expediente activos
         var expedientes = await context.Expedientes
             .Include(e => e.UsuarioAsignado)
+            .Include(e => e.Banco)
             .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
             .ToListAsync();
 
@@ -317,13 +332,59 @@ public class ScraperAcuerdosService : BackgroundService
                     string? confianza = null;
                     var oculto = false;
 
-                    if (esForaneo)
+                    if (EsJurisdiccionVoluntaria(expediente.TipoJuicio))
+                    {
+                        // La Jurisdicción Voluntaria no es un procedimiento adversarial: no
+                        // existe "parte demandada" en sentido procesal, solo un promovente
+                        // (típicamente un banco) que le pide al juzgado realizar un acto. ADISON
+                        // a veces solo publica al promovente (caso real: exp. 434/2026, "SE RADICA
+                        // DEMANDA.- BBVA MEXICO..." sin mencionar a la parte a notificar) — ahí
+                        // PartesCoinciden contra ParteDemandada solo no basta. Pero asumir que
+                        // CUALQUIER acuerdo sin ese nombre es válido tampoco funciona: el exp.
+                        // 368/2026 recibió una notificación real por un acuerdo de un caso de
+                        // concubinato totalmente ajeno en Cajeme, que coincidió por número pero no
+                        // traía ni el nombre de la parte ni el del banco. Por eso se comparan AMBOS
+                        // — ParteDemandada y Banco — y basta con que cualquiera de los dos
+                        // coincida para Alta confianza; si ninguno coincide, Baja, y se oculta
+                        // igual que el resto del sistema (ver docs/mecanica-legal-sonora.md).
+                        (confianza, oculto) = EvaluarJurisdiccionVoluntaria(
+                            expediente.ParteDemandada, expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes);
+
+                        if (dryRun)
+                        {
+                            var nombreBanco = expediente.Banco?.Nombre ?? "(sin banco capturado)";
+
+                            if (esForaneo)
+                                resultado.MatchesForaneosEvaluados.Add(new MatchForaneoEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = nombreBanco,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
+                            else
+                                resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = nombreBanco,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
+                        }
+                    }
+                    else if (esForaneo)
                     {
                         // Verificación por Partes: el matching foráneo solo compara número
                         // de expediente (ver comentario arriba), lo que causó falsos positivos
                         // reales en el backfill de julio 2026 (ej. exp. 258/2026 coincidiendo
                         // entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua Prieta).
-                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes) ? "Alta" : "Baja";
+                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
 
                         // Fase 2: los de baja confianza se guardan ocultos (Opción B) — no se
                         // pierden por si el criterio se equivoca (hay casos reales que salen
@@ -346,16 +407,44 @@ public class ScraperAcuerdosService : BackgroundService
                             });
                         }
                     }
+                    else if (PartesTieneNombre(acuerdo.Partes))
+                    {
+                        // Hermosillo normalmente confía en número+juzgado sin verificar
+                        // Partes (ver comentario en JuzgadosHermosillo) — pero esa confianza
+                        // también puede fallar (hallazgo real del 20 de agosto 2026, exp.
+                        // 150/2023: coincidencia de número con un caso ajeno). Cuando ADISON
+                        // sí trae un nombre reconocible, vale la pena verificarlo igual que
+                        // en foráneos; cuando no trae nombre (pasa seguido: "---", solo el
+                        // tipo de trámite, etc.) no hay nada que comparar y se sigue confiando
+                        // en número+juzgado como siempre.
+                        confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
+                        oculto = confianza == "Baja";
+
+                        if (dryRun)
+                        {
+                            resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                            {
+                                NumeroExpediente = expediente.NumeroExpediente,
+                                Juzgado = nombreJuzgado,
+                                ParteDemandadaExpediente = expediente.ParteDemandada,
+                                PartesAcuerdo = acuerdo.Partes,
+                                Confianza = confianza,
+                                Sintesis = acuerdo.Sintesis,
+                                FechaAcuerdo = acuerdo.FechaAcuerdo
+                            });
+                        }
+                    }
                     else if (dryRun)
                     {
-                        // Hermosillo: no hay verificación de Partes, pero en dry-run se
-                        // muestra el texto de ADISON de todos modos como referencia visual.
+                        // Hermosillo sin nombre en Partes: nada que verificar, se sigue
+                        // confiando en número+juzgado como siempre.
                         resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
                         {
                             NumeroExpediente = expediente.NumeroExpediente,
                             Juzgado = nombreJuzgado,
                             ParteDemandadaExpediente = expediente.ParteDemandada,
                             PartesAcuerdo = acuerdo.Partes,
+                            Confianza = null,
                             Sintesis = acuerdo.Sintesis,
                             FechaAcuerdo = acuerdo.FechaAcuerdo
                         });
@@ -434,6 +523,74 @@ public class ScraperAcuerdosService : BackgroundService
         }
 
         _logger.LogInformation("Scraping completado para {Fecha}", fecha);
+        return resultado;
+    }
+
+    // Vuelve a evaluar, con el algoritmo y umbral ACTUALES de PartesCoinciden (o de
+    // EvaluarJurisdiccionVoluntaria para ese tipo de juicio, que también compara contra
+    // el banco), los acuerdos que quedaron guardados ocultos por baja confianza
+    // (matching foráneo o de Hermosillo — ver EjecutarScrapingAsync). El criterio se
+    // sigue afinando (ver comentarios de PartesCoinciden y SimilitudMaximaSubcadena),
+    // así que un ajuste no reclasifica por sí solo lo que ya se guardó antes del
+    // cambio; este método cierra ese hueco sin tener que volver a scrapear ADISON.
+    // Solo toca los registros que hoy están Oculto=true/Confianza=Baja — nunca los ya
+    // visibles ni los manuales.
+    public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
+    {
+        var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
+
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        var candidatos = await context.AcuerdosScrapeados
+            .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .Include(a => a.Expediente).ThenInclude(e => e.Banco)
+            .Where(a => a.Oculto && a.Confianza == "Baja" && !a.RegistradoManualmente)
+            .ToListAsync();
+
+        var resultado = new ResultadoReevaluacionResponse
+        {
+            DryRun = dryRun,
+            RegistrosEvaluados = candidatos.Count
+        };
+
+        foreach (var acuerdo in candidatos)
+        {
+            var expediente = acuerdo.Expediente;
+            if (expediente == null) continue;
+
+            // Jurisdicción Voluntaria se reevalúa con su propio criterio (parte O banco,
+            // ver EvaluarJurisdiccionVoluntaria) — el resto sigue comparando solo contra
+            // ParteDemandada, exactamente igual que antes.
+            var ahoraCoincide = EsJurisdiccionVoluntaria(expediente.TipoJuicio)
+                ? EvaluarJurisdiccionVoluntaria(expediente.ParteDemandada, expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes).Confianza == "Alta"
+                : PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes);
+            if (!ahoraCoincide) continue;
+
+            resultado.RegistrosDesocultados.Add(new AcuerdoDetectadoResumen
+            {
+                NumeroExpediente = acuerdo.NumeroExpediente,
+                Juzgado = acuerdo.NombreJuzgado,
+                Sintesis = acuerdo.Sintesis,
+                FechaAcuerdo = acuerdo.FechaAcuerdo
+            });
+
+            if (dryRun) continue;
+
+            acuerdo.Confianza = "Alta";
+            acuerdo.Oculto = false;
+            await context.SaveChangesAsync();
+
+            await EnviarNotificacionAsync(emailService, expediente, acuerdo);
+            acuerdo.NotificacionEnviada = true;
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza Alta) y se notificó",
+                acuerdo.NumeroExpediente, acuerdo.NombreJuzgado);
+        }
+
         return resultado;
     }
 
@@ -560,6 +717,53 @@ public class ScraperAcuerdosService : BackgroundService
         return numero.Trim().ToUpperInvariant().TrimStart('0');
     }
 
+    // ¿El expediente es de Jurisdicción Voluntaria? Comparación tolerante a mayúsculas
+    // y acentos (reutiliza NormalizarTexto) porque el valor se captura a mano en el
+    // despacho y no hay garantía de que siempre se escriba idéntico ("Jurisdicción
+    // Voluntaria", "jurisdiccion voluntaria", etc.).
+    internal static bool EsJurisdiccionVoluntaria(string? tipoJuicio)
+    {
+        if (string.IsNullOrWhiteSpace(tipoJuicio)) return false;
+        return NormalizarTexto(tipoJuicio) == "JURISDICCION VOLUNTARIA";
+    }
+
+    // Confianza/Oculto para un acuerdo de Jurisdicción Voluntaria: no se sabe de
+    // antemano si el texto de ADISON va a traer el nombre de la parte demandada (caso
+    // normal) o solo el del banco promovente (caso exp. 434/2026, donde ADISON publicó
+    // "SE RADICA DEMANDA.- BBVA MEXICO..." sin mencionar a la parte) — así que se
+    // prueban los dos y basta con que cualquiera coincida para Alta. Si ninguno
+    // coincide, Baja y se oculta igual que el resto del sistema: asumir válido
+    // cualquier acuerdo sin nombre reconocible fue justo lo que dejó pasar la
+    // notificación errónea del exp. 368/2026 (colisión de número con un caso de
+    // concubinato ajeno en Cajeme, sin el nombre de la parte ni el del banco).
+    internal static (string Confianza, bool Oculto) EvaluarJurisdiccionVoluntaria(
+        string parteDemandada, string? nombreBanco, string partesScrapeadas, double umbralSimilitud = 0.8)
+    {
+        var coincide = PartesCoinciden(parteDemandada, partesScrapeadas, umbralSimilitud)
+            || PartesCoinciden(nombreBanco ?? "", partesScrapeadas, umbralSimilitud);
+        var confianza = coincide ? "Alta" : "Baja";
+        return (confianza, confianza == "Baja");
+    }
+
+    // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de
+    // persona o empresa, o es solo texto genérico ("---", tipo de trámite sin
+    // nombres, etc.)? Si no hay nombre, no hay nada que verificar contra
+    // ParteDemandada — se sigue confiando en número+juzgado como antes.
+    internal static bool PartesTieneNombre(string partes)
+    {
+        if (string.IsNullOrWhiteSpace(partes)) return false;
+
+        // Los nombres suelen venir después del último separador ("-" o ".-") que
+        // cierra la descripción del tipo de trámite — el texto antes de eso casi
+        // siempre es terminología genérica ("ESPECIAL HIPOTECARIO", "ORAL
+        // MERCANTIL", etc.) que por sí sola no cuenta como nombre real.
+        var ultimoGuion = partes.LastIndexOf('-');
+        var textoRelevante = ultimoGuion >= 0 ? partes[(ultimoGuion + 1)..] : partes;
+
+        var palabras = System.Text.RegularExpressions.Regex.Matches(textoRelevante, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
+        return palabras.Count >= 2;
+    }
+
     // Confianza del match foráneo (no se puede comparar el juzgado ahí, a
     // diferencia de Hermosillo): ¿el texto de "partes" que trae ADISON menciona
     // a la parte demandada del expediente? (comparación laxa: sin acentos ni
@@ -567,13 +771,86 @@ public class ScraperAcuerdosService : BackgroundService
     // (hay variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el
     // ruido de coincidencias que son solo por número y no tienen relación real.
     // Solo clasifica (Alta/Baja) — no filtra nada todavía, ver Fase 1/Fase 2.
-    private static bool PartesCoinciden(string parteDemandada, string partesScrapeadas)
+    internal static bool PartesCoinciden(string parteDemandada, string partesScrapeadas, double umbralSimilitud = 0.8)
     {
         if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
             return false;
 
         var parteRelevante = QuitarSufijoOtroDemandado(parteDemandada);
-        return NormalizarTexto(partesScrapeadas).Contains(NormalizarTexto(parteRelevante));
+        var textoNormalizado = NormalizarTexto(partesScrapeadas);
+        var patronNormalizado = NormalizarTexto(parteRelevante);
+
+        if (textoNormalizado.Contains(patronNormalizado))
+            return true;
+
+        // La coincidencia exacta por substring falló — antes de descartar el
+        // match, probar tolerancia a variaciones de ortografía entre cómo el
+        // despacho captura la parte y cómo la publica el juzgado (ej. "Corona"
+        // vs "Coronado" — hallazgo real del 20 de agosto 2026, exp. 127/2023).
+        return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado) >= umbralSimilitud;
+    }
+
+    // Busca, dentro de "texto", la subcadena (de CUALQUIER longitud, no solo la
+    // de "patron") que más se le parezca — a diferencia de comparar ventanas de
+    // longitud fija, esto sí maneja bien inserciones/omisiones en medio del
+    // nombre (ej. "CORONA" vs "CORONADO": la ventana de longitud fija corta mal
+    // el resto del nombre y da una similitud artificialmente baja). Es la técnica
+    // estándar de "coincidencia aproximada de subcadena": una fila de Levenshtein
+    // donde empezar en cualquier punto de "texto" no cuesta nada, y se toma el
+    // mínimo de la última fila (terminar en cualquier punto tampoco cuesta).
+    internal static double SimilitudMaximaSubcadena(string patron, string texto)
+    {
+        if (string.IsNullOrEmpty(patron) || string.IsNullOrEmpty(texto)) return 0.0;
+
+        var m = patron.Length;
+        var n = texto.Length;
+        var anterior = new int[n + 1];
+        var actual = new int[n + 1];
+
+        for (var i = 1; i <= m; i++)
+        {
+            actual[0] = i;
+            for (var j = 1; j <= n; j++)
+            {
+                var costo = patron[i - 1] == texto[j - 1] ? 0 : 1;
+                actual[j] = Math.Min(Math.Min(anterior[j] + 1, actual[j - 1] + 1), anterior[j - 1] + costo);
+            }
+            (anterior, actual) = (actual, anterior);
+        }
+
+        var mejorDistancia = int.MaxValue;
+        for (var j = 0; j <= n; j++)
+            if (anterior[j] < mejorDistancia) mejorDistancia = anterior[j];
+
+        return 1.0 - (double)mejorDistancia / m;
+    }
+
+    // % de similitud (0.0 a 1.0) entre dos textos de longitud comparable, basado
+    // en distancia de Levenshtein normalizada por la longitud del más largo.
+    internal static double Similitud(string a, string b)
+    {
+        if (a.Length == 0 && b.Length == 0) return 1.0;
+        var maxLen = Math.Max(a.Length, b.Length);
+        if (maxLen == 0) return 1.0;
+        return 1.0 - (double)DistanciaLevenshtein(a, b) / maxLen;
+    }
+
+    private static int DistanciaLevenshtein(string a, string b)
+    {
+        var dp = new int[a.Length + 1, b.Length + 1];
+        for (var i = 0; i <= a.Length; i++) dp[i, 0] = i;
+        for (var j = 0; j <= b.Length; j++) dp[0, j] = j;
+
+        for (var i = 1; i <= a.Length; i++)
+        {
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var costo = a[i - 1] == b[j - 1] ? 0 : 1;
+                dp[i, j] = Math.Min(Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1), dp[i - 1, j - 1] + costo);
+            }
+        }
+
+        return dp[a.Length, b.Length];
     }
 
     // "Y OTRA"/"Y OTRO"/"Y OTROS"/"Y OTRAS" es un sufijo genérico que el despacho
@@ -599,7 +876,7 @@ public class ScraperAcuerdosService : BackgroundService
         return System.Text.RegularExpressions.Regex.Replace(sinAcentos, @"\s+", " ");
     }
 
-    private static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
+    internal static bool JuzgadoCoincide(string juzgadoExpediente, string nombreJuzgadoScrapeado)
     {
         if (string.IsNullOrWhiteSpace(juzgadoExpediente)) return false;
 
@@ -644,6 +921,32 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("2do tribunal colegiado");
         if (exp.Contains("secretaría general") || exp.Contains("secretaria general"))
             return scr.Contains("secretaría general");
+
+        // Penal, Adolescentes, Ejecución de Sanciones y Laboral: mismo criterio que
+        // arriba — la materia de un expediente es fija, así que estos patrones nunca
+        // deberían cruzarse con Civil/Mercantil/Familiar ni entre ellos mismos.
+        if (exp.Contains("oral penal") || exp.Contains("penal oral"))
+            return scr.Contains("oral penal");
+        if (exp.Contains("1ro penal") || exp.Contains("primero penal"))
+            return scr.Contains("1ro penal") && !scr.Contains("oral");
+        if (exp.Contains("2do penal") || exp.Contains("segundo penal"))
+            return scr.Contains("2do penal") && !scr.Contains("oral");
+        if (exp.Contains("3ro penal") || exp.Contains("tercero penal"))
+            return scr.Contains("3ro penal") && !scr.Contains("oral");
+        if (exp.Contains("5to penal") || exp.Contains("quinto penal"))
+            return scr.Contains("5to penal") && !scr.Contains("oral");
+        if (exp.Contains("tribunal unitario") || exp.Contains("regional adolescentes"))
+            return scr.Contains("tribunal unitario regional");
+        if (exp.Contains("adolescentes"))
+            return scr.Contains("adolescentes") && !scr.Contains("tribunal unitario");
+        if (exp.Contains("ejecución de sanciones") || exp.Contains("ejecucion de sanciones"))
+            return scr.Contains("ejecución de sanciones") || scr.Contains("ejecucion de sanciones");
+        if (exp.Contains("1er tribunal laboral") || exp.Contains("primer tribunal laboral"))
+            return scr.Contains("1er tribunal laboral");
+        if (exp.Contains("2do tribunal laboral") || exp.Contains("segundo tribunal laboral"))
+            return scr.Contains("2do tribunal laboral");
+        if (exp.Contains("3er tribunal laboral") || exp.Contains("tercer tribunal laboral"))
+            return scr.Contains("3er tribunal laboral");
 
         return false;
     }

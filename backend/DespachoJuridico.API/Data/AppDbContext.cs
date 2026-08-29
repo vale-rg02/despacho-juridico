@@ -7,6 +7,14 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    // Mapea la función unaccent() de Postgres (extensión "unaccent") — permite que
+    // una búsqueda por "Mexico" encuentre "México" y viceversa. Solo se puede usar
+    // dentro de una expresión LINQ traducida por EF Core (ver
+    // ExpedientesController.AplicarFiltroBusqueda); llamarla fuera de una consulta
+    // lanza NotSupportedException a propósito.
+    [DbFunction("unaccent", IsBuiltIn = true)]
+    public static string Unaccent(string texto) => throw new NotSupportedException();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Banco> Bancos => Set<Banco>();
     public DbSet<Expediente> Expedientes => Set<Expediente>();
@@ -94,5 +102,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ExpedienteAcceso>()
             .HasIndex(a => new { a.ExpedienteId, a.UsuarioId })
             .IsUnique();
+
+        // Jerarquía de etapas para submenús (ej. Remate → Almonedas, DJ-76) —
+        // Restrict en vez de Cascade: borrar un padre nunca debe arrastrar a sus
+        // hijas en cascada, hay que desvincularlas explícitamente primero.
+        modelBuilder.Entity<EtapaCatalogo>()
+            .HasOne(e => e.EtapaPadre)
+            .WithMany(e => e.Subetapas)
+            .HasForeignKey(e => e.EtapaPadreId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

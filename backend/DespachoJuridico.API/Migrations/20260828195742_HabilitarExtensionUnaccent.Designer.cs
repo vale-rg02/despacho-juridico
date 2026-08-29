@@ -3,6 +3,7 @@ using System;
 using DespachoJuridico.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DespachoJuridico.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828195742_HabilitarExtensionUnaccent")]
+    partial class HabilitarExtensionUnaccent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -199,9 +202,6 @@ namespace DespachoJuridico.API.Migrations
                     b.Property<bool>("EsDiasHabiles")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("EtapaPadreId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasColumnType("text");
@@ -216,8 +216,6 @@ namespace DespachoJuridico.API.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("EtapaPadreId");
 
                     b.ToTable("EtapasCatalogo");
                 });
@@ -500,16 +498,6 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("DespachoJuridico.API.Models.EtapaCatalogo", b =>
-                {
-                    b.HasOne("DespachoJuridico.API.Models.EtapaCatalogo", "EtapaPadre")
-                        .WithMany("Subetapas")
-                        .HasForeignKey("EtapaPadreId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("EtapaPadre");
-                });
-
             modelBuilder.Entity("DespachoJuridico.API.Models.Expediente", b =>
                 {
                     b.HasOne("DespachoJuridico.API.Models.Banco", "Banco")
@@ -611,8 +599,6 @@ namespace DespachoJuridico.API.Migrations
             modelBuilder.Entity("DespachoJuridico.API.Models.EtapaCatalogo", b =>
                 {
                     b.Navigation("Historial");
-
-                    b.Navigation("Subetapas");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.Expediente", b =>
