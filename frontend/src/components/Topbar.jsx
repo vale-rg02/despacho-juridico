@@ -126,29 +126,35 @@ function Topbar({ breadcrumb }) {
 
   return (
     <header className="bg-primary border-b border-white/10 sticky top-0 z-40">
-      <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center gap-4">
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-2 sm:gap-4">
         {/* Logo */}
         <div
-          className="flex items-center gap-2.5 shrink-0 cursor-pointer"
+          className="flex items-center gap-2.5 shrink-0 cursor-pointer min-w-0"
           onClick={() => navigate('/expedientes')}
         >
-          <Scale size={18} className="text-accent" />
+          <Scale size={18} className="text-accent shrink-0" />
           <span
-            className="text-primary-foreground text-base tracking-wide"
+            className="text-primary-foreground text-base tracking-wide hidden sm:inline"
             style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
           >
             Despacho Jurídico Acedo e Hijos
           </span>
+          <span
+            className="text-primary-foreground text-base tracking-wide sm:hidden"
+            style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
+          >
+            Acedo e Hijos
+          </span>
         </div>
 
         {breadcrumb && (
-          <>
-            <span className="text-primary-foreground/25 mx-1">·</span>
+          <div className="hidden sm:flex items-center gap-2 min-w-0">
+            <span className="text-primary-foreground/25 mx-1 shrink-0">·</span>
             {breadcrumb}
-          </>
+          </div>
         )}
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-1 sm:gap-3">
           {/* Calendario */}
           <button
             onClick={() => navigate('/calendario')}

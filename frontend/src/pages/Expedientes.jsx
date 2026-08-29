@@ -392,8 +392,8 @@ function Expedientes() {
 
       {/* Search / filter bar */}
       <div className="bg-card border-b border-border sticky top-14 z-30">
-        <div className="max-w-screen-xl mx-auto px-6 h-12 flex items-center gap-4">
-          <div className="flex-1 max-w-md relative">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-6 py-2.5 sm:h-12 sm:py-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div className="w-full sm:flex-1 sm:max-w-md relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="text"
@@ -414,14 +414,14 @@ function Expedientes() {
           </div>
 
           {/* Filtro de usuario — todos/mis expedientes/un compañero específico */}
-          <div className="relative">
+          <div className="w-full sm:w-auto relative">
             <button
               onClick={() => setDropdownUsuarioOpen(o => !o)}
-              className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+              className="w-full sm:w-auto flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
             >
-              <Filter size={12} className="text-muted-foreground" />
+              <Filter size={12} className="text-muted-foreground shrink-0" />
               <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
-              <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={12} className={`text-muted-foreground transition-transform shrink-0 ml-auto sm:ml-0 ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
             </button>
             {dropdownUsuarioOpen && (
               <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
@@ -453,7 +453,7 @@ function Expedientes() {
 
           <button
             onClick={() => navigate('/expedientes/nuevo')}
-            className="ml-auto bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition"
+            className="w-full sm:w-auto sm:ml-auto bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition whitespace-nowrap"
           >
             + Nuevo expediente
           </button>
@@ -464,7 +464,7 @@ function Expedientes() {
         <div className="fixed inset-0 z-20" onClick={() => setDropdownUsuarioOpen(false)} />
       )}
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8">
+      <main className="max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}
