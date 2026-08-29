@@ -181,7 +181,7 @@ function Topbar({ breadcrumb }) {
             </button>
 
             {bellOpen && (
-              <div className="absolute right-0 mt-2 w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+              <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={14} className="text-accent" />
