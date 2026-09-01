@@ -329,6 +329,13 @@ public class ScraperAcuerdosService : BackgroundService
                     if (expediente == null) continue;
 
                     var esForaneo = !JuzgadosHermosillo.Contains(idUnidad);
+                    // Exh. (Exhorto) y Cuad. (Cuadernillo) son series de numeración propias
+                    // del juzgado que recibe el exhorto / abre el cuadernillo — no la del
+                    // expediente que lo originó. Que el número coincida con un expediente de
+                    // Hermosillo no dice nada por sí solo: son series independientes que solo
+                    // comparten número por coincidencia (ver docs/mecanica-legal-sonora.md #2,
+                    // caso real exp. 476/2026 vs Exhorto 476/2026 de San Luis Río Colorado).
+                    var esSerieAuxiliar = EsSerieAuxiliar(acuerdo.TipoAsunto);
                     string? confianza = null;
                     var oculto = false;
 
@@ -378,12 +385,14 @@ public class ScraperAcuerdosService : BackgroundService
                                 });
                         }
                     }
-                    else if (esForaneo)
+                    else if (esForaneo || esSerieAuxiliar)
                     {
-                        // Verificación por Partes: el matching foráneo solo compara número
-                        // de expediente (ver comentario arriba), lo que causó falsos positivos
-                        // reales en el backfill de julio 2026 (ej. exp. 258/2026 coincidiendo
-                        // entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua Prieta).
+                        // Verificación por Partes: el matching foráneo (y, desde aquí, el de
+                        // Exh./Cuad. aunque sea Hermosillo — ver comentario en esSerieAuxiliar
+                        // arriba) solo tenía número de expediente para confiar, lo que causó
+                        // falsos positivos reales en el backfill de julio 2026 (ej. exp. 258/2026
+                        // coincidiendo entre Tribunal Laboral Cajeme y Juzgado Oral Penal Agua
+                        // Prieta).
                         confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
 
                         // Fase 2: los de baja confianza se guardan ocultos (Opción B) — no se
@@ -395,16 +404,28 @@ public class ScraperAcuerdosService : BackgroundService
 
                         if (dryRun)
                         {
-                            resultado.MatchesForaneosEvaluados.Add(new MatchForaneoEvaluado
-                            {
-                                NumeroExpediente = expediente.NumeroExpediente,
-                                Juzgado = nombreJuzgado,
-                                ParteDemandadaExpediente = expediente.ParteDemandada,
-                                PartesAcuerdo = acuerdo.Partes,
-                                Confianza = confianza,
-                                Sintesis = acuerdo.Sintesis,
-                                FechaAcuerdo = acuerdo.FechaAcuerdo
-                            });
+                            if (esForaneo)
+                                resultado.MatchesForaneosEvaluados.Add(new MatchForaneoEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = expediente.ParteDemandada,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
+                            else
+                                resultado.MatchesHermosilloEvaluados.Add(new MatchHermosilloEvaluado
+                                {
+                                    NumeroExpediente = expediente.NumeroExpediente,
+                                    Juzgado = nombreJuzgado,
+                                    ParteDemandadaExpediente = expediente.ParteDemandada,
+                                    PartesAcuerdo = acuerdo.Partes,
+                                    Confianza = confianza,
+                                    Sintesis = acuerdo.Sintesis,
+                                    FechaAcuerdo = acuerdo.FechaAcuerdo
+                                });
                         }
                     }
                     else if (PartesTieneNombre(acuerdo.Partes))
@@ -725,6 +746,24 @@ public class ScraperAcuerdosService : BackgroundService
     {
         if (string.IsNullOrWhiteSpace(tipoJuicio)) return false;
         return NormalizarTexto(tipoJuicio) == "JURISDICCION VOLUNTARIA";
+    }
+
+    // ¿El TipoAsunto que trae ADISON es una serie de numeración auxiliar (Exhorto o
+    // Cuadernillo) en vez del expediente/causa principal? Esas series las numera el
+    // juzgado que recibe el exhorto o abre el cuadernillo — no tienen relación con la
+    // numeración del expediente original del despacho, así que coincidir en número no
+    // basta para confiar (ver docs/mecanica-legal-sonora.md #2). Alcance deliberadamente
+    // acotado a estas dos: ADISON usa otras abreviaturas (Toca, Leg., Amp./J.Amp.,
+    // Pre., Req., "EXP. C.") cuyo significado y relación de numeración con el
+    // expediente original no están confirmados, pero por ahora no se les da trato
+    // especial — no se identificó un beneficio claro que lo justifique todavía (ver
+    // docs/mecanica-legal-sonora.md #2 y docs/pendientes-reunion-despacho.md).
+    internal static bool EsSerieAuxiliar(string? tipoAsunto)
+    {
+        if (string.IsNullOrWhiteSpace(tipoAsunto)) return false;
+        var normalizado = tipoAsunto.Trim();
+        return normalizado.Equals("Exh.", StringComparison.OrdinalIgnoreCase)
+            || normalizado.Equals("Cuad.", StringComparison.OrdinalIgnoreCase);
     }
 
     // Confianza/Oculto para un acuerdo de Jurisdicción Voluntaria: no se sabe de

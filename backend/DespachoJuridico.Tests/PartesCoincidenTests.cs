@@ -228,4 +228,48 @@ public class PartesCoincidenTests
         // foránea — el 100% de esos matches históricos eran falsos positivos.
         Assert.False(ScraperAcuerdosService.JuzgadoCoincide(juzgadoDespacho, juzgadoAdison));
     }
+
+    [Theory]
+    [InlineData("Exh.", true)]
+    [InlineData("exh.", true)]
+    [InlineData("Cuad.", true)]
+    [InlineData("cuad.", true)]
+    [InlineData("Exp.", false)]
+    [InlineData("C.P.", false)]
+    [InlineData("Cadol.", false)]
+    // Abreviaturas encontradas pero sin trato especial por decisión deliberada — no
+    // se identificó un beneficio claro que justifique tratarlas distinto todavía
+    // (ver docs/mecanica-legal-sonora.md #2). Si el despacho confirma su significado
+    // y se decide darles trato especial, este test debe actualizarse junto con el código.
+    [InlineData("Toca", false)]
+    [InlineData("Leg.", false)]
+    [InlineData("Amp.", false)]
+    [InlineData("J.Amp.", false)]
+    [InlineData("Pre.", false)]
+    [InlineData("Req.", false)]
+    [InlineData("EXP. C.", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void EsSerieAuxiliar_DetectaExhortoYCuadernilloUnicamente(string? tipoAsunto, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.EsSerieAuxiliar(tipoAsunto));
+    }
+
+    [Fact]
+    public void EsSerieAuxiliar_CasoReal476_2026_ConfirmaTipoAsuntoExhorto()
+    {
+        // Caso real del 28 de agosto de 2026: el acuerdo "476/2026" del Juzgado Oral
+        // Penal de San Luis Río Colorado coincidió por número con un expediente del
+        // despacho. Al revisar el dato crudo de ADISON, su TipoAsunto real es "Exh." —
+        // es el número del exhorto en el sistema de ese juzgado, no el expediente
+        // original. Ese juzgado ya era foráneo (así que ya pasaba por verificación de
+        // Partes), pero confirma el riesgo general que EsSerieAuxiliar corrige: si el
+        // mismo patrón (TipoAsunto="Exh."/"Cuad.") ocurriera en un juzgado de
+        // Hermosillo, antes de este ajuste se habría confiado solo por número+juzgado,
+        // sin verificar Partes — ver docs/mecanica-legal-sonora.md #2.
+        Assert.True(ScraperAcuerdosService.EsSerieAuxiliar("Exh."));
+
+        var partesPublicadas = "En cuadernillo formado con motivo del exhorto 719/2026. Se devuelve diligenciado.";
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Alguna Parte Demandada Real", partesPublicadas));
+    }
 }
