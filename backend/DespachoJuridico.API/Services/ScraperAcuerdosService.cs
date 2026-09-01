@@ -241,7 +241,12 @@ public class ScraperAcuerdosService : BackgroundService
         return hoy.AddDays(1).AddHours(horaInicio).AddMinutes(5);
     }
 
-    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null)
+    // notificar=false guarda los acuerdos detectados (con su Confianza/Oculto reales,
+    // sin alterar esa lógica) pero no envía el correo — pensado para backfills de
+    // fechas atrasadas, donde escribir el registro histórico correcto no debe
+    // traducirse en un correo "hoy" avisando de algo que pasó hace semanas. Por
+    // default true: no cambia el comportamiento normal del ciclo automático.
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
@@ -508,7 +513,7 @@ public class ScraperAcuerdosService : BackgroundService
                     context.AcuerdosScrapeados.Add(nuevoAcuerdo);
                     await context.SaveChangesAsync();
 
-                    if (!oculto)
+                    if (!oculto && notificar)
                     {
                         // Enviar notificación por correo
                         await EnviarNotificacionAsync(emailService, expediente, nuevoAcuerdo);
@@ -525,10 +530,16 @@ public class ScraperAcuerdosService : BackgroundService
 
                         _logger.LogInformation("Acuerdo detectado: Exp {Numero} en {Juzgado}", expediente.NumeroExpediente, nombreJuzgado);
                     }
-                    else
+                    else if (oculto)
                     {
                         _logger.LogInformation(
                             "Acuerdo oculto (baja confianza) Exp {Numero} en {Juzgado} — no se notifica",
+                            expediente.NumeroExpediente, nombreJuzgado);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Acuerdo guardado sin notificar (notificar=false) Exp {Numero} en {Juzgado}",
                             expediente.NumeroExpediente, nombreJuzgado);
                     }
                 }

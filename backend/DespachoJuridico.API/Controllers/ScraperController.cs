@@ -69,10 +69,14 @@ public class ScraperController : ControllerBase
     // POST /api/scraper/ejecutar?fecha=2026-06-15
     // POST /api/scraper/ejecutar?fecha=2026-06-15&dryRun=true — no escribe en BD ni envía correo
     // POST /api/scraper/ejecutar?idsUnidad=173,300 — acota el escaneo a esos juzgados solamente
+    // POST /api/scraper/ejecutar?fecha=2026-06-15&notificar=false — guarda los acuerdos
+    //   (con su Confianza/Oculto reales) pero no envía correo; pensado para backfills de
+    //   fechas atrasadas donde el registro histórico correcto no debe generar un correo
+    //   "hoy" avisando de algo de hace semanas.
     [HttpPost("ejecutar")]
-    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false, [FromQuery] string? idsUnidad = null)
+    public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false, [FromQuery] string? idsUnidad = null, [FromQuery] bool notificar = true)
     {
-        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad));
+        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad), notificar);
         return Ok(resultado);
     }
 
