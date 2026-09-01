@@ -899,6 +899,17 @@ public class ScraperAcuerdosService : BackgroundService
     // que viene antes del sufijo (validado con datos reales de julio 2026: 1 de
     // 273 matches foráneos pasó de Baja a Alta con este ajuste, sin generar
     // nuevos falsos positivos en el resto).
+    // Quita "de lo"/"de la" como relleno gramatical entre dos palabras del nombre
+    // de un juzgado (ej. "oral de lo mercantil" -> "oral mercantil"). Usa límites
+    // de palabra (\b) para no comerse texto por accidente si "de lo"/"de la"
+    // aparecieran pegados a otra palabra.
+    private static string QuitarRellenoDeLo(string juzgado)
+    {
+        var sinRelleno = System.Text.RegularExpressions.Regex.Replace(
+            juzgado, @"\bde\s+l[oa]\b", " ");
+        return System.Text.RegularExpressions.Regex.Replace(sinRelleno, @"\s+", " ").Trim();
+    }
+
     private static string QuitarSufijoOtroDemandado(string parteDemandada)
     {
         var match = System.Text.RegularExpressions.Regex.Match(
@@ -919,8 +930,15 @@ public class ScraperAcuerdosService : BackgroundService
     {
         if (string.IsNullOrWhiteSpace(juzgadoExpediente)) return false;
 
-        var exp = juzgadoExpediente.Trim().ToLowerInvariant();
-        var scr = nombreJuzgadoScrapeado.Trim().ToLowerInvariant();
+        // "de lo"/"de la" es relleno gramatical que a veces se captura y a veces no
+        // (ej. "Segundo Oral Mercantil" vs "Segundo Oral DE LO Mercantil" — mismo
+        // juzgado). Se quita antes de comparar para que ningún patrón de abajo
+        // tenga que anticipar cada variante de redacción posible — caso real que
+        // lo destapó: 28 expedientes activos de Mario con "SEGUNDO ORAL DE LO
+        // MERCANTIL" nunca hicieron match con ningún acuerdo de ese juzgado,
+        // 1 de septiembre de 2026.
+        var exp = QuitarRellenoDeLo(juzgadoExpediente.Trim().ToLowerInvariant());
+        var scr = QuitarRellenoDeLo(nombreJuzgadoScrapeado.Trim().ToLowerInvariant());
 
         // Mapeo directo
         if (exp.Contains("1ro civil") || exp.Contains("primero civil"))

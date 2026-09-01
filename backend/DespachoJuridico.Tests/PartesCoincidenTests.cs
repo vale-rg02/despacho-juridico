@@ -217,6 +217,22 @@ public class PartesCoincidenTests
     }
 
     [Theory]
+    [InlineData("SEGUNDO ORAL DE LO MERCANTIL", "2do Oral Mercantil Hermosillo", true)]
+    [InlineData("Segundo Oral de la Mercantil", "2do Oral Mercantil Hermosillo", true)] // variante "de la", no solo "de lo"
+    [InlineData("segundo   oral   de lo   mercantil", "2do Oral Mercantil Hermosillo", true)] // espacios de más alrededor del relleno
+    [InlineData("SEGUNDO ORAL DE LO MERCANTIL", "1ro Oral Mercantil Hermosillo", false)] // sigue sin cruzar 1ro con 2do
+    public void JuzgadoCoincide_QuitaRellenoDeLoDeLa(string juzgadoDespacho, string juzgadoAdison, bool esperado)
+    {
+        // Caso real, 1 de septiembre de 2026: 28 expedientes activos de Mario tenían
+        // el juzgado capturado como "SEGUNDO ORAL DE LO MERCANTIL" — el "DE LO" de
+        // más rompía el match contra "2do Oral Mercantil Hermosillo" en ADISON, así
+        // que ningún acuerdo de ese juzgado se guardaba nunca (ni siquiera oculto):
+        // el reporte de Mario fue justo por dos de esos 28 (534/2025 y 242/2026),
+        // ambos con acuerdos reales publicados ese día que nunca llegaron a notificarse.
+        Assert.Equal(esperado, ScraperAcuerdosService.JuzgadoCoincide(juzgadoDespacho, juzgadoAdison));
+    }
+
+    [Theory]
     [InlineData("1ro Civil", "1er Tribunal Laboral Hermosillo")]
     [InlineData("1ro Oral Mercantil", "Juzgado Ejecución de Sanciones Hermosillo")]
     [InlineData("3ro Civil", "1ro Penal Hermosillo")]
