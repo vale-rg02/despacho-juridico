@@ -110,7 +110,9 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         />
         {!cargandoCatalogo && catalogo.length === 0 && (
           <p className="text-xs text-muted-foreground mt-1">
-            Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.
+            {tipoJuicio
+              ? 'Este tipo de juicio todavía no tiene catálogo de etapas definido.'
+              : 'Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.'}
           </p>
         )}
       </div>
