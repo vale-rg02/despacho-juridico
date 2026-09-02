@@ -4,6 +4,7 @@ import { User, Lock, ShieldCheck, Users, Download, Pencil, Plus, X, Check } from
 import Topbar from '../components/Topbar'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 const SOCIO_PRINCIPAL_ID = 1
 
@@ -50,6 +51,9 @@ function Perfil() {
   const [usuarios, setUsuarios] = useState([])
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false)
   const [modalUsuario, setModalUsuario] = useState(null)
+
+  useCerrarConEscape(() => setModalUsuario(null))
+
   const [formUsuario, setFormUsuario] = useState({ nombre: '', email: '', password: '', rol: 'Litigante', nivelAcceso: 0 })
   const [errorUsuario, setErrorUsuario] = useState('')
   const [msgUsuario, setMsgUsuario] = useState('')
@@ -183,7 +187,7 @@ function Perfil() {
   const btnSeccion = (id, Icon, label) => (
     <button
       onClick={() => setSeccion(id)}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+      className={`shrink-0 whitespace-nowrap md:w-full md:whitespace-normal flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
     >
       <Icon size={14} />
       {label}
@@ -193,16 +197,16 @@ function Perfil() {
   return (
     <div className="min-h-screen bg-background">
       <Topbar />
-      <div className="max-w-screen-xl mx-auto px-6 py-8 flex gap-8">
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col md:flex-row gap-4 md:gap-8">
 
         {/* Sidebar */}
-        <aside className="w-52 shrink-0">
-          <nav className="space-y-1">
+        <aside className="w-full md:w-52 md:shrink-0">
+          <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
             {btnSeccion('info', User, 'Mi información')}
             {btnSeccion('password', Lock, 'Cambiar contraseña')}
             {puedeVerAdmin && (
               <>
-                <div className="h-px bg-border my-2" />
+                <div className="w-px h-6 md:w-auto md:h-px bg-border shrink-0 self-center md:self-auto md:my-2" />
                 {btnSeccion('admin', ShieldCheck, 'Panel admin')}
                 {btnSeccion('usuarios', Users, 'Usuarios')}
                 {btnSeccion('respaldo', Download, 'Respaldo')}
@@ -218,7 +222,7 @@ function Perfil() {
           {seccion === 'info' && (
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Mi información</h2>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-widest mb-1" style={monoStyle}>Nombre</p>
                   <p className="text-foreground font-medium">{usuario?.nombre}</p>
@@ -268,12 +272,12 @@ function Perfil() {
           {/* Panel admin */}
           {seccion === 'admin' && puedeVerAdmin && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Panel de actividad</h2>
                 <div className="flex gap-2">
                   {['dia', 'semana', 'mes'].map(p => (
                     <button key={p} onClick={() => setPeriodo(p)}
-                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize ${periodo === p ? 'bg-accent text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize whitespace-nowrap ${periodo === p ? 'bg-accent text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                       {p === 'dia' ? 'Hoy' : p === 'semana' ? 'Esta semana' : 'Este mes'}
                     </button>
                   ))}
@@ -290,27 +294,29 @@ function Perfil() {
                       <span className="text-sm font-medium text-foreground">{grupo.usuario}</span>
                       <span className="text-xs text-muted-foreground" style={monoStyle}>{grupo.totalAcciones} acción{grupo.totalAcciones !== 1 ? 'es' : ''}</span>
                     </div>
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-secondary/40 border-b border-border">
-                          {['Acción', 'Expediente', 'Detalle', 'Fecha'].map(h => (
-                            <th key={h} className="text-left px-4 py-2 text-muted-foreground font-medium uppercase tracking-wider" style={monoStyle}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {grupo.acciones.map(a => (
-                          <tr key={a.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
-                            <td className="px-4 py-2.5 capitalize text-foreground">{a.accion.replace('_', ' ')}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground" style={monoStyle}>{a.numeroExpediente}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate">{a.detalle}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap" style={monoStyle}>
-                              {new Date(a.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
-                            </td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-secondary/40 border-b border-border">
+                            {['Acción', 'Expediente', 'Detalle', 'Fecha'].map(h => (
+                              <th key={h} className="text-left px-4 py-2 text-muted-foreground font-medium uppercase tracking-wider whitespace-nowrap" style={monoStyle}>{h}</th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {grupo.acciones.map(a => (
+                            <tr key={a.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
+                              <td className="px-4 py-2.5 capitalize text-foreground whitespace-nowrap">{a.accion.replace('_', ' ')}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap" style={monoStyle}>{a.numeroExpediente}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate">{a.detalle}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap" style={monoStyle}>
+                                {new Date(a.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ))
               )}
@@ -320,11 +326,11 @@ function Perfil() {
           {/* Gestión de usuarios */}
           {seccion === 'usuarios' && puedeVerAdmin && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
                 {puedeVerAdmin && (
                   <button onClick={abrirCrear}
-                    className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition">
+                    className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition whitespace-nowrap">
                     <Plus size={13} /> Nuevo usuario
                   </button>
                 )}
@@ -333,6 +339,7 @@ function Perfil() {
                 <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
               ) : (
                 <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-secondary/40 border-b border-border">
@@ -363,12 +370,14 @@ function Perfil() {
                                 {u.id !== SOCIO_PRINCIPAL_ID && (
                                   <>
                                     <button onClick={() => abrirEditar(u)}
-                                      className="text-muted-foreground hover:text-foreground transition" title="Editar">
+                                      className="text-muted-foreground hover:text-foreground transition" title="Editar"
+                                      aria-label={`Editar a ${u.nombre}`}>
                                       <Pencil size={13} />
                                     </button>
                                     <button onClick={() => handleToggleActivo(u)}
                                       className={`transition text-xs ${u.activo ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
-                                      title={u.activo ? 'Desactivar' : 'Activar'}>
+                                      title={u.activo ? 'Desactivar' : 'Activar'}
+                                      aria-label={`${u.activo ? 'Desactivar' : 'Activar'} a ${u.nombre}`}>
                                       {u.activo ? <X size={13} /> : <Check size={13} />}
                                     </button>
                                   </>
@@ -381,12 +390,13 @@ function Perfil() {
                     </tbody>
                   </table>
                 </div>
+                </div>
               )}
 
               {/* Modal crear/editar — solo Socio Principal */}
               {modalUsuario && puedeVerAdmin && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-                  <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setModalUsuario(null)}>
+                  <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
                     <h3 className="text-base font-medium text-foreground" style={serifStyle}>
                       {modalUsuario === 'crear' ? 'Nuevo usuario' : 'Editar usuario'}
                     </h3>

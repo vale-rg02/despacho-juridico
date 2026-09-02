@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -11,9 +11,14 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual } from '../services/acuerdos'
+import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
+import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
+import EtiquetaSeccion from '../components/EtiquetaSeccion'
+import EstadoVacio from '../components/EstadoVacio'
+import ModalConfirmacion from '../components/ModalConfirmacion'
 
 const estadoConfig = {
   Abierto: {
@@ -130,6 +135,125 @@ function DropdownPrioridad({ valor, onChange }) {
   )
 }
 
+function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
+  const [abierto, setAbierto] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  async function handleSeleccionar(usuarioId) {
+    setError('')
+    setGuardando(true)
+    try {
+      await onAgregar(usuarioId)
+      setAbierto(false)
+    } catch (err) {
+      setError(err.response?.data?.mensaje ?? 'No se pudo agregar al colaborador')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAbierto(v => !v)}
+        className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        <UserPlus size={12} />
+        Agregar colaborador
+        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] max-h-64 overflow-y-auto">
+          {error && (
+            <p className="px-3 py-2 text-xs text-red-600 border-b border-border">{error}</p>
+          )}
+          {usuariosDisponibles.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>
+          ) : (
+            usuariosDisponibles.map(u => (
+              <button
+                key={u.id}
+                disabled={guardando}
+                onClick={() => handleSeleccionar(u.id)}
+                className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                {u.nombre}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  if (!editando) {
+    return (
+      <button
+        onClick={() => setEditando(true)}
+        className="text-xs text-accent hover:underline font-medium flex items-center gap-1"
+      >
+        <MapPin size={11} />
+        + Agregar destino
+      </button>
+    )
+  }
+
+  async function handleGuardar() {
+    if (!valor.trim()) return
+    setGuardando(true)
+    try {
+      await onGuardar(acuerdoId, valor.trim())
+      setEditando(false)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={valor}
+        onChange={e => setValor(e.target.value)}
+        placeholder="Ej. Guadalajara, Jalisco"
+        autoFocus
+        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+      />
+      <button
+        onClick={handleGuardar}
+        disabled={!valor.trim() || guardando}
+        className="text-xs text-accent hover:underline font-medium disabled:opacity-50"
+      >
+        {guardando ? 'Guardando...' : 'Guardar'}
+      </button>
+      <button
+        onClick={() => setEditando(false)}
+        className="text-xs text-muted-foreground hover:text-foreground transition"
+      >
+        Cancelar
+      </button>
+    </div>
+  )
+}
+
 function DetalleExpediente() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -142,9 +266,19 @@ function DetalleExpediente() {
   const [acuerdosNuevosIds, setAcuerdosNuevosIds] = useState(new Set())
   const [mostrarFormEtapa, setMostrarFormEtapa] = useState(false)
   const [etapaEditando, setEtapaEditando] = useState(null)
+  const [accesos, setAccesos] = useState([])
+  const [usuarios, setUsuarios] = useState([])
+  const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
+  const [formExhorto, setFormExhorto] = useState({
+    sintesis: '',
+    fechaAcuerdo: '',
+    nombreJuzgado: '',
+    ciudadDestino: ''
+  })
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [confirmacion, setConfirmacion] = useState(null) // { tipo: 'eliminarAcuerdo' | 'eliminarExpediente', acuerdoId? }
   const [exito, setExito] = useState('')
 
   useEffect(() => {
@@ -160,6 +294,12 @@ function DetalleExpediente() {
 
       const dataEtapas = await getHistorialEtapas(id)
       setEtapas(dataEtapas)
+
+      const dataAccesos = await getAccesos(id)
+      setAccesos(dataAccesos)
+
+      const dataUsuarios = await getUsuarios()
+      setUsuarios(dataUsuarios)
 
       const dataAcuerdos = await getAcuerdos(id)
       setAcuerdos(dataAcuerdos)
@@ -245,8 +385,63 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleGuardarDestinoExhorto(acuerdoId, ciudadDestino) {
+    try {
+      await actualizarDestinoExhorto(acuerdoId, ciudadDestino)
+      await cargarDatos()
+    } catch {
+      setError('No se pudo guardar el destino del exhorto')
+    }
+  }
+
+  async function handleGuardarExhortoManual() {
+    try {
+      await registrarExhortoManual(id, {
+        sintesis: formExhorto.sintesis,
+        fechaAcuerdo: formExhorto.fechaAcuerdo,
+        nombreJuzgado: formExhorto.nombreJuzgado || null,
+        ciudadDestino: formExhorto.ciudadDestino || null,
+      })
+      setMostrarFormExhorto(false)
+      setFormExhorto({ sintesis: '', fechaAcuerdo: '', nombreJuzgado: '', ciudadDestino: '' })
+      await cargarDatos()
+      setExito('Exhorto registrado correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo registrar el exhorto')
+    }
+  }
+
+  async function handleEliminarAcuerdoManual(acuerdoId) {
+    try {
+      await eliminarAcuerdoManual(acuerdoId)
+      await cargarDatos()
+      setExito('Registro eliminado correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo eliminar el registro')
+    }
+  }
+
+  async function handleAgregarColaborador(usuarioId) {
+    await agregarAcceso(id, usuarioId)
+    await cargarDatos()
+    setExito('Colaborador agregado correctamente')
+    setTimeout(() => setExito(''), 3000)
+  }
+
+  async function handleQuitarColaborador(accesoId) {
+    try {
+      await quitarAcceso(id, accesoId)
+      await cargarDatos()
+      setExito('Colaborador removido correctamente')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo quitar al colaborador')
+    }
+  }
+
   async function handleEliminar() {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`)) return
     try {
       await eliminarExpediente(id)
       navigate('/expedientes')
@@ -282,6 +477,15 @@ function DetalleExpediente() {
       </div>
     )
   }
+
+  const puedeGestionarColaboradores = usuario?.id === 1 || usuario?.id === expediente.usuarioAsignadoId
+  const usuariosDisponiblesColaborador = usuarios.filter(u =>
+    u.id !== expediente.usuarioAsignadoId &&
+    !accesos.some(a => a.usuarioId === u.id)
+  )
+
+  const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
   return (
     <div className="min-h-screen bg-background">
@@ -347,6 +551,13 @@ function DetalleExpediente() {
               onChange={handleCambiarPrioridad}
             />
 
+            {puedeGestionarColaboradores && (
+              <DropdownAgregarColaborador
+                usuariosDisponibles={usuariosDisponiblesColaborador}
+                onAgregar={handleAgregarColaborador}
+              />
+            )}
+
             {/* Botón Editar */}
             <button
               onClick={() => navigate(`/expedientes/${id}/editar`)}
@@ -358,7 +569,7 @@ function DetalleExpediente() {
 
             {/* Botón Eliminar */}
             <button
-              onClick={handleEliminar}
+              onClick={() => setConfirmacion({ tipo: 'eliminarExpediente' })}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
             >
               <Trash2 size={11} />
@@ -370,16 +581,38 @@ function DetalleExpediente() {
 
         {/* Info grid */}
         <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            Información del expediente
-          </h2>
+          <EtiquetaSeccion className="mb-3">Información del expediente</EtiquetaSeccion>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
             <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
             <InfoCard icon={User}     label="Asignado a"           value={expediente.usuarioAsignadoNombre ?? '—'} />
+            <InfoCard
+              icon={Users}
+              label="Visible para"
+              value={
+                accesos.length === 0 ? '—' : (
+                  <div className="flex flex-wrap gap-1">
+                    {accesos.map(acceso => (
+                      <span
+                        key={acceso.id}
+                        className="inline-flex items-center gap-1 bg-secondary text-foreground text-xs px-2 py-0.5 rounded-full"
+                      >
+                        {acceso.usuarioNombre}
+                        {puedeGestionarColaboradores && (
+                          <button
+                            onClick={() => handleQuitarColaborador(acceso.id)}
+                            className="text-muted-foreground hover:text-destructive transition"
+                            aria-label={`Quitar a ${acceso.usuarioNombre} como colaborador`}
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )
+              }
+            />
             <InfoCard icon={BookOpen} label="Materia"              value={expediente.materia ?? '—'} />
             <InfoCard icon={Landmark} label="Banco"                value={expediente.bancoNombre ?? '—'} />
             <InfoCard icon={Clock}    label="Última actualización" value={formatearFecha(expediente.actualizadoEn)} />
@@ -390,7 +623,7 @@ function DetalleExpediente() {
             <div className="flex items-center gap-2 mb-3">
               <StickyNote size={14} className="text-accent" />
               <span
-                className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+                className="text-xs font-medium uppercase tracking-widest text-foreground"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 Notas del expediente
@@ -405,12 +638,7 @@ function DetalleExpediente() {
         {/* Etapas */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2
-              className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              Historial de etapas procesales
-            </h2>
+            <EtiquetaSeccion>Historial de etapas procesales</EtiquetaSeccion>
             {!mostrarFormEtapa && (
               <button
                 onClick={() => setMostrarFormEtapa(true)}
@@ -458,24 +686,97 @@ function DetalleExpediente() {
 
         {/* Acuerdos del Poder Judicial */}
         <section>
-          <h2
-            className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            <Scale size={13} />
-            Acuerdos del Poder Judicial
-            {acuerdosNuevosIds.size > 0 && (
-              <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
-                {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
-              </span>
+          <div className="flex items-center justify-between mb-3">
+            <h2
+              className="text-xs font-medium uppercase tracking-widest text-foreground flex items-center gap-2"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              <Scale size={13} className="text-accent" />
+              Acuerdos del Poder Judicial
+              {acuerdosNuevosIds.size > 0 && (
+                <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                  {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
+                </span>
+              )}
+            </h2>
+            {!mostrarFormExhorto && (
+              <button
+                onClick={() => setMostrarFormExhorto(true)}
+                className="text-xs text-accent hover:underline font-medium"
+              >
+                + Registrar exhorto manualmente
+              </button>
             )}
-          </h2>
+          </div>
+
+          {mostrarFormExhorto && (
+            <div className="bg-secondary/40 border border-border rounded-lg p-4 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
+                  <input
+                    type="date"
+                    value={formExhorto.fechaAcuerdo}
+                    onChange={e => setFormExhorto(f => ({ ...f, fechaAcuerdo: e.target.value }))}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                  <input
+                    type="text"
+                    value={formExhorto.nombreJuzgado}
+                    onChange={e => setFormExhorto(f => ({ ...f, nombreJuzgado: e.target.value }))}
+                    placeholder="Ej. 1ro Civil Hermosillo"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
+                <input
+                  type="text"
+                  value={formExhorto.ciudadDestino}
+                  onChange={e => setFormExhorto(f => ({ ...f, ciudadDestino: e.target.value }))}
+                  placeholder="Ej. Guadalajara, Jalisco"
+                  className={inputClass}
+                />
+              </div>
+              <div className="mb-3">
+                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
+                <textarea
+                  value={formExhorto.sintesis}
+                  onChange={e => setFormExhorto(f => ({ ...f, sintesis: e.target.value }))}
+                  rows={3}
+                  placeholder="Descripción del exhorto..."
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setMostrarFormExhorto(false)}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarExhortoManual}
+                  disabled={!formExhorto.sintesis || !formExhorto.fechaAcuerdo}
+                  className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                >
+                  Guardar exhorto
+                </button>
+              </div>
+            </div>
+          )}
 
           {acuerdos.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-5">
-              <p className="text-sm text-muted-foreground text-center py-2">
-                Sin acuerdos registrados del Poder Judicial
-              </p>
+              <EstadoVacio
+                icon={Scale}
+                titulo="Sin acuerdos registrados"
+                subtitulo="Los acuerdos del Poder Judicial aparecerán aquí automáticamente."
+              />
             </div>
           ) : (
             <div className="space-y-3">
@@ -487,6 +788,24 @@ function DetalleExpediente() {
                       <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                         <Gavel size={12} className="text-accent" />
                         {acuerdo.nombreJuzgado}
+                        {acuerdo.esExhorto && (
+                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                            <Send size={9} />
+                            Exhorto
+                            {acuerdo.registradoManualmente && (
+                              <span className="italic font-normal">(manual)</span>
+                            )}
+                          </span>
+                        )}
+                        {acuerdo.registradoManualmente && (
+                          <button
+                            onClick={() => setConfirmacion({ tipo: 'eliminarAcuerdo', acuerdoId: acuerdo.id })}
+                            className="text-xs text-red-400 hover:text-red-600 transition"
+                            title="Eliminar registro manual"
+                          >
+                            Eliminar
+                          </button>
+                        )}
                         {acuerdosNuevosIds.has(acuerdo.id) && (
                           <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -503,6 +822,18 @@ function DetalleExpediente() {
                     </div>
                     <p className="text-xs text-muted-foreground mb-2">{acuerdo.partes}</p>
                     <p className="text-sm text-foreground leading-relaxed">{acuerdo.sintesis}</p>
+                    {acuerdo.esExhorto && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        {acuerdo.ciudadDestino ? (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <MapPin size={11} className="text-accent" />
+                            Destino: <span className="text-foreground font-medium">{acuerdo.ciudadDestino}</span>
+                          </p>
+                        ) : (
+                          <CapturarDestinoExhorto acuerdoId={acuerdo.id} onGuardar={handleGuardarDestinoExhorto} />
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>
@@ -513,17 +844,19 @@ function DetalleExpediente() {
         {usuario?.rol === 'Socio' && (
           <section>
             <h2
-              className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"
+              className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <ClipboardList size={13} />
+              <ClipboardList size={13} className="text-accent" />
               Bitácora de cambios
             </h2>
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               {bitacora.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  Sin registros todavía
-                </p>
+                <EstadoVacio
+                  icon={ClipboardList}
+                  titulo="Sin registros todavía"
+                  subtitulo="Los cambios realizados en este expediente se registrarán aquí."
+                />
               ) : (
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -571,6 +904,25 @@ function DetalleExpediente() {
             Volver al listado
           </button>
         </div>
+
+        {confirmacion && (
+          <ModalConfirmacion
+            titulo={confirmacion.tipo === 'eliminarExpediente' ? 'Eliminar expediente' : 'Eliminar registro'}
+            mensaje={
+              confirmacion.tipo === 'eliminarExpediente'
+                ? `¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`
+                : '¿Eliminar este exhorto registrado manualmente?'
+            }
+            confirmLabel="Eliminar"
+            peligroso
+            onConfirmar={() => {
+              if (confirmacion.tipo === 'eliminarExpediente') handleEliminar()
+              else handleEliminarAcuerdoManual(confirmacion.acuerdoId)
+              setConfirmacion(null)
+            }}
+            onCancelar={() => setConfirmacion(null)}
+          />
+        )}
       </main>
     </div>
   )

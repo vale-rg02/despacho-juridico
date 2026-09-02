@@ -20,17 +20,20 @@ public class ExpedientesController : ControllerBase
     private readonly ICalculadorFechasService _calculador;
     private readonly IEmailService _emailService;
     private readonly ILogger<ExpedientesController> _logger;
+    private readonly IAccesoExpedientesService _acceso;
 
     public ExpedientesController(
         AppDbContext context,
         ICalculadorFechasService calculador,
         IEmailService emailService,
-        ILogger<ExpedientesController> logger)
+        ILogger<ExpedientesController> logger,
+        IAccesoExpedientesService acceso)
     {
         _context = context;
         _calculador = calculador;
         _emailService = emailService;
         _logger = logger;
+        _acceso = acceso;
     }
 
 
@@ -44,10 +47,15 @@ public class ExpedientesController : ControllerBase
         var usuarioIdActual = ObtenerUsuarioId();
         var nivelAcceso = User.FindFirst("NivelAcceso")?.Value;
         var esSocioPrincipal = usuarioIdActual == 1;
+        var esCuentaSoporte = !esSocioPrincipal && await _context.Usuarios
+            .Where(u => u.Id == usuarioIdActual)
+            .Select(u => u.EsCuentaSoporte)
+            .FirstOrDefaultAsync();
 
         var query = _context.Expedientes
             .Include(e => e.Banco)
             .Include(e => e.UsuarioAsignado)
+            .Include(e => e.Accesos)
             .AsQueryable();
 
         // Filtro por usuario según rol
@@ -62,13 +70,41 @@ public class ExpedientesController : ControllerBase
             }
             else
             {
-                query = query.Where(e => e.UsuarioAsignadoId == filtroUsuario);
+                query = query.Where(e =>
+                    e.UsuarioAsignadoId == filtroUsuario ||
+                    e.Accesos.Any(a => a.UsuarioId == filtroUsuario));
             }
+        }
+        else if (esCuentaSoporte)
+        {
+            // Cuentas de soporte (dev1/dev2): ven lo suyo, más lo que tengan
+            // como colaborador (ej. entre dev1/dev2 para probar el feature)
+            query = query.Where(e =>
+                e.UsuarioAsignadoId == usuarioIdActual ||
+                e.Accesos.Any(a => a.UsuarioId == usuarioIdActual));
         }
         else
         {
-            // Litigantes y Administradores Operativos: solo sus expedientes
-            query = query.Where(e => e.UsuarioAsignadoId == usuarioIdActual);
+            // Litigantes reales: ven cualquier expediente (trabajan en conjunto),
+            // excepto los asignados a una cuenta de soporte — esos quedan ocultos.
+            // El filtro de "todos"/"mis expedientes"/"[compañero]" es opcional, igual
+            // que para Socio Principal; si se pide un usuario de soporte específico,
+            // la exclusión de abajo hace que simplemente no devuelva nada.
+            query = query.Where(e => e.UsuarioAsignado == null || !e.UsuarioAsignado.EsCuentaSoporte);
+
+            if (!usuarioId.HasValue)
+            {
+                // Además de titular, incluye expedientes donde es colaborador explícito
+                query = query.Where(e =>
+                    e.UsuarioAsignadoId == usuarioIdActual ||
+                    e.Accesos.Any(a => a.UsuarioId == usuarioIdActual));
+            }
+            else if (usuarioId.Value != 0)
+            {
+                query = query.Where(e =>
+                    e.UsuarioAsignadoId == usuarioId.Value ||
+                    e.Accesos.Any(a => a.UsuarioId == usuarioId.Value));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(estado) && Enum.TryParse<EstadoExpediente>(estado, true, out var estadoEnum))
@@ -76,16 +112,11 @@ public class ExpedientesController : ControllerBase
             query = query.Where(e => e.Estado == estadoEnum);
         }
 
-        if (!string.IsNullOrWhiteSpace(busqueda))
-        {
-            query = query.Where(e =>
-                e.NumeroExpediente.Contains(busqueda) ||
-                e.ParteDemandada.Contains(busqueda));
-        }
+        query = AplicarFiltroBusqueda(query, busqueda);
 
         var expedientes = await query
             .OrderByDescending(e => e.ActualizadoEn)
-            .Select(e => MapToResponse(e))
+            .Select(e => MapToResponse(e, usuarioIdActual))
             .ToListAsync();
 
         return Ok(expedientes);
@@ -95,15 +126,17 @@ public class ExpedientesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
+        var usuarioIdActual = ObtenerUsuarioId();
         var expediente = await _context.Expedientes
             .Include(e => e.Banco)
             .Include(e => e.UsuarioAsignado)
+            .Include(e => e.Accesos)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
-        return Ok(MapToResponse(expediente));
+        return Ok(MapToResponse(expediente, usuarioIdActual));
     }
 
     // POST /api/expedientes
@@ -145,7 +178,7 @@ public class ExpedientesController : ControllerBase
 
         await NotificarAsignacionAsync(expediente, usuarioId);
 
-        return CreatedAtAction(nameof(GetById), new { id = expediente.Id }, MapToResponse(expediente));
+        return CreatedAtAction(nameof(GetById), new { id = expediente.Id }, MapToResponse(expediente, usuarioId));
     }
 
     // PUT /api/expedientes/5
@@ -156,7 +189,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -210,13 +243,14 @@ public class ExpedientesController : ControllerBase
 
         await _context.Entry(expediente).Reference(e => e.Banco).LoadAsync();
         await _context.Entry(expediente).Reference(e => e.UsuarioAsignado).LoadAsync();
+        await _context.Entry(expediente).Collection(e => e.Accesos).LoadAsync();
 
         if (usuarioAsignadoCambio)
         {
             await NotificarAsignacionAsync(expediente, usuarioId);
         }
 
-        return Ok(MapToResponse(expediente));
+        return Ok(MapToResponse(expediente, usuarioId));
     }
 
     // PATCH /api/expedientes/5/estado
@@ -224,7 +258,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var estadoAnterior = expediente.Estado;
@@ -245,7 +279,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> CambiarPrioridad(int id, [FromBody] CambiarPrioridadRequest request)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var prioridadAnterior = expediente.Prioridad;
@@ -266,7 +300,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> GetBitacora(int id)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var bitacora = await _context.BitacoraCambios
@@ -291,7 +325,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> GetEtapas(int id)
     {
         var expedienteEtapas = await _context.Expedientes.FindAsync(id);
-        if (expedienteEtapas == null || !TieneAccesoAExpediente(expedienteEtapas.UsuarioAsignadoId))
+        if (expedienteEtapas == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expedienteEtapas.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapas = await _context.HistorialEtapas
@@ -324,7 +358,7 @@ public class ExpedientesController : ControllerBase
             return BadRequest(ModelState);
 
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
@@ -333,14 +367,15 @@ public class ExpedientesController : ControllerBase
 
         // Si no viene fecha límite explícita, se calcula con el catálogo
         // Normalizamos la fecha de inicio a UTC (PostgreSQL lo exige para timestamptz)
-        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+        var fechaInicioUtc = CombinarFechaHora(request.FechaInicio, request.HoraInicio);
 
-        // Si no viene fecha límite explícita, se calcula con el catálogo
+        // Si no viene fecha límite explícita, se calcula con el catálogo (en días, sin hora);
+        // la hora (si se mandó) se aplica encima tanto si vino explícita como si fue calculada.
         var fechaLimiteCalculada = request.FechaLimite
             ?? _calculador.CalcularFechaLimite(fechaInicioUtc, etapaCatalogo.TerminoDias, etapaCatalogo.EsDiasHabiles);
 
         DateTime? fechaLimiteUtc = fechaLimiteCalculada.HasValue
-            ? DateTime.SpecifyKind(fechaLimiteCalculada.Value.Date, DateTimeKind.Utc)
+            ? CombinarFechaHora(fechaLimiteCalculada.Value, request.HoraLimite)
             : null;
 
         var usuarioId = ObtenerUsuarioId();
@@ -392,7 +427,7 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.FechaCompletada = request.FechaCompletada.HasValue
@@ -425,16 +460,16 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var etapaCatalogo = await _context.EtapasCatalogo.FindAsync(request.EtapaCatalogoId);
         if (etapaCatalogo == null)
             return BadRequest(new { mensaje = "La etapa del catálogo no existe" });
 
-        var fechaInicioUtc = DateTime.SpecifyKind(request.FechaInicio.Date, DateTimeKind.Utc);
+        var fechaInicioUtc = CombinarFechaHora(request.FechaInicio, request.HoraInicio);
         DateTime? fechaLimiteUtc = request.FechaLimite.HasValue
-            ? DateTime.SpecifyKind(request.FechaLimite.Value.Date, DateTimeKind.Utc)
+            ? CombinarFechaHora(request.FechaLimite.Value, request.HoraLimite)
             : null;
 
         var cambios = new List<string>();
@@ -485,7 +520,7 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         var nombreEtapa = historial.EtapaCatalogo?.Nombre ?? "Etapa";
@@ -508,7 +543,7 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         if (historial.FechaCompletada == null)
@@ -534,7 +569,7 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.Expediente)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
-        if (historial == null || !TieneAccesoAExpediente(historial.Expediente.UsuarioAsignadoId))
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
 
         historial.Atendido = true;
@@ -552,7 +587,7 @@ public class ExpedientesController : ControllerBase
     public async Task<IActionResult> Eliminar(int id)
     {
         var expediente = await _context.Expedientes.FindAsync(id);
-        if (expediente == null || !TieneAccesoAExpediente(expediente.UsuarioAsignadoId))
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
 
         var usuarioId = ObtenerUsuarioId();
@@ -564,12 +599,140 @@ public class ExpedientesController : ControllerBase
         return NoContent();
     }
 
+    // GET /api/expedientes/5/accesos
+    [HttpGet("{id}/accesos")]
+    public async Task<IActionResult> GetAccesos(int id)
+    {
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
+            return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var accesos = await _context.ExpedienteAccesos
+            .Include(a => a.Usuario)
+            .Where(a => a.ExpedienteId == id)
+            .Select(a => new ExpedienteAccesoResponse
+            {
+                Id = a.Id,
+                UsuarioId = a.UsuarioId,
+                UsuarioNombre = a.Usuario.Nombre,
+                UsuarioEmail = a.Usuario.Email,
+                CreadoEn = a.CreadoEn
+            })
+            .ToListAsync();
+
+        return Ok(accesos);
+    }
+
+    // POST /api/expedientes/5/accesos
+    // Solo el Socio Principal (id=1) o el Titular del expediente pueden agregar colaboradores
+    [HttpPost("{id}/accesos")]
+    public async Task<IActionResult> AgregarAcceso(int id, [FromBody] AgregarAccesoRequest request)
+    {
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null) return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var usuarioIdActual = ObtenerUsuarioId();
+        var esSocioPrincipal = usuarioIdActual == 1;
+        var esTitular = expediente.UsuarioAsignadoId == usuarioIdActual;
+
+        if (!esSocioPrincipal && !esTitular)
+            return Forbid();
+
+        if (request.UsuarioId == expediente.UsuarioAsignadoId)
+            return BadRequest(new { mensaje = "El usuario ya es el titular de este expediente" });
+
+        // Igual que en UsuariosController.GetAll: solo se excluyen cuentas de soporte
+        // si quien agrega NO es cuenta de soporte — un dev necesita poder agregar a
+        // otro dev como colaborador de sus propios expedientes de prueba.
+        var actualEsSoporte = !esSocioPrincipal && await _context.Usuarios
+            .Where(u => u.Id == usuarioIdActual)
+            .Select(u => u.EsCuentaSoporte)
+            .FirstOrDefaultAsync();
+
+        var usuarioQuery = _context.Usuarios.Where(u => u.Id == request.UsuarioId && u.Activo);
+        if (!actualEsSoporte)
+            usuarioQuery = usuarioQuery.Where(u => !u.EsCuentaSoporte);
+
+        var usuario = await usuarioQuery.FirstOrDefaultAsync();
+
+        if (usuario == null)
+            return BadRequest(new { mensaje = "Usuario no válido" });
+
+        var yaExiste = await _context.ExpedienteAccesos
+            .AnyAsync(a => a.ExpedienteId == id && a.UsuarioId == request.UsuarioId);
+
+        if (yaExiste)
+            return BadRequest(new { mensaje = "El usuario ya tiene acceso a este expediente" });
+
+        var acceso = new ExpedienteAcceso
+        {
+            ExpedienteId = id,
+            UsuarioId = request.UsuarioId,
+            CreadoEn = DateTime.UtcNow
+        };
+
+        _context.ExpedienteAccesos.Add(acceso);
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(id, usuarioIdActual, "colaborador_agregado",
+            $"Se agregó a {usuario.Nombre} como colaborador");
+
+        return Ok(new ExpedienteAccesoResponse
+        {
+            Id = acceso.Id,
+            UsuarioId = usuario.Id,
+            UsuarioNombre = usuario.Nombre,
+            UsuarioEmail = usuario.Email,
+            CreadoEn = acceso.CreadoEn
+        });
+    }
+
+    // DELETE /api/expedientes/5/accesos/12
+    // Solo el Socio Principal (id=1) o el Titular del expediente pueden quitar colaboradores
+    [HttpDelete("{id}/accesos/{accesoId}")]
+    public async Task<IActionResult> QuitarAcceso(int id, int accesoId)
+    {
+        var expediente = await _context.Expedientes.FindAsync(id);
+        if (expediente == null) return NotFound(new { mensaje = "Expediente no encontrado" });
+
+        var usuarioIdActual = ObtenerUsuarioId();
+        var esSocioPrincipal = usuarioIdActual == 1;
+        var esTitular = expediente.UsuarioAsignadoId == usuarioIdActual;
+
+        if (!esSocioPrincipal && !esTitular)
+            return Forbid();
+
+        var acceso = await _context.ExpedienteAccesos
+            .Include(a => a.Usuario)
+            .FirstOrDefaultAsync(a => a.Id == accesoId && a.ExpedienteId == id);
+
+        if (acceso == null)
+            return NotFound(new { mensaje = "Acceso no encontrado" });
+
+        _context.ExpedienteAccesos.Remove(acceso);
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(id, usuarioIdActual, "colaborador_removido",
+            $"Se removió a {acceso.Usuario.Nombre} como colaborador");
+
+        return Ok(new { mensaje = "Colaborador removido correctamente" });
+    }
+
     // GET /api/expedientes/por-usuario
 [HttpGet("por-usuario")]
 public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
 {
     var usuarioIdActual = ObtenerUsuarioId();
-    if (usuarioIdActual != 1)
+
+    // Antes exclusivo de Socio Principal; ahora cualquier litigante real puede ver
+    // los expedientes agrupados por compañero. Las cuentas de soporte (dev1/dev2)
+    // quedan fuera, igual que antes.
+    var esCuentaSoporte = usuarioIdActual != 1 && await _context.Usuarios
+        .Where(u => u.Id == usuarioIdActual)
+        .Select(u => u.EsCuentaSoporte)
+        .FirstOrDefaultAsync();
+
+    if (esCuentaSoporte)
         return Forbid();
 
     var usuarios = await _context.Usuarios
@@ -584,14 +747,14 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         var query = _context.Expedientes
             .Include(e => e.Banco)
             .Include(e => e.UsuarioAsignado)
+            .Include(e => e.Accesos)
             .Where(e => e.UsuarioAsignadoId == u.Id && e.Estado != EstadoExpediente.Cerrado);
 
-        if (!string.IsNullOrWhiteSpace(busqueda))
-            query = query.Where(e => e.NumeroExpediente.Contains(busqueda) || e.ParteDemandada.Contains(busqueda));
+        query = AplicarFiltroBusqueda(query, busqueda);
 
         var expedientes = await query
             .OrderByDescending(e => e.ActualizadoEn)
-            .Select(e => MapToResponse(e))
+            .Select(e => MapToResponse(e, usuarioIdActual))
             .ToListAsync();
 
         resultado.Add(new
@@ -681,7 +844,41 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
 </div></body></html>";
     }
 
-    private static ExpedienteResponse MapToResponse(Expediente e) => new()
+    // Filtro de búsqueda compartido por GetAll y GetPorUsuario (DJ-110) — antes cada
+    // uno tenía su propia copia de la comparación, con el mismo hueco de mayúsculas
+    // en las dos. Insensible a mayúsculas/minúsculas: "Sue", "SUE" y "suE" deben
+    // encontrar lo mismo. Se usa ILIKE (nativo de Postgres) en vez de .ToLower() en
+    // ambos lados — Npgsql lo traduce directo al operador ILIKE de Postgres, sin
+    // envolver la columna en una función que además le impediría usar un índice si
+    // algún día se agrega uno.
+    internal static IQueryable<Expediente> AplicarFiltroBusqueda(IQueryable<Expediente> query, string? busqueda)
+    {
+        if (string.IsNullOrWhiteSpace(busqueda)) return query;
+
+        // unaccent() quita acentos de los dos lados antes de comparar, así que
+        // "Mexico" encuentra "México" y viceversa — mismo tipo de variante de texto
+        // que el caso de mayúsculas, ahora cubierto en la misma pasada. unaccent()
+        // no le hace nada a "%"/"_" (no son caracteres acentuados), así que el
+        // patrón con comodines se puede envolver completo sin romper el escapado.
+        //
+        // AppDbContext.Unaccent solo puede llamarse DENTRO del lambda de abajo — es
+        // un método marcador ([DbFunction]) que EF Core traduce a SQL al armar la
+        // consulta; invocarlo fuera de una expresión LINQ lanzaría NotSupportedException
+        // porque nunca se ejecuta como C# de verdad, solo como unaccent() en Postgres.
+        var patron = $"%{EscaparComodinesLike(busqueda)}%";
+        return query.Where(e =>
+            EF.Functions.ILike(AppDbContext.Unaccent(e.NumeroExpediente), AppDbContext.Unaccent(patron)) ||
+            EF.Functions.ILike(AppDbContext.Unaccent(e.ParteDemandada), AppDbContext.Unaccent(patron)));
+    }
+
+    // Escapa los comodines de LIKE/ILIKE ("%", "_") y el propio carácter de escape
+    // ("\") en un texto de búsqueda capturado por el usuario, para que se busque
+    // como texto literal — sin esto, alguien buscando "50%" encontraría cualquier
+    // expediente, no solo los que de verdad tienen "50%" en el texto.
+    internal static string EscaparComodinesLike(string texto) =>
+        texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
+    private static ExpedienteResponse MapToResponse(Expediente e, int usuarioIdActual) => new()
     {
         Id = e.Id,
         NumeroExpediente = e.NumeroExpediente,
@@ -696,6 +893,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         ActualizadoEn = e.ActualizadoEn,
         BancoId = e.BancoId,
         BancoNombre = e.Banco?.Nombre,
+        EsColaborador = e.UsuarioAsignadoId != usuarioIdActual && e.Accesos.Any(a => a.UsuarioId == usuarioIdActual),
         UsuarioAsignadoId = e.UsuarioAsignadoId,
         UsuarioAsignadoNombre = e.UsuarioAsignado?.Nombre,
         ExpedienteRelacionadoId = e.ExpedienteRelacionadoId
@@ -720,11 +918,12 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         return claim != null ? int.Parse(claim) : 2;
     }
 
-    // Solo el Socio Principal (id=1) puede operar sobre expedientes de cualquier
-    // usuario; el resto solo sobre los que tiene asignados. Mismo criterio que GetAll.
-    private bool TieneAccesoAExpediente(int? usuarioAsignadoId)
+
+    // Combina la fecha con una hora opcional; si no se manda hora, queda a medianoche
+    // (comportamiento anterior a DJ-66). Siempre normaliza a UTC para PostgreSQL.
+    private static DateTime CombinarFechaHora(DateTime fecha, TimeOnly? hora)
     {
-        var usuarioIdActual = ObtenerUsuarioId();
-        return usuarioIdActual == 1 || usuarioAsignadoId == usuarioIdActual;
+        var horaFinal = hora ?? TimeOnly.MinValue;
+        return DateTime.SpecifyKind(fecha.Date + horaFinal.ToTimeSpan(), DateTimeKind.Utc);
     }
 }

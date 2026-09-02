@@ -56,7 +56,11 @@ public class RevisionFechasService : BackgroundService
         var etapasActivas = await context.HistorialEtapas
             .Include(h => h.Expediente).ThenInclude(e => e.UsuarioAsignado)
             .Include(h => h.EtapaCatalogo)
-            .Where(h => h.FechaCompletada == null && h.FechaLimite != null)
+            .Where(h => h.FechaCompletada == null
+                     && h.FechaLimite != null
+                     && h.Expediente.Estado != EstadoExpediente.Cerrado
+                     // Excluir expedientes de prueba asignados a cuentas de soporte
+                     && (h.Expediente.UsuarioAsignado == null || !h.Expediente.UsuarioAsignado.EsCuentaSoporte))
             .ToListAsync(ct);
 
         _logger.LogInformation("Revisión de fechas: {Cantidad} etapas activas con fecha límite", etapasActivas.Count);
@@ -115,6 +119,16 @@ public class RevisionFechasService : BackgroundService
 
                 if (expediente.UsuarioAsignado != null)
                     destinatarios.Add((expediente.UsuarioAsignado.Nombre, expediente.UsuarioAsignado.Email));
+
+                // Colaboradores reciben el mismo aviso que el Titular (mismo mecanismo
+                // anti-duplicados de abajo, ya que se procesan en el mismo foreach)
+                var colaboradores = await context.ExpedienteAccesos
+                    .Include(a => a.Usuario)
+                    .Where(a => a.ExpedienteId == historial.ExpedienteId)
+                    .ToListAsync(ct);
+
+                foreach (var colaborador in colaboradores)
+                    destinatarios.Add((colaborador.Usuario.Nombre, colaborador.Usuario.Email));
 
                 if (expediente.Prioridad == Prioridad.Urgente)
                 {

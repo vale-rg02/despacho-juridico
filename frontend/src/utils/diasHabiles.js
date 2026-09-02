@@ -55,9 +55,15 @@ export function sumarDiasNaturales(fechaInicio, dias) {
 
 // Devuelve un string "yyyy-MM-dd" o null si terminoDias es null
 export function calcularFechaLimite(fechaInicioStr, terminoDias, esDiasHabiles) {
-  if (terminoDias == null) return null
+  if (terminoDias == null || !fechaInicioStr) return null
 
   const fechaInicio = new Date(fechaInicioStr + 'T00:00:00Z')
+  if (isNaN(fechaInicio.getTime())) return null
+
+  // Validar año en rango razonable (evita años absurdos como 222222)
+  const año = fechaInicio.getUTCFullYear()
+  if (año < 1900 || año > 2100) return null
+
   const resultado = esDiasHabiles
     ? sumarDiasHabiles(fechaInicio, terminoDias)
     : sumarDiasNaturales(fechaInicio, terminoDias)

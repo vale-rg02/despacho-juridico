@@ -1,4 +1,27 @@
+import { useState } from 'react'
+import { ClipboardList } from 'lucide-react'
 import { formatearFecha } from '../utils/formato'
+import EstadoVacio from './EstadoVacio'
+import ModalConfirmacion from './ModalConfirmacion'
+
+// El backend guarda fecha y hora "etiquetadas" como UTC sin convertirlas de
+// verdad (mismo patrón que fechaLimite/fechaAcuerdo en el resto de la app), así
+// que se arma el Date con sus componentes locales (sin conversión de zona) en
+// vez de parsear el ISO con new Date(), que desfasaría la hora según la zona
+// horaria del navegador.
+function formatearFechaConHora(fechaStr) {
+  if (!fechaStr) return '—'
+  const match = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (!match) return '—'
+  const [, anio, mes, dia, horas, minutos] = match
+  const fecha = new Date(Number(anio), Number(mes) - 1, Number(dia), Number(horas), Number(minutos))
+
+  const soloFecha = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (horas === '00' && minutos === '00') return soloFecha
+
+  const hora = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return `${soloFecha}, ${hora}`
+}
 
 function diasRestantes(fechaLimite) {
   if (!fechaLimite) return null
@@ -7,6 +30,19 @@ function diasRestantes(fechaLimite) {
   const limite = new Date(fechaLimite)
   const diff = Math.ceil((limite - hoy) / (1000 * 60 * 60 * 24))
   return diff
+}
+
+// Color del borde izquierdo según urgencia — usa clases border-l-* dedicadas
+// (nunca el shorthand border-{color}) para no pisar border-left-color con las
+// clases border-t/r/b-* del contenedor (mismo tipo de conflicto de utilidades
+// Tailwind que ya causó el bug visual de los inputs de fecha/hora)
+function colorUrgencia(etapa) {
+  if (etapa.fechaCompletada) return 'border-l-emerald-400'
+  if (!etapa.fechaLimite) return 'border-l-border'
+  const dias = diasRestantes(etapa.fechaLimite)
+  if (dias < 0) return 'border-l-red-400'
+  if (dias <= 7) return 'border-l-amber-400'
+  return 'border-l-accent/40'
 }
 
 function EstadoFecha({ etapa }) {
@@ -40,11 +76,21 @@ function EstadoFecha({ etapa }) {
 }
 
 function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar }) {
+  const [confirmacion, setConfirmacion] = useState(null) // { tipo: 'revertir' | 'eliminar', etapaId }
+
+  function confirmar() {
+    if (confirmacion.tipo === 'revertir') onRevertir(confirmacion.etapaId)
+    else onEliminar(confirmacion.etapaId)
+    setConfirmacion(null)
+  }
+
   if (etapas.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-4">
-        Sin etapas registradas todavía
-      </p>
+      <EstadoVacio
+        icon={ClipboardList}
+        titulo="Sin etapas registradas todavía"
+        subtitulo="Registra la primera etapa procesal para comenzar a darle seguimiento."
+      />
     )
   }
 
@@ -55,8 +101,8 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
         return (
           <div
             key={etapa.id}
-            className={`rounded-md p-3 border ${
-              activa ? 'bg-accent/5 border-accent/20' : 'border-border'
+            className={`rounded-md p-3 border-t border-r border-b border-l-4 transition hover:shadow-md hover:-translate-y-0.5 ${colorUrgencia(etapa)} ${
+              activa ? 'bg-accent/5 border-t-accent/20 border-r-accent/20 border-b-accent/20' : 'border-t-border border-r-border border-b-border'
             }`}
           >
             <div className="flex justify-between items-start mb-1.5">
@@ -64,8 +110,8 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
               <EstadoFecha etapa={etapa} />
             </div>
             <div className="flex flex-wrap gap-x-4 text-xs text-muted-foreground mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
-              <span>Inicio: {formatearFecha(etapa.fechaInicio)}</span>
-              <span>Límite: {etapa.fechaLimite ? formatearFecha(etapa.fechaLimite) : '—'}</span>
+              <span>Inicio: {formatearFechaConHora(etapa.fechaInicio)}</span>
+              <span>Límite: {etapa.fechaLimite ? formatearFechaConHora(etapa.fechaLimite) : '—'}</span>
               {etapa.fechaCompletada && (
                 <span>Completada: {formatearFecha(etapa.fechaCompletada)}</span>
               )}
@@ -83,11 +129,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    if (window.confirm('¿Estás seguro de que deseas revertir esta etapa a pendiente?')) {
-                      onRevertir(etapa.id)
-                    }
-                  }}
+                  onClick={() => setConfirmacion({ tipo: 'revertir', etapaId: etapa.id })}
                   className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
                 >
                   Revertir a pendiente
@@ -100,11 +142,7 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                 Editar
               </button>
               <button
-                onClick={() => {
-                  if (window.confirm('¿Estás seguro de que deseas eliminar esta etapa? Esta acción no se puede deshacer.')) {
-                    onEliminar(etapa.id)
-                  }
-                }}
+                onClick={() => setConfirmacion({ tipo: 'eliminar', etapaId: etapa.id })}
                 className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"
               >
                 Eliminar
@@ -113,6 +151,21 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
           </div>
         )
       })}
+
+      {confirmacion && (
+        <ModalConfirmacion
+          titulo={confirmacion.tipo === 'eliminar' ? 'Eliminar etapa' : 'Revertir etapa'}
+          mensaje={
+            confirmacion.tipo === 'eliminar'
+              ? '¿Estás seguro de que deseas eliminar esta etapa? Esta acción no se puede deshacer.'
+              : '¿Estás seguro de que deseas revertir esta etapa a pendiente?'
+          }
+          confirmLabel={confirmacion.tipo === 'eliminar' ? 'Eliminar' : 'Revertir'}
+          peligroso={confirmacion.tipo === 'eliminar'}
+          onConfirmar={confirmar}
+          onCancelar={() => setConfirmacion(null)}
+        />
+      )}
     </div>
   )
 }

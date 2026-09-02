@@ -25,12 +25,62 @@ function formatFechaAlerta(diasRestantes) {
   return `en ${diasRestantes} días`
 }
 
+function AlertaItem({ alerta, onAtender, onNavegar }) {
+  return (
+    <div
+      onClick={() => onNavegar(alerta.expedienteId)}
+      className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-foreground truncate">{alerta.etapaNombre ?? 'Etapa'}</p>
+          <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {alerta.numeroExpediente}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Límite: {formatearFecha(alerta.fechaLimite)}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${urgenciaClase(alerta.diasRestantes)}`}>
+            {formatFechaAlerta(alerta.diasRestantes)}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAtender(alerta) }}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Atender
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Topbar({ breadcrumb }) {
   const navigate = useNavigate()
   const usuario = getUsuario()
+  const esSocioPrincipal = usuario?.id === 1
   const [bellOpen, setBellOpen] = useState(false)
   const [alertas, setAlertas] = useState([])
   const bellRef = useRef(null)
+
+  // Separar alertas propias de las ajenas (solo aplica para Socio Principal;
+  // el backend ya limita a los demás roles a solo sus propias alertas)
+  const alertasPropias = esSocioPrincipal
+    ? alertas.filter(a => a.usuarioAsignadoId === usuario?.id || !a.usuarioAsignadoId)
+    : alertas
+
+  const alertasAjenas = esSocioPrincipal
+    ? alertas.filter(a => a.usuarioAsignadoId !== usuario?.id && a.usuarioAsignadoId)
+    : []
+
+  const gruposAjenos = alertasAjenas.reduce((grupos, alerta) => {
+    const nombre = alerta.usuarioAsignadoNombre ?? 'Sin asignar'
+    if (!grupos[nombre]) grupos[nombre] = []
+    grupos[nombre].push(alerta)
+    return grupos
+  }, {})
 
   useEffect(() => {
     cargarAlertas()
@@ -55,8 +105,7 @@ function Topbar({ breadcrumb }) {
     }
   }
 
-  async function handleAtender(e, alerta) {
-    e.stopPropagation()
+  async function handleAtender(alerta) {
     try {
       await marcarAtendida(alerta.expedienteId, alerta.etapaHistorialId)
       setAlertas(prev => prev.filter(a => a.etapaHistorialId !== alerta.etapaHistorialId))
@@ -77,34 +126,41 @@ function Topbar({ breadcrumb }) {
 
   return (
     <header className="bg-primary border-b border-white/10 sticky top-0 z-40">
-      <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center gap-4">
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-2 sm:gap-4">
         {/* Logo */}
         <div
-          className="flex items-center gap-2.5 shrink-0 cursor-pointer"
+          className="flex items-center gap-2.5 shrink-0 cursor-pointer min-w-0"
           onClick={() => navigate('/expedientes')}
         >
-          <Scale size={18} className="text-accent" />
+          <Scale size={18} className="text-accent shrink-0" />
           <span
-            className="text-primary-foreground text-base tracking-wide"
+            className="text-primary-foreground text-base tracking-wide hidden sm:inline"
             style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
           >
             Despacho Jurídico Acedo e Hijos
           </span>
+          <span
+            className="text-primary-foreground text-base tracking-wide sm:hidden"
+            style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
+          >
+            Acedo e Hijos
+          </span>
         </div>
 
         {breadcrumb && (
-          <>
-            <span className="text-primary-foreground/25 mx-1">·</span>
+          <div className="hidden sm:flex items-center gap-2 min-w-0">
+            <span className="text-primary-foreground/25 mx-1 shrink-0">·</span>
             {breadcrumb}
-          </>
+          </div>
         )}
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-1 sm:gap-3">
           {/* Calendario */}
           <button
             onClick={() => navigate('/calendario')}
             className="p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
             title="Calendario"
+            aria-label="Ir al calendario"
           >
             <Calendar size={17} />
           </button>
@@ -114,6 +170,7 @@ function Topbar({ breadcrumb }) {
             <button
               onClick={() => setBellOpen(o => !o)}
               className="relative p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
+              aria-label="Ver alertas próximas"
             >
               <Bell size={17} />
               {alertas.length > 0 && (
@@ -124,12 +181,12 @@ function Topbar({ breadcrumb }) {
             </button>
 
             {bellOpen && (
-              <div className="absolute right-0 mt-2 w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+              <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={14} className="text-accent" />
                     <span
-                      className="text-xs font-medium uppercase tracking-widest text-muted-foreground"
+                      className="text-xs font-medium uppercase tracking-widest text-foreground"
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
                       Alertas próximas
@@ -140,44 +197,55 @@ function Topbar({ breadcrumb }) {
                   </span>
                 </div>
 
-                <ul className="divide-y divide-border max-h-80 overflow-y-auto">
+                <div className="divide-y divide-border max-h-80 overflow-y-auto">
                   {alertas.length === 0 ? (
-                    <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                       Sin alertas pendientes
-                    </li>
+                    </p>
                   ) : (
-                    alertas.map(alerta => (
-                      <li
-                        key={alerta.etapaHistorialId}
-                        onClick={() => irAlExpediente(alerta.expedienteId)}
-                        className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{alerta.etapaNombre ?? 'Etapa'}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
-                              {alerta.numeroExpediente}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Límite: {formatearFecha(alerta.fechaLimite)}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${urgenciaClase(alerta.diasRestantes)}`}>
-                              {formatFechaAlerta(alerta.diasRestantes)}
+                    <>
+                      {alertasPropias.length > 0 && (
+                        <>
+                          {esSocioPrincipal && (
+                            <div className="px-4 py-2 bg-secondary/30 border-b border-border">
+                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                                style={{ fontFamily: "'DM Mono', monospace" }}>
+                                Mis expedientes
+                              </span>
+                            </div>
+                          )}
+                          {alertasPropias.map(alerta => (
+                            <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                          ))}
+                        </>
+                      )}
+
+                      {esSocioPrincipal && alertasAjenas.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-secondary/30 border-b border-border border-t">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                              style={{ fontFamily: "'DM Mono', monospace" }}>
+                              Otros litigantes
                             </span>
-                            <button
-                              onClick={(e) => handleAtender(e, alerta)}
-                              className="text-xs text-muted-foreground hover:text-foreground underline"
-                            >
-                              Atender
-                            </button>
                           </div>
-                        </div>
-                      </li>
-                    ))
+                          {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
+                            <div key={nombre}>
+                              <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
+                                <span className="text-xs font-medium text-accent"
+                                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                                  {nombre}
+                                </span>
+                              </div>
+                              {alertasUsuario.map(alerta => (
+                                <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                              ))}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </>
                   )}
-                </ul>
+                </div>
 
                 <div className="px-4 py-2.5 border-t border-border bg-secondary/30">
                   <span className="text-xs text-muted-foreground">
@@ -221,6 +289,7 @@ function Topbar({ breadcrumb }) {
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-xs text-primary-foreground/50 hover:text-primary-foreground/90 transition px-2 py-1.5 rounded hover:bg-white/10"
             title="Cerrar sesión"
+            aria-label="Cerrar sesión"
           >
             <LogOut size={14} />
             <span className="hidden sm:inline">Salir</span>

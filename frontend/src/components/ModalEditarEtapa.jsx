@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
+import { Pencil } from 'lucide-react'
 import { getEtapasCatalogo, editarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
+import ModalHeader from './ModalHeader'
+import SelectorEtapaCatalogo from './SelectorEtapaCatalogo'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+
+// Extrae "HH:MM" directo del string ISO (sin pasar por new Date(), que convertiría
+// a la zona horaria del navegador y desfasaría la hora) si trae una hora real, no medianoche
+function horaDe(fechaISO) {
+  if (!fechaISO) return ''
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  if (!match) return ''
+  const [, horas, minutos] = match
+  if (horas === '00' && minutos === '00') return ''
+  return `${horas}:${minutos}`
+}
 
 function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerrar }) {
   const [catalogo, setCatalogo] = useState([])
@@ -8,11 +23,15 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
   const [etapaCatalogoId, setEtapaCatalogoId] = useState(etapa.etapaCatalogoId ?? '')
   const [fechaInicio, setFechaInicio] = useState(etapa.fechaInicio.slice(0, 10))
+  const [horaInicio, setHoraInicio] = useState(horaDe(etapa.fechaInicio))
   const [fechaLimite, setFechaLimite] = useState(etapa.fechaLimite ? etapa.fechaLimite.slice(0, 10) : '')
+  const [horaLimite, setHoraLimite] = useState(horaDe(etapa.fechaLimite))
   const [notas, setNotas] = useState(etapa.notas ?? '')
 
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  useCerrarConEscape(onCerrar)
 
   useEffect(() => {
     cargarCatalogo()
@@ -43,7 +62,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
       await editarEtapa(expedienteId, etapa.id, {
         etapaCatalogoId: Number(etapaCatalogoId),
         fechaInicio,
+        horaInicio: horaInicio || null,
         fechaLimite: fechaLimite || null,
+        horaLimite: horaLimite || null,
         notas: notas || null,
       })
       onGuardado()
@@ -57,17 +78,17 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = `w-full ${inputBase}`
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
       <form
         onSubmit={handleSubmit}
+        onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4"
       >
-        <h3 className="text-base font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Editar etapa
-        </h3>
+        <ModalHeader icon={Pencil} tono="accent" titulo="Editar etapa" />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -77,38 +98,64 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <select
-            value={etapaCatalogoId}
-            onChange={e => setEtapaCatalogoId(e.target.value)}
+          <SelectorEtapaCatalogo
+            catalogo={catalogo}
+            valorId={etapaCatalogoId}
+            onCambiar={setEtapaCatalogoId}
             disabled={cargandoCatalogo}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">— Selecciona —</option>
-            {catalogo.map(e => (
-              <option key={e.id} value={e.id}>{e.nombre}</option>
-            ))}
-          </select>
+          />
+          {!cargandoCatalogo && catalogo.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {tipoJuicio
+                ? 'Este tipo de juicio todavía no tiene catálogo de etapas definido.'
+                : 'Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.'}
+            </p>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-4">
           <div>
             <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={e => setFechaInicio(e.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={e => setFechaInicio(e.target.value)}
+                onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+                min="1900-01-01"
+                max="2100-12-31"
+                className={`${inputBase} flex-1 min-w-0`}
+              />
+              <input
+                type="time"
+                value={horaInicio}
+                onChange={e => setHoraInicio(e.target.value)}
+                title="Hora (opcional)"
+                className={`${inputBase} w-32 shrink-0`}
+              />
+            </div>
           </div>
 
           <div>
             <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
-            <input
-              type="date"
-              value={fechaLimite}
-              onChange={e => setFechaLimite(e.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={fechaLimite}
+                onChange={e => setFechaLimite(e.target.value)}
+                onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+                min="1900-01-01"
+                max="2100-12-31"
+                className={`${inputBase} flex-1 min-w-0`}
+              />
+              <input
+                type="time"
+                value={horaLimite}
+                onChange={e => setHoraLimite(e.target.value)}
+                title="Hora (opcional)"
+                className={`${inputBase} w-32 shrink-0`}
+              />
+            </div>
           </div>
         </div>
 

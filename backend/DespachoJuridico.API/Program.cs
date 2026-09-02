@@ -26,6 +26,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<ICalculadorFechasService, CalculadorFechasService>();
+builder.Services.AddScoped<IAccesoExpedientesService, AccesoExpedientesService>();
 
 
 // CORS para React en desarrollo

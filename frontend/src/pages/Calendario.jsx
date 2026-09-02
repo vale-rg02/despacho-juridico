@@ -7,6 +7,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import esLocale from '@fullcalendar/core/locales/es'
 import Topbar from '../components/Topbar'
 import ModalCita from '../components/ModalCita'
+import ModalEtapaCalendario from '../components/ModalEtapaCalendario'
 import { getExpedientes } from '../services/expedientes'
 import { getHistorialEtapas } from '../services/etapas'
 import { getCitas } from '../services/citas'
@@ -24,6 +25,31 @@ function colorPorPrioridad(prioridad) {
 // el día al convertir el DateTime del backend a la zona horaria del navegador
 function soloFecha(fechaISO) {
   return fechaISO.slice(0, 10)
+}
+
+// true si la etapa trae una hora real (no medianoche); se lee del string ISO
+// directo, sin pasar por Date().getHours(), que la desfasaría según la zona
+// horaria del navegador (fechaLimite viene "etiquetada" como UTC sin conversión real)
+function tieneHoraReal(fechaISO) {
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  return match ? !(match[1] === '00' && match[2] === '00') : false
+}
+
+// FullCalendar interpreta los ISO sin sufijo de zona como hora "flotante" (la
+// muestra tal cual, sin convertir); como fechaLimite viene etiquetada como UTC
+// sin conversión real, hay que quitarle la "Z" para que no se desfase al renderizar
+function sinZonaUtc(fechaISO) {
+  return fechaISO.endsWith('Z') ? fechaISO.slice(0, -1) : fechaISO
+}
+
+// Extrae "HH:MM" directo del string ISO (mismo motivo que las funciones de arriba:
+// nunca pasar por new Date().getHours(), que desfasaría la hora)
+function horaDeIso(fechaISO) {
+  if (!fechaISO) return ''
+  const match = fechaISO.match(/T(\d{2}):(\d{2})/)
+  if (!match) return ''
+  const [, horas, minutos] = match
+  return horas === '00' && minutos === '00' ? '' : `${horas}:${minutos}`
 }
 
 async function obtenerEtapasEnLotes(expedientes) {
@@ -44,18 +70,39 @@ function construirEventosEtapas(pares) {
     etapas
       .filter(etapa => etapa.fechaLimite && !etapa.fechaCompletada)
       .forEach(etapa => {
+        const tieneHora = tieneHoraReal(etapa.fechaLimite)
         eventos.push({
           id: `etapa-${etapa.id}`,
           title: `${expediente.numeroExpediente} — ${etapa.etapaNombre}`,
-          date: soloFecha(etapa.fechaLimite),
+          // Con hora: evento con inicio/fin (1 hora de duración por defecto),
+          // visible en el bloque correcto en vistas de semana y día.
+          // Sin hora: evento de día completo, como antes.
+          ...(tieneHora
+            ? {
+                start: sinZonaUtc(etapa.fechaLimite),
+                end: sinZonaUtc(new Date(new Date(etapa.fechaLimite).getTime() + 60 * 60 * 1000).toISOString()),
+                allDay: false,
+              }
+            : {
+                date: soloFecha(etapa.fechaLimite),
+                allDay: true,
+              }
+          ),
           backgroundColor: colorPorPrioridad(expediente.prioridad),
           borderColor: colorPorPrioridad(expediente.prioridad),
           extendedProps: {
             tipo: 'etapa',
             expedienteId: expediente.id,
+            numeroExpediente: expediente.numeroExpediente,
             parteDemandada: expediente.parteDemandada,
             juzgado: expediente.juzgado,
             prioridad: expediente.prioridad,
+            etapaId: etapa.id,
+            etapaCatalogoId: etapa.etapaCatalogoId,
+            etapaNombre: etapa.etapaNombre,
+            fechaInicio: etapa.fechaInicio,
+            fechaLimite: etapa.fechaLimite,
+            notas: etapa.notas,
           },
         })
       })
@@ -96,6 +143,7 @@ function Calendario() {
   const [citas, setCitas] = useState([])
   const [expedientesActivos, setExpedientesActivos] = useState([])
   const [modalCita, setModalCita] = useState(null)
+  const [modalEtapa, setModalEtapa] = useState(null)
   const [mesVisible, setMesVisible] = useState(() => mesAnioDe(new Date()))
 
   const [cargando, setCargando] = useState(true)
@@ -138,6 +186,15 @@ function Calendario() {
     }
   }
 
+  async function recargarEtapas() {
+    try {
+      const pares = await obtenerEtapasEnLotes(expedientesActivos)
+      setEventosEtapas(construirEventosEtapas(pares))
+    } catch {
+      // no bloquear el calendario si solo falla la recarga de etapas
+    }
+  }
+
   function handleDatesSet(info) {
     const { mes, anio } = mesAnioDe(info.view.currentStart)
     if (mes !== mesVisible.mes || anio !== mesVisible.anio) {
@@ -169,7 +226,17 @@ function Calendario() {
         },
       })
     } else {
-      navigate(`/expedientes/${extendedProps.expedienteId}`)
+      setModalEtapa({
+        etapaId: extendedProps.etapaId,
+        etapaCatalogoId: extendedProps.etapaCatalogoId,
+        expedienteId: extendedProps.expedienteId,
+        numeroExpediente: extendedProps.numeroExpediente,
+        etapaNombre: extendedProps.etapaNombre,
+        fechaInicio: extendedProps.fechaInicio,
+        notas: extendedProps.notas,
+        fechaLimite: extendedProps.fechaLimite ? soloFecha(extendedProps.fechaLimite) : '',
+        horaLimite: horaDeIso(extendedProps.fechaLimite),
+      })
     }
   }
 
@@ -221,6 +288,15 @@ function Calendario() {
           setModalCita={setModalCita}
           expedientesActivos={expedientesActivos}
           onGuardado={() => cargarCitasDelMes(mesVisible.mes, mesVisible.anio)}
+        />
+      )}
+
+      {modalEtapa && (
+        <ModalEtapaCalendario
+          modalEtapa={modalEtapa}
+          setModalEtapa={setModalEtapa}
+          onGuardado={recargarEtapas}
+          onVerExpediente={id => navigate(`/expedientes/${id}`)}
         />
       )}
     </div>

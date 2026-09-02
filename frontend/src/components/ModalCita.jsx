@@ -1,5 +1,9 @@
 import { useState } from 'react'
+import { Calendar } from 'lucide-react'
 import { crearCita, editarCita, eliminarCita } from '../services/citas'
+import ModalHeader from './ModalHeader'
+import ModalConfirmacion from './ModalConfirmacion'
+import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 function fechaHoraALocal(fechaHoraISO) {
   const d = new Date(fechaHoraISO)
@@ -22,6 +26,9 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
 
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
+
+  useCerrarConEscape(() => setModalCita(null))
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -56,7 +63,6 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   }
 
   async function handleEliminar() {
-    if (!window.confirm('¿Eliminar esta cita?')) return
     setGuardando(true)
     try {
       await eliminarCita(modalCita.cita.id)
@@ -72,14 +78,20 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+      onClick={() => setModalCita(null)}
+    >
       <form
         onSubmit={handleSubmit}
+        onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-md shadow-xl space-y-4"
       >
-        <h3 className="text-base font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          {esEdicion ? 'Editar cita' : 'Nueva cita'}
-        </h3>
+        <ModalHeader
+          icon={Calendar}
+          tono="primary"
+          titulo={esEdicion ? 'Editar cita' : 'Nueva cita'}
+        />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -119,6 +131,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
+              min="1900-01-01"
+              max="2100-12-31"
               className={inputClass}
             />
           </div>
@@ -148,7 +162,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
           {esEdicion ? (
             <button
               type="button"
-              onClick={handleEliminar}
+              onClick={() => setConfirmandoEliminar(true)}
               disabled={guardando}
               className="text-sm text-red-400 hover:text-red-600 transition disabled:opacity-50"
             >
@@ -174,6 +188,17 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
           </div>
         </div>
       </form>
+
+      {confirmandoEliminar && (
+        <ModalConfirmacion
+          titulo="Eliminar cita"
+          mensaje="¿Eliminar esta cita?"
+          confirmLabel="Eliminar"
+          peligroso
+          onConfirmar={() => { setConfirmandoEliminar(false); handleEliminar() }}
+          onCancelar={() => setConfirmandoEliminar(false)}
+        />
+      )}
     </div>
   )
 }

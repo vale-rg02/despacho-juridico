@@ -46,6 +46,10 @@ public class EtapaCatalogoResponse
     public int? TerminoDias { get; set; }
     public bool EsDiasHabiles { get; set; }
     public int Orden { get; set; }
+
+    // Null = etapa de primer nivel. Con valor = subetapa (ej. "1ra Almoneda")
+    // que solo debe ofrecerse dentro del submenú de su padre (ej. "Remate") — DJ-76.
+    public int? EtapaPadreId { get; set; }
 }
 
 

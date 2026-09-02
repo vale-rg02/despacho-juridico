@@ -1,0 +1,1 @@
+Esta carpeta contiene nuestro proyecto de sistema de gestión de expedientes de un despacho jurídico. Contiene todo el proyecto, frontend y backend. Es una aplicación web y tiene funciones como envío de alertas por correo electrónico, así como en la misma página, etc.

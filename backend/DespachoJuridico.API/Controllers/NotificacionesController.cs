@@ -32,11 +32,13 @@ public class NotificacionesController : ControllerBase
         var hoy = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria).Date;
 
         var query = _context.HistorialEtapas
-            .Include(h => h.Expediente)
+            .Include(h => h.Expediente).ThenInclude(e => e.UsuarioAsignado)
             .Include(h => h.EtapaCatalogo)
             .Where(h => h.FechaCompletada == null
                      && h.FechaLimite != null
-                     && !h.Atendido);
+                     && !h.Atendido
+                     // Excluir expedientes de prueba asignados a cuentas de soporte
+                     && (h.Expediente.UsuarioAsignado == null || !h.Expediente.UsuarioAsignado.EsCuentaSoporte));
 
         // El socio ve todas las alertas; el litigante solo las de sus expedientes asignados
         if (rol != nameof(RolUsuario.Socio))
@@ -58,7 +60,9 @@ public class NotificacionesController : ControllerBase
                     EtapaNombre = h.EtapaCatalogo?.Nombre,
                     FechaLimite = h.FechaLimite.Value,
                     DiasRestantes = dias,
-                    Vencida = dias < 0
+                    Vencida = dias < 0,
+                    UsuarioAsignadoId = h.Expediente.UsuarioAsignadoId,
+                    UsuarioAsignadoNombre = h.Expediente.UsuarioAsignado != null ? h.Expediente.UsuarioAsignado.Nombre : null
                 };
             })
             // Mostramos vencidas y próximas dentro de 15 días

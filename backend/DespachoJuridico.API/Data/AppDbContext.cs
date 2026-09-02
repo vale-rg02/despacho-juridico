@@ -7,6 +7,14 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    // Mapea la función unaccent() de Postgres (extensión "unaccent") — permite que
+    // una búsqueda por "Mexico" encuentre "México" y viceversa. Solo se puede usar
+    // dentro de una expresión LINQ traducida por EF Core (ver
+    // ExpedientesController.AplicarFiltroBusqueda); llamarla fuera de una consulta
+    // lanza NotSupportedException a propósito.
+    [DbFunction("unaccent", IsBuiltIn = true)]
+    public static string Unaccent(string texto) => throw new NotSupportedException();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Banco> Bancos => Set<Banco>();
     public DbSet<Expediente> Expedientes => Set<Expediente>();
@@ -16,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<BitacoraCambio> BitacoraCambios => Set<BitacoraCambio>();
     public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
     public DbSet<Cita> Citas => Set<Cita>();
+    public DbSet<ExpedienteAcceso> ExpedienteAccesos => Set<ExpedienteAcceso>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,5 +76,40 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(c => c.ExpedienteId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Sin esto quedaba en NO ACTION por default: no se podía eliminar una etapa
+        // que ya hubiera generado notificaciones. Se conserva el historial de la
+        // notificación, solo se desvincula de la etapa eliminada.
+        modelBuilder.Entity<Notificacion>()
+            .HasOne(n => n.HistorialEtapa)
+            .WithMany(h => h.Notificaciones)
+            .HasForeignKey(n => n.HistorialEtapaId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasOne(a => a.Expediente)
+            .WithMany(e => e.Accesos)
+            .HasForeignKey(a => a.ExpedienteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasOne(a => a.Usuario)
+            .WithMany()
+            .HasForeignKey(a => a.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Evita agregar al mismo usuario dos veces como colaborador del mismo expediente
+        modelBuilder.Entity<ExpedienteAcceso>()
+            .HasIndex(a => new { a.ExpedienteId, a.UsuarioId })
+            .IsUnique();
+
+        // Jerarquía de etapas para submenús (ej. Remate → Almonedas, DJ-76) —
+        // Restrict en vez de Cascade: borrar un padre nunca debe arrastrar a sus
+        // hijas en cascada, hay que desvincularlas explícitamente primero.
+        modelBuilder.Entity<EtapaCatalogo>()
+            .HasOne(e => e.EtapaPadre)
+            .WithMany(e => e.Subetapas)
+            .HasForeignKey(e => e.EtapaPadreId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -30,6 +30,15 @@ namespace DespachoJuridico.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CiudadDestino")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Confianza")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("EsExhorto")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("ExpedienteId")
                         .HasColumnType("integer");
 
@@ -53,12 +62,21 @@ namespace DespachoJuridico.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Oculto")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Partes")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("RegistradoManualmente")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Sintesis")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TipoAsunto")
                         .HasColumnType("text");
 
                     b.Property<bool>("Visto")
@@ -181,6 +199,9 @@ namespace DespachoJuridico.API.Migrations
                     b.Property<bool>("EsDiasHabiles")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("EtapaPadreId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasColumnType("text");
@@ -195,6 +216,8 @@ namespace DespachoJuridico.API.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EtapaPadreId");
 
                     b.ToTable("EtapasCatalogo");
                 });
@@ -270,6 +293,33 @@ namespace DespachoJuridico.API.Migrations
                     b.HasIndex("UsuarioAsignadoId");
 
                     b.ToTable("Expedientes");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.ExpedienteAcceso", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ExpedienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("ExpedienteId", "UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("ExpedienteAccesos");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.HistorialEtapa", b =>
@@ -450,6 +500,16 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("DespachoJuridico.API.Models.EtapaCatalogo", b =>
+                {
+                    b.HasOne("DespachoJuridico.API.Models.EtapaCatalogo", "EtapaPadre")
+                        .WithMany("Subetapas")
+                        .HasForeignKey("EtapaPadreId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("EtapaPadre");
+                });
+
             modelBuilder.Entity("DespachoJuridico.API.Models.Expediente", b =>
                 {
                     b.HasOne("DespachoJuridico.API.Models.Banco", "Banco")
@@ -479,6 +539,25 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("ExpedienteRelacionado");
 
                     b.Navigation("UsuarioAsignado");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.ExpedienteAcceso", b =>
+                {
+                    b.HasOne("DespachoJuridico.API.Models.Expediente", "Expediente")
+                        .WithMany("Accesos")
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DespachoJuridico.API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Expediente");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.HistorialEtapa", b =>
@@ -516,7 +595,8 @@ namespace DespachoJuridico.API.Migrations
 
                     b.HasOne("DespachoJuridico.API.Models.HistorialEtapa", "HistorialEtapa")
                         .WithMany("Notificaciones")
-                        .HasForeignKey("HistorialEtapaId");
+                        .HasForeignKey("HistorialEtapaId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Expediente");
 
@@ -531,10 +611,14 @@ namespace DespachoJuridico.API.Migrations
             modelBuilder.Entity("DespachoJuridico.API.Models.EtapaCatalogo", b =>
                 {
                     b.Navigation("Historial");
+
+                    b.Navigation("Subetapas");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.Expediente", b =>
                 {
+                    b.Navigation("Accesos");
+
                     b.Navigation("Bitacora");
 
                     b.Navigation("Historial");

@@ -22,7 +22,7 @@ public class Expediente
     public DateTime ActualizadoEn { get; set; } = DateTime.UtcNow;
     public int CreadoPorId { get; set; }
 
-    // Navegación
+    // Navegaciï¿½n
     public Banco? Banco { get; set; }
     public Usuario? UsuarioAsignado { get; set; }
     public Usuario? CreadoPor { get; set; }
@@ -30,4 +30,5 @@ public class Expediente
     public ICollection<HistorialEtapa> Historial { get; set; } = [];
     public ICollection<Notificacion> Notificaciones { get; set; } = [];
     public ICollection<BitacoraCambio> Bitacora { get; set; } = [];
+    public ICollection<ExpedienteAcceso> Accesos { get; set; } = [];
 }

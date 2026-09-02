@@ -26,6 +26,10 @@ public class RegistrarEtapaRequest
     // Si viene null, se calcula automáticamente con el catálogo
     public DateTime? FechaLimite { get; set; }
 
+    // Hora opcional; si no se manda, la fecha queda a medianoche (comportamiento anterior)
+    public TimeOnly? HoraInicio { get; set; }
+    public TimeOnly? HoraLimite { get; set; }
+
     public string? Notas { get; set; }
 }
 
@@ -44,6 +48,10 @@ public class EditarEtapaRequest
 
     public DateTime? FechaLimite { get; set; }
 
+    // Hora opcional; si no se manda, la fecha queda a medianoche (comportamiento anterior)
+    public TimeOnly? HoraInicio { get; set; }
+    public TimeOnly? HoraLimite { get; set; }
+
     public string? Notas { get; set; }
 }
 
@@ -56,4 +64,6 @@ public class AlertaResponse
     public DateTime FechaLimite { get; set; }
     public int DiasRestantes { get; set; }
     public bool Vencida { get; set; }
+    public int? UsuarioAsignadoId { get; set; }
+    public string? UsuarioAsignadoNombre { get; set; }
 }

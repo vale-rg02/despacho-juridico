@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getEtapasCatalogo, registrarEtapa } from '../services/etapas'
 import { calcularFechaLimite } from '../utils/diasHabiles'
+import SelectorEtapaCatalogo from './SelectorEtapaCatalogo'
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
@@ -12,7 +13,9 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
   const [etapaCatalogoId, setEtapaCatalogoId] = useState('')
   const [fechaInicio, setFechaInicio] = useState(hoyISO())
+  const [horaInicio, setHoraInicio] = useState('')
   const [fechaLimite, setFechaLimite] = useState('')
+  const [horaLimite, setHoraLimite] = useState('')
   const [notas, setNotas] = useState('')
 
   const [error, setError] = useState('')
@@ -33,13 +36,24 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
     }
   }
 
+  const debounceRef = useRef(null)
+
   useEffect(() => {
     if (!etapaCatalogoId) return
     const etapa = catalogo.find(e => e.id === Number(etapaCatalogoId))
     if (!etapa) return
 
-    const sugerida = calcularFechaLimite(fechaInicio, etapa.terminoDias, etapa.esDiasHabiles)
-    setFechaLimite(sugerida ?? '')
+    // Debounce: evita recalcular en cada tecleo mientras se escribe la fecha manualmente
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(() => {
+      const sugerida = calcularFechaLimite(fechaInicio, etapa.terminoDias, etapa.esDiasHabiles)
+      setFechaLimite(sugerida ?? '')
+    }, 300)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [etapaCatalogoId, fechaInicio, catalogo])
 
   async function handleSubmit(e) {
@@ -56,9 +70,13 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
       await registrarEtapa(expedienteId, {
         etapaCatalogoId: Number(etapaCatalogoId),
         fechaInicio,
+        horaInicio: horaInicio || null,
         fechaLimite: fechaLimite || null,
+        horaLimite: horaLimite || null,
         notas: notas || null,
       })
+      setHoraInicio('')
+      setHoraLimite('')
       onGuardado()
     } catch {
       setError('No se pudo registrar la etapa')
@@ -70,7 +88,8 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = `w-full ${inputBase}`
 
   return (
     <form onSubmit={handleSubmit} className="bg-secondary/40 border border-border rounded-lg p-4">
@@ -80,30 +99,45 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <select
-            value={etapaCatalogoId}
-            onChange={e => setEtapaCatalogoId(e.target.value)}
-            disabled={cargandoCatalogo}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">— Selecciona —</option>
-            {catalogo.map(e => (
-              <option key={e.id} value={e.id}>{e.nombre}</option>
-            ))}
-          </select>
-        </div>
+      <div className="mb-3">
+        <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
+        <SelectorEtapaCatalogo
+          catalogo={catalogo}
+          valorId={etapaCatalogoId}
+          onCambiar={setEtapaCatalogoId}
+          disabled={cargandoCatalogo}
+          className="max-w-sm"
+        />
+        {!cargandoCatalogo && catalogo.length === 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {tipoJuicio
+              ? 'Este tipo de juicio todavía no tiene catálogo de etapas definido.'
+              : 'Este expediente no tiene tipo de juicio capturado — edítalo para ver su catálogo de etapas.'}
+          </p>
+        )}
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
-          <input
-            type="date"
-            value={fechaInicio}
-            onChange={e => setFechaInicio(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={e => setFechaInicio(e.target.value)}
+              onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+              min="1900-01-01"
+              max="2100-12-31"
+              className={`${inputBase} flex-1 min-w-0`}
+            />
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={e => setHoraInicio(e.target.value)}
+              title="Hora (opcional)"
+              className={`${inputBase} w-32 shrink-0`}
+            />
+          </div>
         </div>
 
         <div>
@@ -113,12 +147,24 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
               <span className="text-muted-foreground/60 font-normal"> (sugerida)</span>
             )}
           </label>
-          <input
-            type="date"
-            value={fechaLimite}
-            onChange={e => setFechaLimite(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={fechaLimite}
+              onChange={e => setFechaLimite(e.target.value)}
+              onFocus={e => { try { e.target.showPicker() } catch { /* sin soporte, se ignora */ } }}
+              min="1900-01-01"
+              max="2100-12-31"
+              className={`${inputBase} flex-1 min-w-0`}
+            />
+            <input
+              type="time"
+              value={horaLimite}
+              onChange={e => setHoraLimite(e.target.value)}
+              title="Hora (opcional)"
+              className={`${inputBase} w-32 shrink-0`}
+            />
+          </div>
           {etapaSeleccionada?.terminoDias == null && etapaCatalogoId && (
             <p className="text-xs text-muted-foreground mt-1">Sin plazo definido aún. Captúralo manualmente si lo conoces.</p>
           )}
