@@ -819,7 +819,7 @@ function DetalleExpediente() {
                         )}
                         <button
                           onClick={() => setConfirmacion({ tipo: 'descartarAcuerdo', acuerdoId: acuerdo.id })}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+                          className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-muted-foreground/40 text-muted-foreground hover:bg-muted-foreground hover:text-white transition font-medium"
                           title="Marcar como no relevante para este expediente"
                         >
                           <EyeOff size={11} />
