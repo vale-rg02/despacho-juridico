@@ -271,6 +271,153 @@ public class PartesCoincidenTests
         Assert.Equal(esperado, ScraperAcuerdosService.EsSerieAuxiliar(tipoAsunto));
     }
 
+    // ── DJ-79: varios nombres unidos por "Y" cuando ADISON usa comas ──
+
+    [Fact]
+    public void PartesCoinciden_DJ79_YvsComaMismoOrden_RegresaTrue()
+    {
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Juan Perez, Maria Lopez";
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Juan Perez Y Maria Lopez", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_YvsComaOrdenInvertido_RegresaTrue()
+    {
+        // Caso real que motivó DJ-79: con el criterio anterior (comparar el texto
+        // completo de un jalón) invertir el orden hacía caer la similitud de 0.92
+        // a 0.58 y perdía el match aunque fueran las mismas dos personas.
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Maria Lopez, Juan Perez";
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Juan Perez Y Maria Lopez", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_TresNombresConComas_RegresaTrue()
+    {
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Pedro Ramirez, Sofia Cruz, Luis Ortiz";
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Pedro Ramirez Y Sofia Cruz Y Luis Ortiz", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_YOtraConSegundoNombreRealSeparadoPorComaEnADISON_RegresaTrue()
+    {
+        // Combina el sufijo genérico "Y Otra" (QuitarSufijoOtroDemandado, sin
+        // cambios) con el bug de separador: el segundo nombre real sí aparece en
+        // ADISON, separado por coma.
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Gerardo Ortega Martinez, Maria Elena Sosa";
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Gerardo Ortega Martinez Y Otra", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_SegundoNombreCortoUnidoPorY_NoSeCuelaPorFragmentoCorto()
+    {
+        // "Ana" sola haría match trivial (substring exacto de "LILIANA") si se
+        // confiara en cualquier fragmento suelto — se exige 2+ palabras.
+        var partes = "EJECUTIVO MERCANTIL - ACCIÓN CAMBIARIA DIRECTA.- JOSET CEBREROS ROLDAN VS LILIANA PATRICIA LOPEZ ACOSTA";
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Christian Emmanuel Ramos Vidrios Y Ana", partes, umbralSimilitud: 0.8));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_ApellidoSueltoUnidoPorY_NoSeCuelaPorFragmentoCorto()
+    {
+        var partes = "DIVORCIO INCAUSADO.- EMILIA CUEVAS IBARRA VS JOSE ANGEL OCHOA ESQUER";
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Ricardo Martinez Solano Y Ochoa", partes, umbralSimilitud: 0.8));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_AmbosNombresDeUnaSolaPalabra_CaeAComparacionDeTextoCompleto()
+    {
+        // Ningún fragmento tiene 2+ palabras -> cae a comparar todo el texto
+        // unido, igual que antes de DJ-79 (no mejora este caso, pero tampoco
+        // empeora: un nombre de pila suelto nunca es confiable por sí solo).
+        var partesQueSiCoincide = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Ana, Luis";
+        var partesQueNoCoincide = "ORAL MERCANTIL - ACCIÓN PAGO.- BBVA VS Pedro, Rosa";
+
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Ana Y Luis", partesQueSiCoincide, umbralSimilitud: 0.8));
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Ana Y Luis", partesQueNoCoincide, umbralSimilitud: 0.8));
+    }
+
+    // 19 ParteDemandada reales de producción con dos nombres completos unidos por
+    // "Y" (de 74 expedientes reales que usan este patrón) — validación con datos
+    // reales, no solo casos construidos a mano.
+    private static readonly string[] NombresRealesDJ79 =
+    {
+        "José Alfredo Morales Ivich Y Dulce Maria Enrique Ramirez",
+        "Ruben Bustamante Moran Y Dulce Judith Saavedra Moreno",
+        "Luis Antonio Aldana Peraza Y Marisa Galaz Ramos",
+        "Rey David Yañez Murrieta Y Estibalis Valdez Quintero",
+        "Rosrigo Zazueta Alcantar y Reyna Elizabeth Quintero Valdez",
+        "Carlos Alejandro Cordova Nuñez Y Karla Maria López Quintana",
+        "Luis Raúl Siller Montaño y Helen Alicia Galvez Diaz",
+        "Aarón Alejandro Molina Corona Y Melissa Figueroa Valdez",
+        "Mario Luis Gallegos Prieto Y Sandra Iliana Ibarra Sanchez Alvarez",
+        "Francisco Alfonso Galaz Martinez Y Maria Laura Reyes Villanueva",
+        "Francisco Rascón Madrid Y Josefina Rascon Madrid",
+        "Jesús Ernesto Anaya García Y Luz Elena Gonzalez Vazquez",
+        "Luz Minerva Payan Moteya Y Julio Cesar Gonzalez Duarte",
+        "Ramon Koinoor Cadia Covarrubias Y Reina Modesta Arvizu Peralta",
+        "Alejandro Moreno Torres y Sara María Contreras",
+        "Juan Pablo MC Laurien Castillón Y Rocío Ortega Gonzalez",
+        "Avelina Cota Marquez Y Melissa Figueroa Valdez",
+        "Carlos David Montijo Juvera y Gloria Lorena Vejar Ramirez",
+        "Luis Alberto Miranda Cota Y Guadalupe Leon Salazar",
+    };
+
+    // 19 textos reales de Partes (AcuerdosScrapeados de producción), sin ninguna
+    // relación con los nombres de arriba — distractores para medir falsos positivos.
+    private static readonly string[] DistractoresRealesDJ79 =
+    {
+        "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO, S.A.",
+        "ORDINARIO FAMILIAR - NULIDAD DE ACTO JURIDICO.",
+        "ACREDITACIÓN DE HECHOS DE IDENTIDAD - ACREDITAR IDENTIDAD.- PEDRO SAENZ MORALES",
+        "ORDINARIO - INDEMNIZACIÓN CONSTITUCIONAL.- ALMA ANGELICA ARANDA BOJORQUEZ VS CSCP, S.A. DE C.V.",
+        "ORAL MERCANTIL .- AQUA DUX SA DE CV  VS SECRETO",
+        "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO, S.A.  VS HUGO ALBERTO BORGO HERNANDEZ",
+        "SUCESORIO TESTAMENTARIO.- LUZ MARIA LOPEZ FRANCO.",
+        "JURISDICCIÓN VOLUNTARIA CIVIL - ACCIÓN DECLARATIVO DE PROPIEDAD.- KARLA FERNANDA VALENZUELA MARTINEZ",
+        "ORAL MERCANTIL - FINVAY, S.A. DE C.V. SOFOM ENR.  VS HERMINIA HERNANDEZ URQUIJO, M. YSABEL GUADALUPE SOLIZ PERAZA",
+        "DIVORCIO INCAUSADO.- RICARDO RODRIGUEZ PEREZ VS ANTONIA SOMOZA ZORRILLA",
+        "EJECUTIVO MERCANTIL - PROMOVIDO POR JOSE RAMON BOJORQUEZ APODACA VS EDNA PATRICIA CALDERON GRAJEDA, JOSE LUIS CALDERON LOPEZ",
+        "KARLA GUADALUPE PADILLA ORTEGA.",
+        "ESPECIAL HIPOTECARIO.- BANCOMER VS ANGELICA FAUSTO RENDON, MIGUEL ANGEL BOJORQUEZ MORENO",
+        "SUMARIO CIVIL -- MARIA ICELA MORENO CELAYA VS INMOBILIARIA EL CRESTON S.A",
+        "DIVORCIO INCAUSADO.- FELIZARDO BARRON CORONADO VS ALBA ELIZABETH SOSA DELGADO",
+        "ORDINARIO - INDEMNIZACIÓN CONSTITUCIONAL.- ROSA VICTORIA LOPEZ ARMENTA VS GRUPO MORSA DE MEXICO, S.A. DE C.V.",
+        "EJECUTIVO MERCANTIL - ACCIÓN CAMBIARIA DIRECTA.- KEVIN GERARDO AYALA LLANEZ",
+        "ORDINARIO CIVIL .- LUZ MARÍA PARRA CECEÑA VS CLAUDIA AMPARO BURRUEL QUINTERO.-",
+        "ORAL FAMILIAR - ORAL DE ALIMENTOS.- YESENIA EKATHERINE SOSA AGUILAR, JOSE ABRAHAM CUETO REYES",
+    };
+
+    private static (string nombre1, string nombre2) DividirEnDosDJ79(string nombreCompleto)
+    {
+        var partes = System.Text.RegularExpressions.Regex.Split(nombreCompleto, @"\s+[Yy]\s+");
+        return (partes[0].Trim(), partes[1].Trim());
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_NombresRealesConYVsComaEnADISON_CoincidenSinImportarOrden()
+    {
+        foreach (var nombre in NombresRealesDJ79)
+        {
+            var (n1, n2) = DividirEnDosDJ79(nombre);
+            var mismoOrden = $"ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO S.A. VS {n1}, {n2}";
+            var ordenInvertido = $"ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO S.A. VS {n2}, {n1}";
+
+            Assert.True(ScraperAcuerdosService.PartesCoinciden(nombre, mismoOrden), $"Falló mismo orden: {nombre}");
+            Assert.True(ScraperAcuerdosService.PartesCoinciden(nombre, ordenInvertido), $"Falló orden invertido: {nombre}");
+        }
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ79_NombresRealesContraDistractoresReales_NoDanFalsoPositivo()
+    {
+        for (var i = 0; i < NombresRealesDJ79.Length; i++)
+        {
+            var distractor = DistractoresRealesDJ79[i % DistractoresRealesDJ79.Length];
+            Assert.False(ScraperAcuerdosService.PartesCoinciden(NombresRealesDJ79[i], distractor),
+                $"Falso positivo: '{NombresRealesDJ79[i]}' vs '{distractor}'");
+        }
+    }
+
     [Fact]
     public void EsSerieAuxiliar_CasoReal476_2026_ConfirmaTipoAsuntoExhorto()
     {

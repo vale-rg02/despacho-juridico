@@ -821,6 +821,20 @@ public class ScraperAcuerdosService : BackgroundService
     // (hay variaciones de captura, ej. "Vanesa" vs "Vanezza"), pero reduce el
     // ruido de coincidencias que son solo por número y no tienen relación real.
     // Solo clasifica (Alta/Baja) — no filtra nada todavía, ver Fase 1/Fase 2.
+    //
+    // DJ-79: cuando ParteDemandada tiene varios nombres unidos por "Y" (ej. "Juan
+    // Perez Y Maria Lopez"), cada nombre se evalúa por separado contra el texto
+    // completo de ADISON — sin dividir ese lado — para que ni el separador que use
+    // ADISON (coma en vez de "Y") ni el orden en que liste a las partes afecten el
+    // resultado. Caso real que lo motivó: invertir el orden de dos nombres hacía
+    // caer la similitud del texto completo de 0.92 a 0.58 y perdía el match aunque
+    // fueran las mismas dos personas. Solo se confía en un fragmento de una sola
+    // palabra si no queda ningún fragmento de 2+ palabras — un apellido o nombre de
+    // pila suelto es demasiado común para decidir por sí solo (casos reales:
+    // "ANA" hace match trivial dentro de "LILIANA" por coincidencia de substring;
+    // "IBARRA"/"OCHOA" sueltos aparecen pegados a personas de un divorcio ajeno —
+    // ver PartesCoinciden_FragmentoCortoComunLILIANAvsANA_RegresaFalse y
+    // PartesCoinciden_ApellidosComunesEnPersonasDistintas_RegresaFalse).
     internal static bool PartesCoinciden(string parteDemandada, string partesScrapeadas, double umbralSimilitud = 0.8)
     {
         if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
@@ -828,17 +842,38 @@ public class ScraperAcuerdosService : BackgroundService
 
         var parteRelevante = QuitarSufijoOtroDemandado(parteDemandada);
         var textoNormalizado = NormalizarTexto(partesScrapeadas);
-        var patronNormalizado = NormalizarTexto(parteRelevante);
 
-        if (textoNormalizado.Contains(patronNormalizado))
-            return true;
+        bool NombreIndividualCoincide(string nombre)
+        {
+            var patronNormalizado = NormalizarTexto(nombre);
+            if (textoNormalizado.Contains(patronNormalizado)) return true;
 
-        // La coincidencia exacta por substring falló — antes de descartar el
-        // match, probar tolerancia a variaciones de ortografía entre cómo el
-        // despacho captura la parte y cómo la publica el juzgado (ej. "Corona"
-        // vs "Coronado" — hallazgo real del 20 de agosto 2026, exp. 127/2023).
-        return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado) >= umbralSimilitud;
+            // La coincidencia exacta por substring falló — antes de descartar el
+            // match, probar tolerancia a variaciones de ortografía entre cómo el
+            // despacho captura la parte y cómo la publica el juzgado (ej. "Corona"
+            // vs "Coronado" — hallazgo real del 20 de agosto 2026, exp. 127/2023).
+            return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado) >= umbralSimilitud;
+        }
+
+        var nombres = System.Text.RegularExpressions.Regex
+            .Split(parteRelevante, @"\s*,\s*|\s+Y\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
+
+        var nombresConfiables = nombres.Where(EsNombreConfiable).ToList();
+
+        // Si ningún fragmento tiene 2+ palabras (ej. "Juan Y Ana", puros nombres de
+        // pila sueltos), no hay nada confiable que evaluar por separado — se cae a
+        // comparar el texto completo unido, como se hacía antes de DJ-79.
+        if (nombresConfiables.Count == 0)
+            return NombreIndividualCoincide(parteRelevante);
+
+        return nombresConfiables.Any(NombreIndividualCoincide);
     }
+
+    private static bool EsNombreConfiable(string nombre) =>
+        nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 2;
 
     // Busca, dentro de "texto", la subcadena (de CUALQUIER longitud, no solo la
     // de "patron") que más se le parezca — a diferencia de comparar ventanas de
