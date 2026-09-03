@@ -38,5 +38,13 @@ public class AcuerdoScrapeado
     // normal ni se envía correo. Fase 2.
     public bool Oculto { get; set; } = false;
 
+    // DJ-99: true cuando un litigante lo descartó a mano desde la UI (distinto de
+    // que el algoritmo lo haya ocultado por baja confianza) — también implica
+    // Oculto=true, pero se guarda aparte para que ReevaluarOcultosAsync nunca lo
+    // vuelva a mostrar ni notifique por error, sin depender de que su Confianza
+    // se mantenga en "Baja" (que ni siquiera aplica: solo se puede descartar algo
+    // que ya era visible). Quién y cuándo se registra en BitacoraCambios.
+    public bool DescartadoManualmente { get; set; } = false;
+
     public Expediente Expediente { get; set; } = null!;
 }

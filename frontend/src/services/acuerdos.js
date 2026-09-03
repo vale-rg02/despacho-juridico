@@ -24,6 +24,11 @@ export async function eliminarAcuerdoManual(acuerdoId) {
   await api.delete(`/acuerdos/${acuerdoId}`)
 }
 
+export async function descartarAcuerdo(acuerdoId) {
+  const response = await api.patch(`/acuerdos/${acuerdoId}/descartar`)
+  return response.data
+}
+
 // GET /api/acuerdos/no-vistos regresa los acuerdos (no los expedientes) con
 // visto=false asignados al usuario autenticado; se reduce a expedienteId único.
 export async function getExpedientesConAcuerdosNoVistos() {

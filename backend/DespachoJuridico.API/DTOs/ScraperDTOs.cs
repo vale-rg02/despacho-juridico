@@ -80,4 +80,9 @@ public class RegistroScraperDiaResponse
     public string Partes { get; set; } = string.Empty;
     public string ParteDemandada { get; set; } = string.Empty;
     public bool RegistradoManualmente { get; set; }
+
+    // DJ-99: distingue si Oculto=true vino del algoritmo (baja confianza) o de un
+    // litigante descartándolo a mano — sin esto, este diagnóstico no podía
+    // diferenciar ambos orígenes.
+    public bool DescartadoManualmente { get; set; }
 }

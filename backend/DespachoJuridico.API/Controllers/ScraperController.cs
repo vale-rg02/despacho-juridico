@@ -53,7 +53,8 @@ public class ScraperController : ControllerBase
                 NotificacionEnviada = a.NotificacionEnviada,
                 Partes = a.Partes,
                 ParteDemandada = a.Expediente.ParteDemandada,
-                RegistradoManualmente = a.RegistradoManualmente
+                RegistradoManualmente = a.RegistradoManualmente,
+                DescartadoManualmente = a.DescartadoManualmente
             })
             .ToListAsync();
 

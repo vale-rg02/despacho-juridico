@@ -210,6 +210,50 @@ public class AcuerdosController : ControllerBase
         return Ok(new { mensaje = "Acuerdo marcado como visto" });
     }
 
+    // PATCH /api/acuerdos/{id}/descartar — DJ-99
+    // El litigante marca un acuerdo visible como no relevante para su caso (ej. un
+    // falso positivo de Alta confianza, como los ya vistos en 150/2023, 368/2026,
+    // 423/2025). Mismo permiso que el resto de acciones sobre un acuerdo puntual
+    // (TieneAccesoAsync) — no se restringe a nivel admin como el panel de
+    // ScraperController, porque esto solo cambia lo que ve ese litigante sobre ESE
+    // expediente, no un catálogo compartido entre todos (ver AccesoExpedientesService).
+    [HttpPatch("{id}/descartar")]
+    public async Task<IActionResult> Descartar(int id)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId, acuerdo.ExpedienteId))
+            return NotFound(new { mensaje = "Acuerdo no encontrado" });
+
+        if (acuerdo.Oculto)
+            return BadRequest(new { mensaje = "Este acuerdo ya está oculto" });
+
+        acuerdo.Oculto = true;
+        acuerdo.DescartadoManualmente = true;
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_descartado",
+            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) descartado: \"{acuerdo.Sintesis}\"");
+
+        return Ok(new { mensaje = "Acuerdo descartado correctamente" });
+    }
+
+    private async Task RegistrarBitacora(int expedienteId, int usuarioId, string accion, string detalle)
+    {
+        _context.BitacoraCambios.Add(new Models.BitacoraCambio
+        {
+            ExpedienteId = expedienteId,
+            UsuarioId = usuarioId,
+            Accion = accion,
+            Detalle = detalle,
+            Fecha = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+    }
+
     private int ObtenerUsuarioId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

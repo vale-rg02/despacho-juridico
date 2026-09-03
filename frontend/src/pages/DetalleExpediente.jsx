@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin, EyeOff
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -11,7 +11,7 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual, descartarAcuerdo } from '../services/acuerdos'
 import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
 import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -423,6 +423,17 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleDescartarAcuerdo(acuerdoId) {
+    try {
+      await descartarAcuerdo(acuerdoId)
+      await cargarDatos()
+      setExito('Acuerdo descartado')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo descartar el acuerdo')
+    }
+  }
+
   async function handleAgregarColaborador(usuarioId) {
     await agregarAcceso(id, usuarioId)
     await cargarDatos()
@@ -806,6 +817,14 @@ function DetalleExpediente() {
                             Eliminar
                           </button>
                         )}
+                        <button
+                          onClick={() => setConfirmacion({ tipo: 'descartarAcuerdo', acuerdoId: acuerdo.id })}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+                          title="Marcar como no relevante para este expediente"
+                        >
+                          <EyeOff size={11} />
+                          Descartar
+                        </button>
                         {acuerdosNuevosIds.has(acuerdo.id) && (
                           <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -907,16 +926,23 @@ function DetalleExpediente() {
 
         {confirmacion && (
           <ModalConfirmacion
-            titulo={confirmacion.tipo === 'eliminarExpediente' ? 'Eliminar expediente' : 'Eliminar registro'}
+            titulo={
+              confirmacion.tipo === 'eliminarExpediente' ? 'Eliminar expediente'
+              : confirmacion.tipo === 'descartarAcuerdo' ? 'Descartar acuerdo'
+              : 'Eliminar registro'
+            }
             mensaje={
               confirmacion.tipo === 'eliminarExpediente'
                 ? `¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`
+                : confirmacion.tipo === 'descartarAcuerdo'
+                ? '¿Seguro que este acuerdo no es relevante para el expediente? Dejará de mostrarse aquí.'
                 : '¿Eliminar este exhorto registrado manualmente?'
             }
-            confirmLabel="Eliminar"
-            peligroso
+            confirmLabel={confirmacion.tipo === 'descartarAcuerdo' ? 'Descartar' : 'Eliminar'}
+            peligroso={confirmacion.tipo !== 'descartarAcuerdo'}
             onConfirmar={() => {
               if (confirmacion.tipo === 'eliminarExpediente') handleEliminar()
+              else if (confirmacion.tipo === 'descartarAcuerdo') handleDescartarAcuerdo(confirmacion.acuerdoId)
               else handleEliminarAcuerdoManual(confirmacion.acuerdoId)
               setConfirmacion(null)
             }}

@@ -566,7 +566,11 @@ public class ScraperAcuerdosService : BackgroundService
     // así que un ajuste no reclasifica por sí solo lo que ya se guardó antes del
     // cambio; este método cierra ese hueco sin tener que volver a scrapear ADISON.
     // Solo toca los registros que hoy están Oculto=true/Confianza=Baja — nunca los ya
-    // visibles ni los manuales.
+    // visibles, los manuales, ni los que un litigante descartó a mano (DJ-99): un
+    // descarte manual es una decisión humana explícita sobre un acuerdo que el
+    // algoritmo sí consideraba relevante (Confianza normalmente "Alta" o null, no
+    // "Baja") — el filtro de Confianza="Baja" ya lo excluiría casi siempre por
+    // accidente, pero depender de eso sería implícito y frágil; se excluye explícito.
     public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
     {
         var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
@@ -578,7 +582,7 @@ public class ScraperAcuerdosService : BackgroundService
         var candidatos = await context.AcuerdosScrapeados
             .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
             .Include(a => a.Expediente).ThenInclude(e => e.Banco)
-            .Where(a => a.Oculto && a.Confianza == "Baja" && !a.RegistradoManualmente)
+            .Where(a => a.Oculto && a.Confianza == "Baja" && !a.RegistradoManualmente && !a.DescartadoManualmente)
             .ToListAsync();
 
         var resultado = new ResultadoReevaluacionResponse
