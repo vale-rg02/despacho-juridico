@@ -13,6 +13,7 @@ public static class DbSeeder
         await SeedBancosAsync(context);
         await SeedEtapasCatalogoAsync(context);
         await MigrarAlmonedasBajoRemateAsync(context);
+        await MigrarIncidenteASubmenuAsync(context);
         await MigrarTerminoATipoJuicioAsync(context);
         await SeedExpedientesAsync(context);
     }
@@ -104,6 +105,23 @@ public static class DbSeeder
             // estricta, HistorialEtapas se muestra por FechaInicio real, no por
             // Orden, así que esto no le impide registrarse en cualquier momento.
             new EtapaCatalogo { Nombre = "Incidente", TipoJuicio = "Hipotecario", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
+            // DJ-121: submenú de "Incidente" pedido por Mario — a diferencia de
+            // Remate/Almonedas (secuencial y excluyente: 1ra → si no se vende → 2da
+            // → 3ra), cada tipo de incidente es un trámite autónomo del juicio
+            // principal; varios pueden coexistir a la vez en el mismo expediente
+            // (ej. un incidente de liquidación de intereses y uno de nulidad de
+            // emplazamiento no se excluyen entre sí). Se confirmó que esto YA
+            // funciona sin cambios en SelectorEtapaCatalogo.jsx ni en RegistrarEtapa:
+            // ninguno de los dos impone exclusividad hoy — cada registro de etapa
+            // es una fila independiente en HistorialEtapas, y la lista siempre
+            // muestra todas. Se reparentan más abajo, en MigrarIncidenteASubmenuAsync
+            // (mismo patrón que MigrarAlmonedasBajoRemateAsync).
+            new EtapaCatalogo { Nombre = "Intereses Moratorios", TipoJuicio = "Hipotecario", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Intereses Ordinarios", TipoJuicio = "Hipotecario", Orden = 2, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Intereses Ordinarios y Moratorios", TipoJuicio = "Hipotecario", Orden = 3, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Liquidación de Costas", TipoJuicio = "Hipotecario", Orden = 4, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Nulidad de emplazamiento", TipoJuicio = "Hipotecario", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Innominado", TipoJuicio = "Hipotecario", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Acusar Rebeldía", TipoJuicio = "Hipotecario", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Pruebas", TipoJuicio = "Hipotecario", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Alegatos", TipoJuicio = "Hipotecario", Orden = 7, TerminoDias = null, EsDiasHabiles = true },
@@ -132,6 +150,13 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Contestación", TipoJuicio = "Oral Mercantil", Orden = 4, TerminoDias = 9, EsDiasHabiles = true },
             // DJ-119: ver comentario en la versión de Hipotecario, arriba.
             new EtapaCatalogo { Nombre = "Incidente", TipoJuicio = "Oral Mercantil", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
+            // DJ-121: ver comentario en la versión de Hipotecario, arriba.
+            new EtapaCatalogo { Nombre = "Intereses Moratorios", TipoJuicio = "Oral Mercantil", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Intereses Ordinarios", TipoJuicio = "Oral Mercantil", Orden = 2, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Intereses Ordinarios y Moratorios", TipoJuicio = "Oral Mercantil", Orden = 3, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Liquidación de Costas", TipoJuicio = "Oral Mercantil", Orden = 4, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Nulidad de emplazamiento", TipoJuicio = "Oral Mercantil", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
+            new EtapaCatalogo { Nombre = "Innominado", TipoJuicio = "Oral Mercantil", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia Preliminar", TipoJuicio = "Oral Mercantil", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia de Juicio", TipoJuicio = "Oral Mercantil", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia de Sentencia", TipoJuicio = "Oral Mercantil", Orden = 7, TerminoDias = null, EsDiasHabiles = true },
@@ -198,6 +223,52 @@ public static class DbSeeder
 
             foreach (var almoneda in almonedasSinPadre)
                 almoneda.EtapaPadreId = remate.Id;
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    // DJ-121: reparenta las 6 opciones de incidente (ya sembradas arriba como
+    // filas de primer nivel, mismo motivo que las almonedas: no se conoce el Id
+    // de "Incidente" al construir el arreglo de SeedEtapasCatalogoAsync) bajo su
+    // "Incidente" correspondiente por TipoJuicio. A diferencia de Remate, esto NO
+    // vuelve excluyentes a las opciones entre sí — HistorialEtapa sigue
+    // permitiendo una fila por cada incidente registrado, sin límite ni reemplazo
+    // (confirmado: ni SelectorEtapaCatalogo.jsx ni RegistrarEtapa imponen
+    // exclusividad, ver comentario en SeedEtapasCatalogoAsync). Un HistorialEtapa
+    // ya existente que apunte directo a "Incidente" (si Mario llegó a registrar
+    // alguno con el modelo plano de DJ-119 antes de este cambio) sigue siendo
+    // válido — "Incidente" no se borra, solo gana hijas — deliberadamente no se
+    // reclasifica a ninguna de las 6 opciones nuevas sin que Mario lo confirme
+    // (mismo criterio de no forzar migraciones sin certeza que ya se usó en DJ-78).
+    // Idempotente: solo actualiza filas cuyo EtapaPadreId todavía sea null.
+    internal static async Task MigrarIncidenteASubmenuAsync(AppDbContext context)
+    {
+        var nombresOpciones = new[]
+        {
+            "Intereses Moratorios",
+            "Intereses Ordinarios",
+            "Intereses Ordinarios y Moratorios",
+            "Liquidación de Costas",
+            "Nulidad de emplazamiento",
+            "Innominado"
+        };
+
+        var incidentes = await context.EtapasCatalogo
+            .Where(e => e.Nombre == "Incidente")
+            .ToListAsync();
+
+        foreach (var incidente in incidentes)
+        {
+            var opcionesSinPadre = await context.EtapasCatalogo
+                .Where(e =>
+                    e.TipoJuicio == incidente.TipoJuicio &&
+                    e.EtapaPadreId == null &&
+                    nombresOpciones.Contains(e.Nombre))
+                .ToListAsync();
+
+            foreach (var opcion in opcionesSinPadre)
+                opcion.EtapaPadreId = incidente.Id;
         }
 
         await context.SaveChangesAsync();
