@@ -65,7 +65,10 @@ public static class DbSeeder
         await context.SaveChangesAsync();
     }
 
-    private static async Task SeedEtapasCatalogoAsync(AppDbContext context)
+    // internal (no private) para que las pruebas puedan sembrar solo el catálogo
+    // de etapas sin correr todo SeedAsync (mismo criterio que MigrarAlmonedasBajoRemateAsync/
+    // MigrarTerminoATipoJuicioAsync, ya internal por la misma razón).
+    internal static async Task SeedEtapasCatalogoAsync(AppDbContext context)
     {
         // Cada etapa se revisa individualmente por (Nombre, TipoJuicio), en vez de
         // "si ya hay alguna, no tocar nada", para poder agregar etapas nuevas al
@@ -88,6 +91,19 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Término", TipoJuicio = "Hipotecario", Orden = 3, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Emplazamiento", TipoJuicio = "Hipotecario", Orden = 3, TerminoDias = 180, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Contestación", TipoJuicio = "Hipotecario", Orden = 4, TerminoDias = 5, EsDiasHabiles = true },
+            // DJ-119: pedido por Mario para Hipotecario y Oral Mercantil — no se
+            // agrega a Especial/Ordinario Mercantil (sin catálogo propio todavía,
+            // cero expedientes activos reales, ver materiaTipoJuicio.js) ni al resto
+            // de tipos, por falta de evidencia de que aplique ahí igual (mismo
+            // criterio de DJ-78). Un incidente procesal no ocurre en un punto fijo
+            // de la secuencia — puede surgir en varios momentos del juicio — así
+            // que, sin evidencia real de cuándo lo registra el despacho (no se pudo
+            // consultar producción para esto, ver ticket), se posiciona comparte
+            // Orden con la etapa siguiente a Contestación (igual que Emplazamiento/
+            // Término ya comparten Orden 3): el dropdown no fuerza una secuencia
+            // estricta, HistorialEtapas se muestra por FechaInicio real, no por
+            // Orden, así que esto no le impide registrarse en cualquier momento.
+            new EtapaCatalogo { Nombre = "Incidente", TipoJuicio = "Hipotecario", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Acusar Rebeldía", TipoJuicio = "Hipotecario", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Pruebas", TipoJuicio = "Hipotecario", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Alegatos", TipoJuicio = "Hipotecario", Orden = 7, TerminoDias = null, EsDiasHabiles = true },
@@ -114,6 +130,8 @@ public static class DbSeeder
             new EtapaCatalogo { Nombre = "Término", TipoJuicio = "Oral Mercantil", Orden = 3, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Emplazamiento", TipoJuicio = "Oral Mercantil", Orden = 3, TerminoDias = 120, EsDiasHabiles = false },
             new EtapaCatalogo { Nombre = "Contestación", TipoJuicio = "Oral Mercantil", Orden = 4, TerminoDias = 9, EsDiasHabiles = true },
+            // DJ-119: ver comentario en la versión de Hipotecario, arriba.
+            new EtapaCatalogo { Nombre = "Incidente", TipoJuicio = "Oral Mercantil", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia Preliminar", TipoJuicio = "Oral Mercantil", Orden = 5, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia de Juicio", TipoJuicio = "Oral Mercantil", Orden = 6, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Audiencia de Sentencia", TipoJuicio = "Oral Mercantil", Orden = 7, TerminoDias = null, EsDiasHabiles = true },
