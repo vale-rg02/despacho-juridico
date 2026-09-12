@@ -10,6 +10,7 @@ Documento vivo. Cada entrada nace de un caso real donde el software falló (o ca
 
 1. [Jurisdicción Voluntaria — no hay "parte demandada" adversarial](#1-jurisdicción-voluntaria--no-hay-parte-demandada-adversarial)
 2. [TipoAsunto en ADISON — series de numeración independientes por tipo de trámite](#2-tipoasunto-en-adison--series-de-numeración-independientes-por-tipo-de-trámite)
+3. [Hipotecario/Especial Hipotecario — el banco puede aparecer solo, sin el demandado](#3-hipotecarioespecial-hipotecario--el-banco-puede-aparecer-solo-sin-el-demandado)
 
 ---
 
@@ -24,10 +25,7 @@ Expediente 434/2026, Juzgado 1ro Civil de Nogales, `TipoJuicio = "Jurisdicción 
 
 El 20 de agosto ADISON publicó: *"JURISDICCIÓN VOLUNTARIA CIVIL - OTROS.- BBVA MEXICO SA INSTITUCION DE BANCA MULTILPLE GRUPO FINANCIERO BBVA MEXICO — SE RADICA DEMANDA."* — sin mencionar a Patricia en ningún lado. El sistema comparó ese texto contra "Patricia Yanet Contreras Martínez", no encontró coincidencia, lo clasificó `Confianza=Baja` y lo ocultó sin notificar. Mario se enteró por su cuenta y, 3.5 horas después, capturó manualmente las etapas "Radicación" y "Notificación" en el sistema — exactamente el tipo de dato invisible que este seguimiento debería haber evitado.
 
-**Qué falta decidir / construir:** *(pendiente — no se ha diseñado la solución)*
-- Opción A: cuando `Expediente.TipoJuicio == "Jurisdicción Voluntaria"`, comparar también contra el nombre del banco/promovente (si el despacho empezara a capturarlo), no solo contra `ParteDemandada`.
-- Opción B: para este tipo de trámite, relajar la verificación de Partes y confiar más en número+juzgado, asumiendo el riesgo de algún falso positivo — evaluar cuántos casos de Jurisdicción Voluntaria tiene el despacho antes de decidir si el riesgo vale la pena.
-- Falta contar cuántos expedientes activos del despacho son de este tipo, para dimensionar el impacto real.
+**Qué falta decidir / construir:** resuelto — se tomó la Opción A (comparar también contra el banco/promovente), implementada específicamente para Jurisdicción Voluntaria en `EvaluarJurisdiccionVoluntaria`. Después se confirmó que el mismo problema (ADISON nombrando solo al banco) **no es exclusivo de Jurisdicción Voluntaria** — también ocurre en Hipotecario/Especial Hipotecario normal, un trámite sí contencioso — y se generalizó ahí con su propio nivel de confianza (`Media`, distinto de la Opción A original porque en un trámite contencioso sí existe un demandado real que eventualmente puede nombrarse, así que no se le da la misma confianza automática que a Jurisdicción Voluntaria). Ver entrada #3 para la mecánica generalizada, la evidencia medida, y la solución completa.
 
 ---
 
@@ -49,4 +47,28 @@ Durante la corrida del scraper de las 16:05 (hora Hermosillo) del 28 de agosto, 
 
 ---
 
-*Última actualización: 31 de agosto de 2026.*
+## 3. Hipotecario/Especial Hipotecario — el banco puede aparecer solo, sin el demandado
+
+**La mecánica:** en la etapa de radicación de un juicio Hipotecario (publicado por ADISON bajo el rubro "Especial Hipotecario"), el texto de "Partes" a veces solo nombra al **banco promovente** — nunca al demandado — igual que ya pasaba en Jurisdicción Voluntaria (ver entrada #1), pero esta vez en un trámite contencioso normal, no en uno no contencioso. No es un caso aislado de Jurisdicción Voluntaria: es un patrón más amplio de cómo ADISON publica la radicación de cualquier trámite bancario, sin importar si es o no adversarial. Además, muchos acuerdos siguen usando el nombre histórico del banco — "Bancomer" en vez de "BBVA México" (Bancomer se fusionó/renombró a BBVA México hace años, pero el nombre viejo sigue circulando en los juzgados).
+
+**Dónde truena en el software:** `PartesCoinciden` en `ScraperAcuerdosService.cs` solo comparaba el texto de ADISON contra `Expediente.ParteDemandada` — nunca contra `Expediente.Banco`. Cuando el juzgado y el número de expediente ya coincidían exacto pero el texto solo traía el banco, el sistema no tenía forma de reconocer eso como una coincidencia real: lo clasificaba `Confianza=Baja` y lo ocultaba, igual que si fuera ruido de un caso totalmente ajeno.
+
+**Caso real que lo destapó (11 de septiembre de 2026):**
+5 acuerdos confirmados en producción, todos en el Juzgado Primero Civil de Nogales, todos con `Banco = "BBVA México"`, juzgado y número ya coincidentes exacto contra el expediente registrado:
+
+- Exp. 576/2017 (Sonia Lilia Reyna Ocampo): *"ESPECIAL HIPOTECARIO - ACCION HIPOTECARIA Y PAGO DE CREDITO.- - BANCOMER -"*
+- Exp. 476/2026 (Karina Guadalupe Tapia Sánchez y otro), dos acuerdos: *"ESPECIAL HIPOTECARIO.- BBVA MEXICO SA.--"* y *"ESPECIAL HIPOTECARIO - OTROS.- BBVA MEXICO S.A. INSTITUCION DE BANCA MULTIPLE, GRUPO FINANCIERO BBVA MEXICO.-"*
+- Exp. 401/2026 (Adrián Omar Tiznado Valenzuela y otra), dos acuerdos: *"ESPECIAL HIPOTECARIO - OTROS.- BBVA MEXICO SA INSTITUCION BANCA MULTIPLE"* y, el más extremo, *"ESPECIAL HIPOTECARIO -"* — sin mencionar siquiera al banco.
+
+Ninguno de los cinco mencionaba al demandado por nombre; los cuatro primeros sí mencionaban al banco.
+
+**Qué falta decidir / construir:** decisión tomada e implementada (DJ-122) — antes de decidir se midió con datos reales, no se asumió nada:
+- Se confirmó que "Bancomer" sí es un alias real de "BBVA México" con evidencia (13 de 48 menciones de "Bancomer" en toda la BD corresponden a expedientes con Banco=BBVA México) — se agregó como alias específico, no genérico para cualquier banco.
+- Se descartó usar "Especial Hipotecario" como señal de match por sí sola: 8 de 84 menciones en toda la BD aparecen en expedientes que ni siquiera son Hipotecario — es solo el nombre de una categoría de trámite, no identifica un caso específico.
+- Se descartó confiar en "menciona al banco" sin juzgado ya confirmado: BBVA México es el banco del 78% del portafolio activo del despacho (93 de 119 expedientes bancarios) y del 100% de los expedientes activos en Primero Civil de Nogales — sin el juzgado como filtro, generaría demasiados falsos positivos (medido: <1% del ruido foráneo de juzgados ajenos también menciona BBVA, pero no es cero a escala estatal).
+- Solución: nuevo nivel de confianza `Media` — solo se activa cuando el juzgado **y** el número ya coinciden exacto contra el expediente registrado (para foráneos, nueva función `JuzgadoForaneoCoincide`, que compara por conjunto de palabras clave — ordinal, materia, municipio — en vez de patrones fijos como `JuzgadoCoincide`) y el texto menciona al banco (o su alias). Es visible y genera correo (con mensaje de "¿es tuyo?", no de certeza), y el litigante confirma o descarta con los mismos botones ya construidos en DJ-99.
+- Pendiente real: no se midió específicamente si este mismo patrón (banco sin nombre del demandado) también ocurre en juzgados de Hermosillo, solo en foráneos — la lógica ya se generalizó para aplicar a ambos por igual, pero falta confirmar con datos si Hermosillo también lo necesitaba o si fue una generalización preventiva sin casos reales todavía.
+
+---
+
+*Última actualización: 12 de septiembre de 2026.*

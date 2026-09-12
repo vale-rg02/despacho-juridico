@@ -1,0 +1,271 @@
+<title>Qué Pasó Con Tus Avisos</title>
+<meta name="description" content="Cronología de por qué algunos acuerdos judiciales no llegaron por correo, qué ya se corrigió, y qué sigue en proceso.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --paper: #f2ede2;
+    --card: #fbf8f1;
+    --ink: #221f1a;
+    --ink-soft: #4a4438;
+    --muted: #7a7261;
+    --line: #ddd4c0;
+    --resolved: #2f6f5e;
+    --resolved-soft: #e2ece7;
+    --progress: #b06a24;
+    --progress-soft: #f3e6d4;
+    --info: #3a5a78;
+    --info-soft: #e4eaf0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16171a;
+      --card: #1f2023;
+      --ink: #ece7d9;
+      --ink-soft: #c9c3b3;
+      --muted: #948c78;
+      --line: #34332c;
+      --resolved: #7fbfa8;
+      --resolved-soft: #1e2f28;
+      --progress: #e0a15c;
+      --progress-soft: #332417;
+      --info: #8facc9;
+      --info-soft: #202a35;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #16171a;
+    --card: #1f2023;
+    --ink: #ece7d9;
+    --ink-soft: #c9c3b3;
+    --muted: #948c78;
+    --line: #34332c;
+    --resolved: #7fbfa8;
+    --resolved-soft: #1e2f28;
+    --progress: #e0a15c;
+    --progress-soft: #332417;
+    --info: #8facc9;
+    --info-soft: #202a35;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Work Sans', system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 60px 24px 100px; }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+
+  h1 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500;
+    font-size: clamp(30px, 4.6vw, 44px);
+    line-height: 1.14;
+    letter-spacing: -0.01em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 44px;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  section.summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 56px;
+  }
+  @media (max-width: 560px) { section.summary { grid-template-columns: 1fr; } }
+
+  .sum-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+  .sum-card .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .sum-card.resolved .k { color: var(--resolved); }
+  .sum-card.progress .k { color: var(--progress); }
+  .sum-card p { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+  .sum-card strong { color: var(--ink); }
+
+  h2 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 500;
+    font-size: 24px;
+    margin: 0 0 6px;
+    letter-spacing: -0.005em;
+  }
+
+  .timeline { position: relative; margin-top: 8px; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 10px;
+    bottom: 10px;
+    width: 1px;
+    background: var(--line);
+  }
+
+  .entry {
+    position: relative;
+    padding: 0 0 46px 40px;
+  }
+  .entry:last-child { padding-bottom: 0; }
+  .entry::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--muted);
+  }
+  .entry.resolved::before { border-color: var(--resolved); background: var(--resolved); }
+  .entry.progress::before { border-color: var(--progress); }
+
+  .entry .date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .entry .tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+  }
+  .entry.resolved .tag { background: var(--resolved-soft); color: var(--resolved); }
+  .entry.progress .tag { background: var(--progress-soft); color: var(--progress); }
+
+  .entry p { margin: 0 0 12px; font-size: 15.5px; color: var(--ink-soft); max-width: 56ch; }
+  .entry p:last-child { margin-bottom: 0; }
+  .entry p strong { color: var(--ink); font-weight: 600; }
+
+  .example {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--muted);
+    border-radius: 0 4px 4px 0;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .entry.resolved .example { border-left-color: var(--resolved); }
+  .entry.progress .example { border-left-color: var(--progress); }
+  .example b { color: var(--ink-soft); }
+
+  .going-forward {
+    margin-top: 60px;
+    background: var(--info-soft);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 24px 26px;
+  }
+  .going-forward h2 { color: var(--info); font-size: 20px; }
+  .going-forward ul { margin: 12px 0 0; padding-left: 20px; }
+  .going-forward li { font-size: 15px; color: var(--ink-soft); margin-bottom: 8px; }
+  .going-forward li:last-child { margin-bottom: 0; }
+  .going-forward li strong { color: var(--ink); }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Seguimiento de acuerdos judiciales</p>
+  <h1>Qué pasó con tus avisos</h1>
+  <p class="lede">
+    Varios reportes de que un acuerdo no generó correo llevaron a revisar el sistema a fondo.
+    Encontramos <strong>dos causas reales y distintas</strong>, ya resueltas una y otra en camino,
+    y confirmamos que en ningún caso se perdió información &mdash; todo sigue disponible en el sistema.
+  </p>
+
+  <section class="summary">
+    <div class="sum-card resolved">
+      <div class="k">Ya resuelto</div>
+      <p>Un juzgado de Hermosillo que no se vigilaba antes del 16 de agosto, y un error de lectura del nombre del juzgado que hacía descartar acuerdos reales.</p>
+    </div>
+    <div class="sum-card progress">
+      <div class="k">En proceso</div>
+      <p>Acuerdos donde el juzgado solo publica el nombre del banco, no el tuyo &mdash; se están quedando ocultos por precaución.</p>
+    </div>
+  </section>
+
+  <h2>Cronología</h2>
+  <p style="color:var(--muted);font-size:14.5px;margin:0 0 8px;">Tres hechos distintos, cada uno con su propia causa.</p>
+
+  <div class="timeline">
+
+    <article class="entry resolved">
+      <span class="date">16 de agosto</span>
+      <span class="tag">Cobertura de juzgados</span>
+      <p>Uno de los juzgados de Hermosillo (Segundo Oral Mercantil) <strong>no estaba dentro de la lista de juzgados que el sistema revisa todos los días</strong> &mdash; un vacío que venía desde antes. Se agregó ese día, junto con varios otros que tampoco se estaban consultando.</p>
+      <p>Cualquier acuerdo publicado ahí antes del 16 de agosto simplemente no pudo detectarse en su momento, sin importar qué tan bien funcionara el resto del sistema.</p>
+    </article>
+
+    <article class="entry resolved">
+      <span class="date">1 de septiembre</span>
+      <span class="tag">Corrección + recuperación</span>
+      <p>Se corrigió un error donde el sistema no reconocía el nombre de ese mismo juzgado cuando venía escrito con la palabra <em>&ldquo;de lo&rdquo;</em> de por medio (&ldquo;Segundo Oral <strong>de lo</strong> Mercantil&rdquo; en vez de &ldquo;Segundo Oral Mercantil&rdquo;) &mdash; esto afectaba 28 expedientes activos.</p>
+      <p>El mismo día se corrió una revisión retroactiva contra el portal oficial del Poder Judicial, cubriendo del 17 de julio al 31 de agosto, para recuperar lo que se había quedado sin detectar por los dos motivos anteriores.</p>
+      <div class="example">
+        Se recuperaron <b>25 acuerdos reales</b> de esa forma. Por decisión deliberada, los que ya tenían más de una semana <strong>no generaron correo</strong> &mdash; para no mandar una alerta &ldquo;urgente&rdquo; de algo que en realidad había pasado hace semanas. Quedaron visibles en el sistema, pero sin aviso por correo.
+      </div>
+      <p>Esa es la causa real detrás de casos como el acuerdo de Sentencia del expediente 390/2024: es un acuerdo genuino del 6 de agosto, recuperado el 1 de septiembre, sin correo por ese mismo criterio.</p>
+    </article>
+
+    <article class="entry progress">
+      <span class="date">En revisión ahora</span>
+      <span class="tag">Nombre del banco vs. nombre del cliente</span>
+      <p>En algunos juzgados foráneos (como Nogales), la primera publicación de un caso hipotecario a veces solo menciona <strong>al banco</strong> (BBVA México, a veces escrito &ldquo;Bancomer&rdquo;), sin nombrar todavía al cliente. El sistema hoy solo compara contra el nombre del cliente, así que estos casos quedan ocultos por precaución &mdash; aunque el número de expediente y el juzgado ya coincidan exacto.</p>
+      <div class="example">
+        Se confirmaron <b>5 acuerdos reales</b> con este patrón exacto, los tres números de expediente que Mario reportó entre ellos. Ninguno se perdió &mdash; están identificados y visibles para revisión mientras se ajusta el sistema para reconocerlos automáticamente.
+      </div>
+    </article>
+
+  </div>
+
+  <div class="going-forward">
+    <h2>De aquí en adelante</h2>
+    <ul>
+      <li><strong>Nada de esto se perdió.</strong> Cada acuerdo mencionado aquí sigue disponible en su expediente correspondiente.</li>
+      <li>Se está diseñando una tercera clasificación además de &ldquo;visible&rdquo; y &ldquo;oculto&rdquo;: un aviso de <strong>&ldquo;¿es tu caso?&rdquo;</strong> para cuando el sistema tiene una pista razonable (como el nombre del banco) pero no una certeza total &mdash; visible de inmediato, con un botón para confirmarlo o descartarlo.</li>
+      <li>Si algo similar vuelve a pasar &mdash; un acuerdo que esperabas y no llegó por correo &mdash; repórtalo igual: cada reporte ayuda a encontrar patrones reales, como pasó con estos tres.</li>
+    </ul>
+  </div>
+
+</div>

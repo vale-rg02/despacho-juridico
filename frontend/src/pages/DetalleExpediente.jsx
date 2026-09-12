@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
-  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin, EyeOff
+  ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin, EyeOff, Check, HelpCircle
 } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import InfoCard from '../components/InfoCard'
@@ -11,7 +11,7 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual, descartarAcuerdo } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual, descartarAcuerdo, confirmarAcuerdo } from '../services/acuerdos'
 import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
 import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -434,6 +434,17 @@ function DetalleExpediente() {
     }
   }
 
+  async function handleConfirmarAcuerdo(acuerdoId) {
+    try {
+      await confirmarAcuerdo(acuerdoId)
+      await cargarDatos()
+      setExito('Acuerdo confirmado')
+      setTimeout(() => setExito(''), 3000)
+    } catch {
+      setError('No se pudo confirmar el acuerdo')
+    }
+  }
+
   async function handleAgregarColaborador(usuarioId) {
     await agregarAcceso(id, usuarioId)
     await cargarDatos()
@@ -815,6 +826,25 @@ function DetalleExpediente() {
                             title="Eliminar registro manual"
                           >
                             Eliminar
+                          </button>
+                        )}
+                        {acuerdo.confianza === 'Media' && (
+                          <span
+                            className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5"
+                            title="El juzgado y número coinciden, pero el texto no nombra al demandado por su nombre — confírmalo si es tu caso"
+                          >
+                            <HelpCircle size={9} />
+                            ¿Es tu caso?
+                          </span>
+                        )}
+                        {acuerdo.confianza === 'Media' && (
+                          <button
+                            onClick={() => handleConfirmarAcuerdo(acuerdo.id)}
+                            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition font-medium"
+                            title="Confirmar que este acuerdo sí corresponde a tu expediente"
+                          >
+                            <Check size={11} />
+                            Confirmar
                           </button>
                         )}
                         <button

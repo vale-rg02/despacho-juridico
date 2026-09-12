@@ -1,0 +1,481 @@
+<title>Expedientes Sin Nombre</title>
+<meta name="description" content="Cinco acuerdos de Hipotecario en Nogales, ocultos porque ADISON solo nombró al banco, nunca al demandado.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --paper: #f2efe6;
+    --paper-raised: #fbf9f2;
+    --ink: #1c1a17;
+    --ink-soft: #3a362f;
+    --muted: #746c5c;
+    --line: #d9d3c2;
+    --line-strong: #c7bfa9;
+    --stamp: #2b4570;
+    --stamp-soft: #e4e9f0;
+    --redact: #a63446;
+    --redact-soft: #f5e2e2;
+    --found: #4c6b47;
+    --found-soft: #e4ece1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #18191b;
+      --paper-raised: #212226;
+      --ink: #ece7d9;
+      --ink-soft: #cec7b3;
+      --muted: #948c78;
+      --line: #35332c;
+      --line-strong: #48453a;
+      --stamp: #8fa9cc;
+      --stamp-soft: #253347;
+      --redact: #e0919a;
+      --redact-soft: #3a2426;
+      --found: #a3c19a;
+      --found-soft: #253023;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #18191b;
+    --paper-raised: #212226;
+    --ink: #ece7d9;
+    --ink-soft: #cec7b3;
+    --muted: #948c78;
+    --line: #35332c;
+    --line-strong: #48453a;
+    --stamp: #8fa9cc;
+    --stamp-soft: #253347;
+    --redact: #e0919a;
+    --redact-soft: #3a2426;
+    --found: #a3c19a;
+    --found-soft: #253023;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Public Sans', system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.report-head {
+    margin-bottom: 48px;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--redact);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 22px;
+    height: 1px;
+    background: var(--redact);
+    display: inline-block;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(30px, 4.4vw, 42px);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .lede {
+    font-size: 16.5px;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 28px;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .finding-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .finding-strip div {
+    background: var(--paper-raised);
+    padding: 16px 18px;
+  }
+  .finding-strip .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--stamp);
+    display: block;
+  }
+  .finding-strip .label {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .exhibits { display: flex; flex-direction: column; gap: 22px; margin-top: 52px; }
+
+  .exhibit {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    animation: rise 0.5s ease backwards;
+  }
+  .exhibit:nth-child(1) { animation-delay: 0.02s; }
+  .exhibit:nth-child(2) { animation-delay: 0.06s; }
+  .exhibit:nth-child(3) { animation-delay: 0.10s; }
+  .exhibit:nth-child(4) { animation-delay: 0.14s; }
+  .exhibit:nth-child(5) { animation-delay: 0.18s; }
+  @media (prefers-reduced-motion: reduce) { .exhibit { animation: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .exhibit-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .exhibit-head .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .exhibit-head .exp-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 17px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .exhibit-head .juzgado {
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .status-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 3px;
+    background: var(--redact-soft);
+    color: var(--redact);
+    white-space: nowrap;
+  }
+
+  .exhibit-body { padding: 20px 22px 22px; }
+
+  .who-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 620px) { .who-grid { grid-template-columns: 1fr; } }
+
+  .who dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .who dd {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who dd.banco { color: var(--found); }
+
+  .partes-block {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--stamp);
+    border-radius: 0 3px 3px 0;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+  .partes-block .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--stamp);
+    margin-bottom: 7px;
+  }
+  .partes-block p {
+    margin: 0;
+    font-family: 'Fraunces', serif;
+    font-size: 15.5px;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .partes-block mark.found {
+    background: var(--found-soft);
+    color: var(--found);
+    font-style: normal;
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+  }
+  .partes-block .gap {
+    display: inline-block;
+    background: var(--redact-soft);
+    color: var(--redact);
+    font-family: 'Public Sans', sans-serif;
+    font-style: normal;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 1px 7px;
+    border-radius: 2px;
+    vertical-align: 1px;
+  }
+
+  .sintesis {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    padding-left: 14px;
+    border-left: 2px solid var(--line-strong);
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .meta-row span b { color: var(--ink-soft); font-weight: 500; }
+
+  footer.notecard {
+    margin-top: 44px;
+    padding: 18px 22px;
+    background: var(--stamp-soft);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  footer.notecard strong { color: var(--stamp); }
+</style>
+
+<div class="wrap">
+
+  <header class="report-head">
+    <p class="eyebrow">Diagnóstico &middot; PartesCoinciden</p>
+    <h1>El banco quedó registrado.<br>El demandado, no.</h1>
+    <p class="lede">
+      Cinco acuerdos de expedientes Hipotecarios en Nogales coinciden por número y juzgado exacto contra el registro del despacho,
+      pero <strong>ADISON solo publicó el nombre del banco promovente</strong> en la etapa de radicación &mdash; nunca al demandado.
+      <code style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;background:var(--paper-raised);border:1px solid var(--line);padding:1px 6px;border-radius:3px;">PartesCoinciden</code>
+      compara solo contra <code style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;background:var(--paper-raised);border:1px solid var(--line);padding:1px 6px;border-radius:3px;">ParteDemandada</code> &mdash; nunca contra el banco &mdash; así que los cinco quedaron en Confianza Baja, ocultos.
+    </p>
+
+    <div class="finding-strip">
+      <div><span class="num">5/5</span><span class="label">mencionan solo al banco</span></div>
+      <div><span class="num">0/5</span><span class="label">nombran al demandado</span></div>
+      <div><span class="num">1</span><span class="label">banco en común: BBVA México</span></div>
+    </div>
+  </header>
+
+  <div class="exhibits">
+
+    <article class="exhibit">
+      <div class="exhibit-head">
+        <div>
+          <span class="tag">EXPEDIENTE&nbsp;</span><span class="exp-num">576/2017</span>
+          <div class="juzgado">Primero Civil de Nogales</div>
+        </div>
+        <span class="status-chip">Confianza Baja &middot; Oculto</span>
+      </div>
+      <div class="exhibit-body">
+        <div class="who-grid">
+          <dl class="who">
+            <dt>Parte demandada registrada</dt>
+            <dd>Sonia Lilia Reyna Ocampo</dd>
+          </dl>
+          <dl class="who">
+            <dt>Banco</dt>
+            <dd class="banco">BBVA México</dd>
+          </dl>
+        </div>
+        <div class="partes-block">
+          <div class="k">Partes publicado por ADISON</div>
+          <p>Especial Hipotecario &mdash; Acción Hipotecaria y Pago de Crédito.&mdash; <mark class="found">Bancomer</mark> &mdash; <span class="gap">sin nombre del demandado</span></p>
+        </div>
+        <p class="sintesis">&ldquo;118.&mdash; Señala domicilio, deberá estarse.&rdquo;</p>
+        <div class="meta-row">
+          <span><b>Fecha del acuerdo</b> 11 sep 2026</span>
+          <span><b>Juzgado del acuerdo</b> Juzgado 1ro Civil Nogales</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="exhibit">
+      <div class="exhibit-head">
+        <div>
+          <span class="tag">EXPEDIENTE&nbsp;</span><span class="exp-num">476/2026</span>
+          <div class="juzgado">Primero Civil de Nogales</div>
+        </div>
+        <span class="status-chip">Confianza Baja &middot; Oculto</span>
+      </div>
+      <div class="exhibit-body">
+        <div class="who-grid">
+          <dl class="who">
+            <dt>Parte demandada registrada</dt>
+            <dd>Karina Guadalupe Tapia Sánchez y otro</dd>
+          </dl>
+          <dl class="who">
+            <dt>Banco</dt>
+            <dd class="banco">BBVA México</dd>
+          </dl>
+        </div>
+        <div class="partes-block">
+          <div class="k">Partes publicado por ADISON &middot; 10 sep 2026</div>
+          <p>Especial Hipotecario.&mdash; <mark class="found">BBVA México SA</mark> &mdash; <span class="gap">sin nombre del demandado</span></p>
+        </div>
+        <p class="sintesis">&ldquo;83.&mdash; Se retira demanda y se ordena devolución de documentos.&rdquo;</p>
+        <div class="meta-row">
+          <span><b>Fecha del acuerdo</b> 10 sep 2026</span>
+          <span><b>Juzgado del acuerdo</b> Juzgado 1ro Civil Nogales</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="exhibit">
+      <div class="exhibit-head">
+        <div>
+          <span class="tag">EXPEDIENTE&nbsp;</span><span class="exp-num">401/2026</span>
+          <div class="juzgado">Primero Civil de Nogales</div>
+        </div>
+        <span class="status-chip">Confianza Baja &middot; Oculto</span>
+      </div>
+      <div class="exhibit-body">
+        <div class="who-grid">
+          <dl class="who">
+            <dt>Parte demandada registrada</dt>
+            <dd>Adrián Omar Tiznado Valenzuela y otra</dd>
+          </dl>
+          <dl class="who">
+            <dt>Banco</dt>
+            <dd class="banco">BBVA México</dd>
+          </dl>
+        </div>
+        <div class="partes-block">
+          <div class="k">Partes publicado por ADISON &middot; 10 sep 2026</div>
+          <p>Especial Hipotecario &mdash; Otros.&mdash; <mark class="found">BBVA México SA Institución Banca Múltiple</mark> &mdash; <span class="gap">sin nombre del demandado</span></p>
+        </div>
+        <p class="sintesis">&ldquo;88.&mdash; Retira demanda, se ordena devolución de documentos.&rdquo;</p>
+        <div class="meta-row">
+          <span><b>Fecha del acuerdo</b> 10 sep 2026</span>
+          <span><b>Juzgado del acuerdo</b> Juzgado 1ro Civil Nogales</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="exhibit">
+      <div class="exhibit-head">
+        <div>
+          <span class="tag">EXPEDIENTE&nbsp;</span><span class="exp-num">476/2026</span>
+          <div class="juzgado">Primero Civil de Nogales</div>
+        </div>
+        <span class="status-chip">Confianza Baja &middot; Oculto</span>
+      </div>
+      <div class="exhibit-body">
+        <div class="who-grid">
+          <dl class="who">
+            <dt>Parte demandada registrada</dt>
+            <dd>Karina Guadalupe Tapia Sánchez y otro</dd>
+          </dl>
+          <dl class="who">
+            <dt>Banco</dt>
+            <dd class="banco">BBVA México</dd>
+          </dl>
+        </div>
+        <div class="partes-block">
+          <div class="k">Partes publicado por ADISON &middot; 20 ago 2026</div>
+          <p>Especial Hipotecario &mdash; Otros.&mdash; <mark class="found">BBVA México S.A. Institución de Banca Múltiple, Grupo Financiero BBVA México</mark> &mdash; <span class="gap">sin nombre del demandado</span></p>
+        </div>
+        <p class="sintesis">&ldquo;Se radica demanda.&rdquo;</p>
+        <div class="meta-row">
+          <span><b>Fecha del acuerdo</b> 20 ago 2026</span>
+          <span><b>Juzgado del acuerdo</b> Juzgado 1ro Civil Nogales</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="exhibit">
+      <div class="exhibit-head">
+        <div>
+          <span class="tag">EXPEDIENTE&nbsp;</span><span class="exp-num">401/2026</span>
+          <div class="juzgado">Primero Civil de Nogales</div>
+        </div>
+        <span class="status-chip">Confianza Baja &middot; Oculto</span>
+      </div>
+      <div class="exhibit-body">
+        <div class="who-grid">
+          <dl class="who">
+            <dt>Parte demandada registrada</dt>
+            <dd>Adrián Omar Tiznado Valenzuela y otra</dd>
+          </dl>
+          <dl class="who">
+            <dt>Banco</dt>
+            <dd class="banco">BBVA México</dd>
+          </dl>
+        </div>
+        <div class="partes-block">
+          <div class="k">Partes publicado por ADISON &middot; 6 ago 2026</div>
+          <p>Especial Hipotecario &mdash; <span class="gap">sin ningún nombre, ni siquiera el del banco</span></p>
+        </div>
+        <p class="sintesis">&ldquo;232.&mdash; Radica demanda, ordena expedición de cédula hipotecaria, designa perito, cita para aceptación de cargo y se requiere a la parte demandada. Notifíquese personalmente.&rdquo;</p>
+        <div class="meta-row">
+          <span><b>Fecha del acuerdo</b> 6 ago 2026</span>
+          <span><b>Juzgado del acuerdo</b> Juzgado 1ro Civil Nogales</span>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <footer class="notecard">
+    <strong>Lectura del patrón:</strong> en 4 de 5, el texto sí trae un nombre &mdash; pero es el del banco, no el del demandado.
+    En el quinto (401/2026, 6 ago) ni siquiera eso: la radicación salió sin ningún nombre reconocible. El número y el juzgado
+    ya coinciden exacto en los cinco casos &mdash; lo único que falta es comparar también contra <code style="font-family:'IBM Plex Mono',monospace;font-size:13px;">Banco</code>,
+    igual que ya hace <code style="font-family:'IBM Plex Mono',monospace;font-size:13px;">EvaluarJurisdiccionVoluntaria</code> para Jurisdicción Voluntaria.
+  </footer>
+
+</div>

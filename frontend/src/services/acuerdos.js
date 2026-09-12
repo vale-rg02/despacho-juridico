@@ -29,6 +29,11 @@ export async function descartarAcuerdo(acuerdoId) {
   return response.data
 }
 
+export async function confirmarAcuerdo(acuerdoId) {
+  const response = await api.patch(`/acuerdos/${acuerdoId}/confirmar`)
+  return response.data
+}
+
 // GET /api/acuerdos/no-vistos regresa los acuerdos (no los expedientes) con
 // visto=false asignados al usuario autenticado; se reduce a expedienteId único.
 export async function getExpedientesConAcuerdosNoVistos() {

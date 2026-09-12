@@ -309,14 +309,23 @@ public class ScraperAcuerdosService : BackgroundService
             {
                 try
                 {
-                    // Buscar match con expedientes del despacho
-                    Expediente? expediente;
+                    // Buscar match(es) con expedientes del despacho. DJ-122: antes se usaba
+                    // FirstOrDefault y se descartaba en silencio cualquier otro expediente
+                    // activo que compartiera número (caso real: 7 expedientes duplicados por
+                    // número, mismo litigante — ej. 476/2026 le pertenece dos veces a Mario,
+                    // en juzgados distintos). Ahora se evalúan TODOS los candidatos: si el
+                    // nombre o el banco solo coincide con uno, ese resuelve solo (comportamiento
+                    // sin cambios); si el juzgado no alcanza a desambiguar entre 2+ candidatos
+                    // del mismo litigante, cada uno recibe su propia fila y su propia
+                    // clasificación independiente — nunca se cruza información entre litigantes
+                    // distintos, cada candidato se evalúa contra sus propios datos.
+                    List<Expediente> candidatos;
                     if (JuzgadosHermosillo.Contains(idUnidad))
                     {
                         // Juzgados de Hermosillo: match por número Y juzgado
-                        expediente = expedientes.FirstOrDefault(e =>
+                        candidatos = expedientes.Where(e =>
                             NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente) &&
-                            JuzgadoCoincide(e.Juzgado ?? "", nombreJuzgado));
+                            JuzgadoCoincide(e.Juzgado ?? "", nombreJuzgado)).ToList();
                     }
                     else
                     {
@@ -327,11 +336,14 @@ public class ScraperAcuerdosService : BackgroundService
                         // en el backfill de julio 2026. La confianza del match (comparando
                         // Partes) se evalúa más abajo, pero por ahora solo clasifica — no
                         // filtra — mientras se revisa en dry-run (ver Fase 1/Fase 2).
-                        expediente = expedientes.FirstOrDefault(e =>
-                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente));
+                        candidatos = expedientes.Where(e =>
+                            NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente)).ToList();
                     }
 
-                    if (expediente == null) continue;
+                    if (candidatos.Count == 0) continue;
+
+                    foreach (var expediente in candidatos)
+                    {
 
                     var esForaneo = !JuzgadosHermosillo.Contains(idUnidad);
                     // Exh. (Exhorto) y Cuad. (Cuadernillo) son series de numeración propias
@@ -400,11 +412,25 @@ public class ScraperAcuerdosService : BackgroundService
                         // Prieta).
                         confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
 
+                        // DJ-122: si el nombre no coincidió pero el juzgado del acuerdo SÍ es
+                        // exactamente el juzgado registrado del expediente (no cualquiera de
+                        // los 55 foráneos) y el acuerdo menciona al banco del expediente, se
+                        // sube a "Media" — visible y notificado como sugerencia que el
+                        // litigante debe confirmar, no como certeza. Nunca se hace esto solo
+                        // por banco sin juzgado confirmado (ver MencionaBancoOAlias).
+                        if (confianza == "Baja" && esForaneo && !esSerieAuxiliar && expediente.Banco != null
+                            && JuzgadoForaneoCoincide(expediente.Juzgado, nombreJuzgado)
+                            && MencionaBancoOAlias(expediente.Banco.Nombre, acuerdo.Partes, umbralSimilitudPartes))
+                        {
+                            confianza = "Media";
+                        }
+
                         // Fase 2: los de baja confianza se guardan ocultos (Opción B) — no se
                         // pierden por si el criterio se equivoca (hay casos reales que salen
                         // baja confianza solo por diferencias de formato entre cómo el despacho
                         // captura las partes y cómo las publica ADISON), pero no se notifican
-                        // ni se muestran en la sección de Acuerdos hasta revisarlos.
+                        // ni se muestran en la sección de Acuerdos hasta revisarlos. "Media" no
+                        // se oculta — es una sugerencia visible que espera confirmación.
                         oculto = confianza == "Baja";
 
                         if (dryRun)
@@ -444,6 +470,17 @@ public class ScraperAcuerdosService : BackgroundService
                         // tipo de trámite, etc.) no hay nada que comparar y se sigue confiando
                         // en número+juzgado como siempre.
                         confianza = PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes) ? "Alta" : "Baja";
+
+                        // DJ-122: aquí el juzgado y número YA coincidieron (precondición de
+                        // esta ruta — ver JuzgadoCoincide en la resolución del expediente,
+                        // arriba) — si el nombre no coincide pero sí el banco, se sugiere en
+                        // vez de ocultar directo.
+                        if (confianza == "Baja" && expediente.Banco != null
+                            && MencionaBancoOAlias(expediente.Banco.Nombre, acuerdo.Partes, umbralSimilitudPartes))
+                        {
+                            confianza = "Media";
+                        }
+
                         oculto = confianza == "Baja";
 
                         if (dryRun)
@@ -542,6 +579,7 @@ public class ScraperAcuerdosService : BackgroundService
                             "Acuerdo guardado sin notificar (notificar=false) Exp {Numero} en {Juzgado}",
                             expediente.NumeroExpediente, nombreJuzgado);
                     }
+                    } // fin foreach (var expediente in candidatos) — DJ-122
                 }
                 catch (Exception ex)
                 {
@@ -681,7 +719,15 @@ public class ScraperAcuerdosService : BackgroundService
     {
         if (expediente.UsuarioAsignado == null) return;
 
-        var asunto = $"Nuevo acuerdo judicial — Exp. {expediente.NumeroExpediente}";
+        // DJ-122: un acuerdo "Media" es una sugerencia, no una certeza (coincide
+        // juzgado+número+banco, pero no el nombre del demandado) — se avisa igual
+        // por correo, para que el litigante entre a confirmarlo o descartarlo, pero
+        // con un asunto y mensaje que dejan claro que necesita revisión, no que ya
+        // se confirmó.
+        var esSugerido = acuerdo.Confianza == "Media";
+        var asunto = esSugerido
+            ? $"¿Es tuyo? Posible acuerdo — Exp. {expediente.NumeroExpediente}"
+            : $"Nuevo acuerdo judicial — Exp. {expediente.NumeroExpediente}";
 
         var nombreEnc = System.Net.WebUtility.HtmlEncode(expediente.UsuarioAsignado.Nombre);
         var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
@@ -710,12 +756,13 @@ public class ScraperAcuerdosService : BackgroundService
 <body><div class='container'>
   <div class='header'>
     <h1>Despacho Jurídico Acedo e Hijos</h1>
-    <p>Nuevo acuerdo judicial detectado</p>
+    <p>{(esSugerido ? "Posible acuerdo — requiere confirmación" : "Nuevo acuerdo judicial detectado")}</p>
   </div>
   <div class='body'>
     <p>Estimado(a) {nombreEnc},</p>
-    <p>El sistema ha detectado un nuevo acuerdo publicado por el <strong>{juzgadoEnc}</strong>
-    correspondiente al siguiente expediente a su cargo:</p>
+    {(esSugerido
+        ? $"<p>El sistema encontró un acuerdo del <strong>{juzgadoEnc}</strong> que coincide en número de expediente y juzgado con uno de sus casos, pero el texto publicado no menciona al demandado por nombre — <strong>no podemos confirmar con certeza que le pertenezca</strong>. Por favor entre al expediente para confirmarlo o descartarlo:</p>"
+        : $"<p>El sistema ha detectado un nuevo acuerdo publicado por el <strong>{juzgadoEnc}</strong> correspondiente al siguiente expediente a su cargo:</p>")}
     <div class='highlight'>
       <p><strong>Expediente:</strong> {numeroExpedienteEnc}</p>
       <p><strong>Parte demandada:</strong> {parteDemandadaEnc}</p>
@@ -725,7 +772,9 @@ public class ScraperAcuerdosService : BackgroundService
     </div>
     <p><strong>Síntesis del acuerdo:</strong></p>
     <div class='sintesis'>{sintesisEnc}</div>
-    <p>Le recomendamos revisar el expediente en el sistema para tomar las acciones correspondientes.</p>
+    <p>{(esSugerido
+        ? "Entre al sistema y use \"Confirmar\" si el caso es suyo, o \"Descartar\" si no lo es."
+        : "Le recomendamos revisar el expediente en el sistema para tomar las acciones correspondientes.")}</p>
     <p>Atentamente,<br><strong>Despacho Jurídico Acedo e Hijos</strong></p>
   </div>
   <div class='footer'>
@@ -797,6 +846,31 @@ public class ScraperAcuerdosService : BackgroundService
             || PartesCoinciden(nombreBanco ?? "", partesScrapeadas, umbralSimilitud);
         var confianza = coincide ? "Alta" : "Baja";
         return (confianza, confianza == "Baja");
+    }
+
+    // DJ-122: en la etapa de radicación de un Hipotecario, ADISON a veces solo
+    // nombra al banco promovente, no al demandado — mismo patrón que ya resolvía
+    // EvaluarJurisdiccionVoluntaria para Jurisdicción Voluntaria, aquí generalizado
+    // a cualquier expediente con banco capturado. El llamador es responsable de
+    // solo usar esto cuando el juzgado del acuerdo YA coincide con el registrado
+    // en el expediente — el banco por sí solo, sin juzgado confirmado, no basta:
+    // BBVA México es el banco del 78% del portafolio activo del despacho
+    // (confirmado 11 sep 2026), así que "menciona BBVA" sin más contexto generaría
+    // demasiados falsos positivos (medido: <1% de colisiones de número con
+    // juzgado ajeno también mencionan BBVA, pero a escala estatal no es cero).
+    internal static bool MencionaBancoOAlias(string nombreBanco, string partesScrapeadas, double umbralSimilitud = 0.8)
+    {
+        if (PartesCoinciden(nombreBanco, partesScrapeadas, umbralSimilitud)) return true;
+
+        // Bancomer se fusionó/renombró a BBVA México hace años, pero muchos
+        // acuerdos de ADISON siguen usando el nombre viejo — confirmado con datos
+        // reales: 13 de 48 menciones de "Bancomer" corresponden a expedientes con
+        // Banco = "BBVA México" (11 sep 2026). No es un alias genérico de
+        // cualquier banco, solo de esta correspondencia específica.
+        if (NormalizarTexto(nombreBanco) == "BBVA MEXICO")
+            return PartesCoinciden("BANCOMER", partesScrapeadas, umbralSimilitud);
+
+        return false;
     }
 
     // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de
@@ -1056,5 +1130,53 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("3er tribunal laboral");
 
         return false;
+    }
+
+    // DJ-122: compara el Juzgado registrado en un expediente contra el nombre de
+    // juzgado que publica ADISON cuando AMBOS son foráneos (ej. "PRIMERO CIVIL DE
+    // NOGALES" vs "Juzgado 1ro Civil Nogales") — a diferencia de JuzgadoCoincide,
+    // que solo tiene patrones para juzgados de Hermosillo, el formato de captura
+    // del despacho para foráneos varía más ("JUZGADO DE PRIMERA INSTANCIA MIXTO DE
+    // CANANEA" vs "MIXTO DE MAGDALENA" vs "PRIMERO CIVIL DE NOGALES"), así que se
+    // compara por conjunto de palabras clave (ordinal + materia + municipio) en
+    // vez de patrones fijos por cada combinación posible.
+    internal static bool JuzgadoForaneoCoincide(string? juzgadoExpediente, string nombreJuzgadoAdison)
+    {
+        if (string.IsNullOrWhiteSpace(juzgadoExpediente)) return false;
+
+        var tokensExpediente = TokensDeJuzgadoForaneo(juzgadoExpediente);
+        var tokensAdison = TokensDeJuzgadoForaneo(nombreJuzgadoAdison);
+
+        if (tokensExpediente.Count == 0 || tokensAdison.Count == 0) return false;
+
+        // Todo lo que capturó el despacho debe aparecer en lo que publicó ADISON
+        // (no al revés: ADISON a veces agrega palabras que el despacho no capturó,
+        // como "Juzgado" al inicio).
+        return tokensExpediente.All(t => tokensAdison.Contains(t));
+    }
+
+    private static readonly Dictionary<string, string> OrdinalesJuzgadoForaneo = new()
+    {
+        ["primero"] = "1ro", ["primer"] = "1ro", ["1o"] = "1ro",
+        ["segundo"] = "2do",
+        ["tercero"] = "3ro", ["tercer"] = "3ro",
+        ["cuarto"] = "4to",
+        ["quinto"] = "5to"
+    };
+
+    private static readonly HashSet<string> RellenoJuzgadoForaneo = new()
+    {
+        "juzgado", "de", "la", "lo", "el", "primera", "instancia", "distrito",
+        "judicial", "del", "estado", "sonora", "con", "residencia", "en"
+    };
+
+    private static HashSet<string> TokensDeJuzgadoForaneo(string texto)
+    {
+        var normalizado = NormalizarTexto(texto).ToLowerInvariant();
+        var palabras = System.Text.RegularExpressions.Regex.Split(normalizado, @"[^a-z0-9]+")
+            .Where(p => p.Length > 0)
+            .Select(p => OrdinalesJuzgadoForaneo.TryGetValue(p, out var abreviado) ? abreviado : p)
+            .Where(p => !RellenoJuzgadoForaneo.Contains(p));
+        return palabras.ToHashSet();
     }
 }

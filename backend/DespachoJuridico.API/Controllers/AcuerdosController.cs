@@ -241,6 +241,35 @@ public class AcuerdosController : ControllerBase
         return Ok(new { mensaje = "Acuerdo descartado correctamente" });
     }
 
+    // PATCH /api/acuerdos/{id}/confirmar — DJ-122
+    // El litigante confirma que un acuerdo "Media" (Confianza=Media, sugerido
+    // porque coincide el banco pero no el nombre del demandado, o porque el
+    // número coincide con más de un expediente suyo) sí le pertenece. Sube a
+    // Alta confianza — no se reenvía el correo, ya se avisó al detectarlo como
+    // sugerencia (ver EnviarNotificacionAsync).
+    [HttpPatch("{id}/confirmar")]
+    public async Task<IActionResult> Confirmar(int id)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId, acuerdo.ExpedienteId))
+            return NotFound(new { mensaje = "Acuerdo no encontrado" });
+
+        if (acuerdo.Confianza != "Media")
+            return BadRequest(new { mensaje = "Solo se pueden confirmar acuerdos sugeridos" });
+
+        acuerdo.Confianza = "Alta";
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_confirmado",
+            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) confirmado: \"{acuerdo.Sintesis}\"");
+
+        return Ok(new { mensaje = "Acuerdo confirmado correctamente" });
+    }
+
     private async Task RegistrarBitacora(int expedienteId, int usuarioId, string accion, string detalle)
     {
         _context.BitacoraCambios.Add(new Models.BitacoraCambio
