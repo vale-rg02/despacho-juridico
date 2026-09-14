@@ -61,6 +61,11 @@ public class ResultadoReevaluacionResponse
     public bool DryRun { get; set; }
     public int RegistrosEvaluados { get; set; }
     public List<AcuerdoDetectadoResumen> RegistrosDesocultados { get; set; } = new();
+
+    // DJ-122: ocultos que no llegan a coincidir por nombre pero sí califican para
+    // la sugerencia "Media" (banco + juzgado/número ya confirmados) — separados de
+    // RegistrosDesocultados porque suben a Media, no a Alta.
+    public List<AcuerdoDetectadoResumen> RegistrosSugeridos { get; set; } = new();
 }
 
 // Un registro real de AcuerdosScrapeados (visible u oculto) para el endpoint de

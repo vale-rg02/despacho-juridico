@@ -146,11 +146,13 @@ public class ScraperController : ControllerBase
 
     // POST /api/scraper/reevaluar-ocultos
     // POST /api/scraper/reevaluar-ocultos?dryRun=false — aplica los cambios y envía las notificaciones pendientes
-    // Vuelve a correr PartesCoinciden con el umbral/algoritmo ACTUALES sobre los
-    // acuerdos ya guardados con Confianza=Baja y Oculto=true (falsos negativos
-    // reales de cuando el criterio era más estricto). Los que ahora sí coinciden
-    // se desocultan, pasan a Confianza=Alta y se notifican. Por defecto dryRun=true:
-    // solo lista qué se desocultaría, sin tocar la BD ni enviar correos.
+    // Vuelve a correr PartesCoinciden y el criterio de Media (DJ-122) con el umbral/
+    // algoritmo ACTUALES sobre los acuerdos ya guardados con Confianza=Baja y
+    // Oculto=true (falsos negativos reales de cuando el criterio era más estricto,
+    // o de antes de que DJ-122 se desplegara). Los que ahora sí coinciden por nombre
+    // se desocultan a Confianza=Alta; los que solo coinciden por banco se desocultan
+    // a Confianza=Media — ambos se notifican. Por defecto dryRun=true: solo lista
+    // qué se desocultaría, sin tocar la BD ni enviar correos.
     [HttpPost("reevaluar-ocultos")]
     public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true)
     {

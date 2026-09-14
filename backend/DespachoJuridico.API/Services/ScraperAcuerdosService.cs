@@ -158,7 +158,7 @@ public class ScraperAcuerdosService : BackgroundService
     // despacho. El resto son juzgados foráneos (reciben exhortos): ahí el
     // "Juzgado" registrado en el expediente no corresponde al juzgado que
     // publica el acuerdo, así que el match se hace solo por número de expediente.
-    private static readonly HashSet<int> JuzgadosHermosillo = new()
+    internal static readonly HashSet<int> JuzgadosHermosillo = new()
     {
         152, 153, 154, 155, 156, 157, 158, 159, 160,
         161, 174, 175, 276, 277, 296, 905, 173, 300,
@@ -609,6 +609,13 @@ public class ScraperAcuerdosService : BackgroundService
     // algoritmo sí consideraba relevante (Confianza normalmente "Alta" o null, no
     // "Baja") — el filtro de Confianza="Baja" ya lo excluiría casi siempre por
     // accidente, pero depender de eso sería implícito y frágil; se excluye explícito.
+    //
+    // DJ-122 se desplegó el 12 sep 2026 sin reevaluación retroactiva: los ocultos
+    // detectados antes de esa fecha que solo mencionan al banco (sin nombre del
+    // demandado) se quedaban en Baja para siempre, aunque hoy calificarían para la
+    // sugerencia "Media" (casos reales confirmados 14 sep 2026: exp. 898/2026,
+    // 883/2026, 1354/2025, los tres en juzgados de Hermosillo). Por eso este método
+    // también reintenta el criterio de Media, no solo el de Alta.
     public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
     {
         var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
@@ -634,25 +641,58 @@ public class ScraperAcuerdosService : BackgroundService
             var expediente = acuerdo.Expediente;
             if (expediente == null) continue;
 
+            var esJurisdiccionVoluntaria = EsJurisdiccionVoluntaria(expediente.TipoJuicio);
+
             // Jurisdicción Voluntaria se reevalúa con su propio criterio (parte O banco,
             // ver EvaluarJurisdiccionVoluntaria) — el resto sigue comparando solo contra
             // ParteDemandada, exactamente igual que antes.
-            var ahoraCoincide = EsJurisdiccionVoluntaria(expediente.TipoJuicio)
+            var ahoraCoincide = esJurisdiccionVoluntaria
                 ? EvaluarJurisdiccionVoluntaria(expediente.ParteDemandada, expediente.Banco?.Nombre, acuerdo.Partes, umbralSimilitudPartes).Confianza == "Alta"
                 : PartesCoinciden(expediente.ParteDemandada, acuerdo.Partes, umbralSimilitudPartes);
-            if (!ahoraCoincide) continue;
 
-            resultado.RegistrosDesocultados.Add(new AcuerdoDetectadoResumen
+            string? nuevaConfianza = null;
+            if (ahoraCoincide)
+            {
+                nuevaConfianza = "Alta";
+            }
+            else if (!esJurisdiccionVoluntaria && expediente.Banco != null)
+            {
+                // Mismo criterio que EjecutarScrapingAsync para clasificar Media (DJ-122):
+                // foráneo puro requiere además que el juzgado del acuerdo sea exactamente
+                // el registrado en el expediente; Hermosillo ya lo exige como precondición
+                // para haber llegado a Confianza="Baja" en primer lugar. Los Exh./Cuad.
+                // (esSerieAuxiliar) nunca califican para Media, igual que en vivo.
+                var esForaneo = !JuzgadosHermosillo.Contains(acuerdo.IdUnidad);
+                var esSerieAuxiliar = EsSerieAuxiliar(acuerdo.TipoAsunto);
+                var mencionaBanco = MencionaBancoOAlias(expediente.Banco.Nombre, acuerdo.Partes, umbralSimilitudPartes);
+
+                var ahoraMedia = esSerieAuxiliar
+                    ? false
+                    : esForaneo
+                        ? JuzgadoForaneoCoincide(expediente.Juzgado, acuerdo.NombreJuzgado) && mencionaBanco
+                        : mencionaBanco;
+
+                if (ahoraMedia) nuevaConfianza = "Media";
+            }
+
+            if (nuevaConfianza == null) continue;
+
+            var resumen = new AcuerdoDetectadoResumen
             {
                 NumeroExpediente = acuerdo.NumeroExpediente,
                 Juzgado = acuerdo.NombreJuzgado,
                 Sintesis = acuerdo.Sintesis,
                 FechaAcuerdo = acuerdo.FechaAcuerdo
-            });
+            };
+
+            if (nuevaConfianza == "Alta")
+                resultado.RegistrosDesocultados.Add(resumen);
+            else
+                resultado.RegistrosSugeridos.Add(resumen);
 
             if (dryRun) continue;
 
-            acuerdo.Confianza = "Alta";
+            acuerdo.Confianza = nuevaConfianza;
             acuerdo.Oculto = false;
             await context.SaveChangesAsync();
 
@@ -661,8 +701,8 @@ public class ScraperAcuerdosService : BackgroundService
             await context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza Alta) y se notificó",
-                acuerdo.NumeroExpediente, acuerdo.NombreJuzgado);
+                "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza {Confianza}) y se notificó",
+                acuerdo.NumeroExpediente, acuerdo.NombreJuzgado, nuevaConfianza);
         }
 
         return resultado;
