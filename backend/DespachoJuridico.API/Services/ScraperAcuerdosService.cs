@@ -2,6 +2,7 @@
 using DespachoJuridico.API.DTOs;
 using DespachoJuridico.API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using System.Text.Json;
 
 
@@ -720,9 +721,32 @@ public class ScraperAcuerdosService : BackgroundService
         new KeyValuePair<string, string>("Fecha", fecha.ToString("yyyy-MM-dd")),
     });
 
-        var response = await _httpClient.PostAsync(
-            "https://adison.stjsonora.gob.mx/Controller/ActionController.php",
-            formData);
+        // DJ-104: instrumentación de status code/latencia por petición individual
+        // a ADISON — necesaria para medir tolerancia de frecuencia con datos
+        // concretos (antes de esto no había ningún rastro de esto en los logs).
+        // La etiqueta de paso permite filtrar los logs de Railway por etapa del
+        // experimento (baseline, 90min, 75min, etc.) sin tocar código de nuevo.
+        var etiquetaExperimento = _config.GetValue<string>("ScraperAcuerdos:EtiquetaExperimento") ?? "baseline";
+        var cronometro = Stopwatch.StartNew();
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.PostAsync(
+                "https://adison.stjsonora.gob.mx/Controller/ActionController.php",
+                formData);
+        }
+        catch (Exception ex)
+        {
+            cronometro.Stop();
+            _logger.LogWarning(
+                "ADISON {IdUnidad}: FALLO tras {LatenciaMs}ms — {TipoExcepcion} [{Paso}]",
+                idUnidad, cronometro.ElapsedMilliseconds, ex.GetType().Name, etiquetaExperimento);
+            throw;
+        }
+        cronometro.Stop();
+        _logger.LogInformation(
+            "ADISON {IdUnidad}: HTTP {StatusCode} en {LatenciaMs}ms [{Paso}]",
+            idUnidad, (int)response.StatusCode, cronometro.ElapsedMilliseconds, etiquetaExperimento);
 
         if (!response.IsSuccessStatusCode) return resultado;
 
