@@ -46,5 +46,12 @@ public class AcuerdoScrapeado
     // que ya era visible). Quién y cuándo se registra en BitacoraCambios.
     public bool DescartadoManualmente { get; set; } = false;
 
+    // true cuando ya se incluyó este acuerdo en el correo de "recordatorio pasivo"
+    // de sugerencias Media sin resolver (RecordatorioAcuerdosPendientesService).
+    // Se manda una sola vez por acuerdo, nunca se repite mientras siga sin resolver
+    // — evitar fatiga de notificación pesa más que el riesgo de que se le olvide al
+    // litigante; si lo confirma o descarta después, este campo ya no importa.
+    public bool RecordatorioPendienteEnviado { get; set; } = false;
+
     public Expediente Expediente { get; set; } = null!;
 }
