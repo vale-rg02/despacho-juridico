@@ -937,22 +937,91 @@ public class ScraperAcuerdosService : BackgroundService
         return false;
     }
 
+    // DJ-118 (diseño de la investigación DJ-107): conectores gramaticales típicos
+    // de ADISON que preceden directamente al nombre real de una parte.
+    private static readonly string[] ConectoresDeNombre = { "VS", "A BIENES DE", "PROMOVIDO POR", "EN CONTRA DE" };
+
     // ¿El texto de "Partes" que trae ADISON parece traer al menos un nombre de
     // persona o empresa, o es solo texto genérico ("---", tipo de trámite sin
     // nombres, etc.)? Si no hay nombre, no hay nada que verificar contra
     // ParteDemandada — se sigue confiando en número+juzgado como antes.
+    //
+    // DJ-118 (enfoque híbrido de la investigación DJ-107, medido contra 32
+    // registros reales: el patrón anterior de "solo texto después del último
+    // guion" acertaba 75% (24/32), con 8 errores de dos causas repetidas):
+    //
+    // 1. Conectores explícitos primero (VS / A BIENES DE / PROMOVIDO POR / EN
+    //    CONTRA DE) — es la señal más confiable de que sigue un nombre real, sin
+    //    depender de dónde caiga (o no) un guion. Corrige los 4 falsos positivos
+    //    del patrón anterior (texto SIN ningún guion + terminología genérica de
+    //    2+ palabras largas colándose como si fuera nombre — casos reales:
+    //    "CAUSA PENAL 1733/2026 ADULTO A.T.R.", boilerplate de exhorto foráneo
+    //    tipo "EN CUADERNO FORMADO CON MOTIVO DEL EXHORTO REMITIDO POR EL
+    //    JUZGADO...").
+    // 2. Si no hay conector, respaldo por guion — pero corrigiendo el error del
+    //    patrón anterior: un guion final tipo "...NOMBRE.-" es un TERMINADOR de
+    //    la oración, no el separador antes del nombre (el nombre real queda
+    //    ANTES de ese guion, no después). Se recorren los guiones de atrás hacia
+    //    adelante, descartando cualquiera sin contenido real después (un
+    //    terminador) hasta encontrar uno con contenido, o quedarse sin guiones
+    //    útiles. Corrige los 4 falsos negativos del patrón anterior (casos
+    //    reales: "JURISDICCIÓN VOLUNTARIA (ACCIÓN DECLARATIVO DE
+    //    PROPIEDAD).- VICENTE IBARRA OLIVAS.-", "SUMARIO CIVIL .- FRANCISCO
+    //    ALBERTO GOVEA OCAMPO.- " — en ambos el patrón anterior tomaba el texto
+    //    después del guion final, que está vacío, y perdía el nombre real que
+    //    queda justo antes).
+    //
+    // Caso residual conocido, NO resuelto por este enfoque (documentado, no
+    // oculto — ver PartesTieneNombre_CasoResidual_AccionPagoDePesos_SigueSiendoFalsoPositivo):
+    // cuando el contenido después de un guion real (no terminador) es
+    // terminología genérica del tipo de acción que por casualidad tiene 2+
+    // palabras largas (ej. "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS." — un
+    // registro real donde ADISON aún no había publicado el nombre de las
+    // partes). Ni el conector ni el manejo de terminador detectan esto, porque
+    // el guion SÍ tiene contenido real después — solo que ese contenido no es un
+    // nombre. No se intenta resolver aquí (fuera del alcance de DJ-118).
     internal static bool PartesTieneNombre(string partes)
     {
         if (string.IsNullOrWhiteSpace(partes)) return false;
 
-        // Los nombres suelen venir después del último separador ("-" o ".-") que
-        // cierra la descripción del tipo de trámite — el texto antes de eso casi
-        // siempre es terminología genérica ("ESPECIAL HIPOTECARIO", "ORAL
-        // MERCANTIL", etc.) que por sí sola no cuenta como nombre real.
-        var ultimoGuion = partes.LastIndexOf('-');
-        var textoRelevante = ultimoGuion >= 0 ? partes[(ultimoGuion + 1)..] : partes;
+        if (SigueUnNombreDespuesDeUnConector(partes)) return true;
 
-        var palabras = System.Text.RegularExpressions.Regex.Matches(textoRelevante, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
+        var segmentos = partes.Split('-');
+        for (var i = segmentos.Length - 1; i >= 1; i--)
+        {
+            var candidato = segmentos[i].Trim(' ', '.', '\t');
+            if (candidato.Length == 0) continue; // guion terminador, no separador
+
+            return TieneFragmentoDeNombre(candidato);
+        }
+
+        // Nunca hubo guion con contenido real después (o nunca hubo guion) y
+        // tampoco conector — no hay nada confiable que indique un nombre.
+        return false;
+    }
+
+    private static bool SigueUnNombreDespuesDeUnConector(string partes)
+    {
+        var normalizado = NormalizarTexto(partes);
+        foreach (var conector in ConectoresDeNombre)
+        {
+            var patron = $@"\b{System.Text.RegularExpressions.Regex.Escape(conector)}\b";
+            var match = System.Text.RegularExpressions.Regex.Match(normalizado, patron);
+            if (!match.Success) continue;
+
+            var despues = normalizado[(match.Index + match.Length)..];
+            // El conector mismo ya es la señal fuerte -- basta 1 palabra larga
+            // después (a diferencia del respaldo por guion, que exige 2+ por ser
+            // una señal más débil).
+            if (System.Text.RegularExpressions.Regex.IsMatch(despues, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}"))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool TieneFragmentoDeNombre(string texto)
+    {
+        var palabras = System.Text.RegularExpressions.Regex.Matches(texto, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
         return palabras.Count >= 2;
     }
 

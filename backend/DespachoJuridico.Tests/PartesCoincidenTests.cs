@@ -20,6 +20,74 @@ public class PartesCoincidenTests
         Assert.Equal(esperado, ScraperAcuerdosService.PartesTieneNombre(partes ?? string.Empty));
     }
 
+    // DJ-118 (enfoque híbrido, investigación DJ-107): contra 32 registros reales
+    // de AcuerdosScrapeados, el patrón anterior ("solo texto después del último
+    // guion") acertaba 75% (24/32) -- estas pruebas cubren los 8 errores reales
+    // que motivaron el cambio (4 falsos positivos, 4 falsos negativos, de dos
+    // causas repetidas cada uno) más el caso residual que el nuevo enfoque
+    // tampoco resuelve. Los textos de "falso positivo corregido" y "falso
+    // negativo corregido" de abajo son registros reales de producción (jalados
+    // de AcuerdosScrapeados el 21 sep 2026 para validar el diseño, ya que la
+    // muestra original de 32 de DJ-107 no quedó preservada en el repo) — no son
+    // inventados.
+
+    [Theory]
+    // Falso positivo corregido (causa: texto SIN ningún guion + terminología
+    // genérica de 2+ palabras largas que el patrón anterior confundía con un
+    // nombre). Caso real: causa penal de un adolescente, iniciales redactadas.
+    [InlineData("CAUSA PENAL 1733/2026 ADULTO A.T.R.", false)]
+    // Falso positivo corregido: boilerplate real de exhorto foráneo, sin ningún
+    // guion ni nombre de parte.
+    [InlineData("EN CUADERNO FORMADO CON MOTIVO DEL EXHORTO REMITIDO POR EL JUZGADO DE ORALIDAD MERCANTIL DEL PRIMER DISTRITO JUDICIAL DEL ESTADO DE NUEVO LEÓN.-", false)]
+    // Falso negativo corregido (causa: el guion final es un TERMINADOR de la
+    // oración, no el separador antes del nombre -- el patrón anterior tomaba el
+    // texto después de ese guion, que está vacío, y perdía el nombre real que
+    // queda justo antes). Caso real: Jurisdicción Voluntaria con dos guiones,
+    // el nombre entre el primero y el segundo (terminador).
+    [InlineData("JURISDICCIÓN VOLUNTARIA (ACCIÓN DECLARATIVO DE PROPIEDAD).- VICENTE IBARRA OLIVAS.-", true)]
+    // Falso negativo corregido: mismo patrón, otro caso real.
+    [InlineData("SUMARIO CIVIL .- FRANCISCO ALBERTO GOVEA OCAMPO.- ", true)]
+    public void PartesTieneNombre_DJ118_CasosRealesQueElPatronAnteriorFallaba(string partes, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Theory]
+    // Conectores VS y "A BIENES DE"/"PROMOVIDO POR"/"EN CONTRA DE" -- el patrón
+    // de VS ya estaba cubierto arriba; estos cubren los otros tres conectores
+    // explícitos del diseño (casos construidos siguiendo el formato real de
+    // ADISON, no jalados de producción -- no encontré ejemplos reales de estos
+    // tres conectores específicos en la muestra revisada).
+    [InlineData("EMBARGO - A BIENES DE JUAN CARLOS PEREZ LOPEZ", true)]
+    [InlineData("JURISDICCIÓN VOLUNTARIA - PROMOVIDO POR MARIA GUADALUPE TORRES ARMENTA", true)]
+    [InlineData("EJECUCIÓN - EN CONTRA DE ROBERTO SANCHEZ MENA", true)]
+    public void PartesTieneNombre_DJ118_ConectoresAdicionales(string partes, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_CasoResidual_AccionPagoDePesos_SigueSiendoFalsoPositivo()
+    {
+        // Caso residual DOCUMENTADO, no resuelto por DJ-118 (el criterio de
+        // aceptación pide no ocultarlo): registro real donde ADISON publicó el
+        // tipo de acción pero todavía no el nombre de las partes. El guion aquí
+        // SÍ tiene contenido real después ("ACCIÓN PAGO DE PESOS"), así que no es
+        // un terminador -- pero ese contenido es terminología genérica del tipo
+        // de trámite, no un nombre, y por casualidad tiene 2+ palabras largas.
+        // Ni el conector ni el manejo de terminador detectan este caso porque
+        // ninguno de los dos aplica aquí. Da el 31/32 (no 32/32) medido contra
+        // la muestra real.
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.";
+
+        Assert.True(ScraperAcuerdosService.PartesTieneNombre(partes));
+        // PartesCoinciden sí rechaza correctamente cualquier ParteDemandada real
+        // contra este texto -- el residual solo afecta si SE INTENTA verificar,
+        // no si el resultado final es correcto (sigue clasificando Baja/oculto,
+        // nunca genera un falso match).
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Roberto Sánchez Mena", partes));
+    }
+
     [Fact]
     public void PartesCoinciden_CoincidenciaExacta_RegresaTrue()
     {
