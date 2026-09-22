@@ -185,19 +185,21 @@ public class ScraperAcuerdosService : BackgroundService
     // acuerdos durante el día (no todo de golpe a medianoche), así que una sola
     // corrida diaria se queda con lo que ya estaba listo esa madrugada y nunca
     // vuelve a revisar el día anterior. Horario configurable, por defecto cada
-    // 2 horas de 00:05 a 18:05 hora de Hermosillo — fuera de esa ventana no corre,
-    // para no pegarle a ADISON de madrugada sin actividad real.
+    // 2 horas (120 min) de 00:05 a 18:05 hora de Hermosillo — fuera de esa
+    // ventana no corre, para no pegarle a ADISON de madrugada sin actividad real.
+    // DJ-104: intervalo en minutos (no horas enteras) para poder subir la
+    // frecuencia en pasos graduales (90min, 75min, 60min) sin cambiar código.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
-        var intervaloHoras = _config.GetValue<int>("ScraperAcuerdos:IntervaloHorasDiurno", 2);
+        var intervaloMinutos = _config.GetValue<int>("ScraperAcuerdos:IntervaloMinutos", 120);
         var horaInicio = _config.GetValue<int>("ScraperAcuerdos:HoraInicioLocal", 0);
         var horaFin = _config.GetValue<int>("ScraperAcuerdos:HoraFinLocal", 18);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria);
-            var proximaCorridaLocal = ProximaCorridaProgramada(ahoraLocal, horaInicio, horaFin, intervaloHoras);
+            var proximaCorridaLocal = ProximaCorridaProgramada(ahoraLocal, horaInicio, horaFin, intervaloMinutos);
             var proximaCorridaUtc = TimeZoneInfo.ConvertTimeToUtc(
                 DateTime.SpecifyKind(proximaCorridaLocal, DateTimeKind.Unspecified), zonaHoraria);
             var espera = proximaCorridaUtc - DateTime.UtcNow;
@@ -225,21 +227,24 @@ public class ScraperAcuerdosService : BackgroundService
         }
     }
 
-    // Calcula la siguiente hora programada (cada intervaloHoras, entre horaInicio
-    // y horaFin, minuto :05) a partir de "ahora" en hora local de Hermosillo. Si
-    // ya pasaron todas las corridas de hoy, programa la primera de mañana.
-    internal static DateTime ProximaCorridaProgramada(DateTime ahoraLocal, int horaInicio, int horaFin, int intervaloHoras)
+    // Calcula la siguiente hora programada (cada intervaloMinutos, entre horaInicio
+    // y horaFin, arrancando en el minuto :05) a partir de "ahora" en hora local de
+    // Hermosillo. Si ya pasaron todas las corridas de hoy, programa la primera de
+    // mañana.
+    internal static DateTime ProximaCorridaProgramada(DateTime ahoraLocal, int horaInicio, int horaFin, int intervaloMinutos)
     {
         var hoy = ahoraLocal.Date;
+        var inicioMinutos = horaInicio * 60 + 5;
+        var finMinutos = horaFin * 60 + 5;
 
-        for (var hora = horaInicio; hora <= horaFin; hora += intervaloHoras)
+        for (var minuto = inicioMinutos; minuto <= finMinutos; minuto += intervaloMinutos)
         {
-            var candidato = hoy.AddHours(hora).AddMinutes(5);
+            var candidato = hoy.AddMinutes(minuto);
             if (candidato > ahoraLocal)
                 return candidato;
         }
 
-        return hoy.AddDays(1).AddHours(horaInicio).AddMinutes(5);
+        return hoy.AddDays(1).AddMinutes(inicioMinutos);
     }
 
     // notificar=false guarda los acuerdos detectados (con su Confianza/Oculto reales,
