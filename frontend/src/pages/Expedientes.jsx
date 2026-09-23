@@ -9,6 +9,7 @@ import { agregarAcceso } from '../services/accesos'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+import BotonActualizarExpedientes from '../components/BotonActualizarExpedientes'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
@@ -450,6 +451,8 @@ function Expedientes() {
               </div>
             )}
           </div>
+
+          <BotonActualizarExpedientes />
 
           <button
             onClick={() => navigate('/expedientes/nuevo')}

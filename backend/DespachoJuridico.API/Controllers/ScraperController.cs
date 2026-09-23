@@ -4,16 +4,31 @@ using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DespachoJuridico.API.Controllers;
 
+// DJ-102: antes AccesoAdmin a nivel de clase -- ahora solo cualquier usuario
+// autenticado (cada endpoint admin de abajo re-declara AccesoAdmin explícitamente,
+// para no abrir por accidente ninguno de los 4 ya existentes). Los 2 endpoints
+// nuevos (actualizar-mis-expedientes / mi-estado-actualizacion) son los únicos
+// pensados para cualquier litigante.
 [ApiController]
 [Route("api/scraper")]
-[Authorize(Policy = "AccesoAdmin")]
+[Authorize]
 public class ScraperController : ControllerBase
 {
     private readonly ScraperAcuerdosService _scraper;
     private readonly AppDbContext _context;
+
+    // DJ-102: cooldown fijo entre usos del botón "Actualizar expedientes".
+    private static readonly TimeSpan CooldownActualizacionManual = TimeSpan.FromMinutes(15);
+
+    // Umbral para tratar un ScraperEnProgreso=true como obsoleto (el proceso murió a
+    // medio de una corrida, ej. redeploy de Railway) en vez de bloquear al usuario
+    // para siempre -- una corrida manual acotada a sus propios juzgados nunca debería
+    // acercarse a esto.
+    private static readonly TimeSpan UmbralProgresoObsoleto = TimeSpan.FromMinutes(10);
 
     public ScraperController(ScraperAcuerdosService scraper, AppDbContext context)
     {
@@ -21,11 +36,15 @@ public class ScraperController : ControllerBase
         _context = context;
     }
 
+    private int ObtenerUsuarioId() =>
+        int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
     // GET /api/scraper/registros
     // GET /api/scraper/registros?fecha=2026-08-20
     // Todo lo que hay en AcuerdosScrapeados detectado ese día (hora de Hermosillo),
     // visible y oculto — para diagnosticar sin depender de acceso directo a la BD.
     [HttpGet("registros")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Registros([FromQuery] DateOnly? fecha = null)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
@@ -75,6 +94,7 @@ public class ScraperController : ControllerBase
     //   fechas atrasadas donde el registro histórico correcto no debe generar un correo
     //   "hoy" avisando de algo de hace semanas.
     [HttpPost("ejecutar")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false, [FromQuery] string? idsUnidad = null, [FromQuery] bool notificar = true)
     {
         var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad), notificar);
@@ -87,6 +107,7 @@ public class ScraperController : ControllerBase
     // antes de activar el scraper diario). Limitado a 5 días por llamada y con
     // una pausa de 30s entre fechas para no sobrecargar ADISON.
     [HttpPost("ejecutar-rango")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> EjecutarRango(
         [FromQuery] string fechaInicio,
         [FromQuery] string fechaFin,
@@ -154,10 +175,75 @@ public class ScraperController : ControllerBase
     // a Confianza=Media — ambos se notifican. Por defecto dryRun=true: solo lista
     // qué se desocultaría, sin tocar la BD ni enviar correos.
     [HttpPost("reevaluar-ocultos")]
+    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true)
     {
         var resultado = await _scraper.ReevaluarOcultosAsync(dryRun);
         return Ok(resultado);
+    }
+
+    // POST /api/scraper/actualizar-mis-expedientes
+    // DJ-102: dispara una corrida del scraper acotada a los expedientes activos
+    // propios (titular o colaborador) de quien la pide. Responde de inmediato
+    // (202) y corre en segundo plano -- nunca bloquea la petición HTTP. Sujeta a
+    // cooldown fijo de 15 min y a no poder dispararse dos veces mientras la
+    // anterior sigue en curso.
+    [HttpPost("actualizar-mis-expedientes")]
+    public async Task<IActionResult> ActualizarMisExpedientes()
+    {
+        var usuarioId = ObtenerUsuarioId();
+        var usuario = await _context.Usuarios.FindAsync(usuarioId);
+        if (usuario == null) return Unauthorized();
+
+        var evaluacion = EvaluarCooldown(
+            usuario.ScraperEnProgreso, usuario.ScraperIniciadoEn, usuario.UltimaConsultaScraperEn,
+            DateTime.UtcNow, CooldownActualizacionManual, UmbralProgresoObsoleto);
+
+        if (!evaluacion.PuedeIniciar)
+            return Conflict(new { mensaje = evaluacion.Mensaje, cooldownRestanteSegundos = evaluacion.CooldownRestanteSegundos });
+
+        usuario.ScraperEnProgreso = true;
+        usuario.ScraperIniciadoEn = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        _ = Task.Run(() => _scraper.EjecutarScrapingManualAsync(usuarioId, CancellationToken.None));
+
+        return Accepted(new { mensaje = "Actualización iniciada" });
+    }
+
+    // GET /api/scraper/mi-estado-actualizacion
+    // DJ-102: para que el litigante vea si hay una actualización en curso, cuánto
+    // falta de cooldown, y la fecha/hora real más reciente de sus datos (la corrida
+    // automática global más reciente, o su propia corrida manual, la que sea más
+    // nueva).
+    [HttpGet("mi-estado-actualizacion")]
+    public async Task<IActionResult> MiEstadoActualizacion()
+    {
+        var usuarioId = ObtenerUsuarioId();
+        var usuario = await _context.Usuarios.FindAsync(usuarioId);
+        if (usuario == null) return Unauthorized();
+
+        var estadoGlobal = await _context.EstadosScraper.FindAsync(1);
+
+        var evaluacion = EvaluarCooldown(
+            usuario.ScraperEnProgreso, usuario.ScraperIniciadoEn, usuario.UltimaConsultaScraperEn,
+            DateTime.UtcNow, CooldownActualizacionManual, UmbralProgresoObsoleto);
+
+        DateTime? ultimaActualizacionEn = null;
+        if (estadoGlobal?.UltimaCorridaCompletaEn.HasValue == true || usuario.UltimaConsultaScraperEn.HasValue)
+        {
+            ultimaActualizacionEn = new[] { estadoGlobal?.UltimaCorridaCompletaEn, usuario.UltimaConsultaScraperEn }
+                .Where(f => f.HasValue)
+                .Max();
+        }
+
+        return Ok(new EstadoActualizacionScraperResponse
+        {
+            EnProgreso = usuario.ScraperEnProgreso && !evaluacion.ProgresoObsoleto,
+            UltimaActualizacionEn = ultimaActualizacionEn,
+            CooldownRestanteSegundos = evaluacion.CooldownRestanteSegundos,
+            PuedeActualizar = evaluacion.PuedeIniciar
+        });
     }
 
     private static HashSet<int>? ParseIdsUnidad(string? idsUnidad)
@@ -168,5 +254,32 @@ public class ScraperController : ControllerBase
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(int.Parse)
             .ToHashSet();
+    }
+
+    // DJ-102: pura y testeable sin BD/HTTP. Decide si el botón "Actualizar
+    // expedientes" puede dispararse ahora mismo -- bloqueado si hay una corrida en
+    // curso reciente (ScraperEnProgreso, salvo que ScraperIniciadoEn sea más viejo
+    // que umbralProgresoObsoleto, señal de que el proceso murió a medio de una
+    // corrida) o si no pasó el cooldown desde la última consulta manual.
+    internal static (bool PuedeIniciar, bool ProgresoObsoleto, int CooldownRestanteSegundos, string? Mensaje) EvaluarCooldown(
+        bool enProgreso, DateTime? iniciadoEn, DateTime? ultimaConsultaEn, DateTime ahora,
+        TimeSpan cooldown, TimeSpan umbralProgresoObsoleto)
+    {
+        var progresoObsoleto = enProgreso && iniciadoEn.HasValue && (ahora - iniciadoEn.Value) > umbralProgresoObsoleto;
+
+        if (enProgreso && !progresoObsoleto)
+            return (false, progresoObsoleto, 0, "Ya hay una actualización en curso.");
+
+        if (ultimaConsultaEn.HasValue)
+        {
+            var restante = cooldown - (ahora - ultimaConsultaEn.Value);
+            if (restante > TimeSpan.Zero)
+            {
+                var segundos = (int)Math.Ceiling(restante.TotalSeconds);
+                return (false, progresoObsoleto, segundos, $"Disponible de nuevo en {segundos} segundos.");
+            }
+        }
+
+        return (true, progresoObsoleto, 0, null);
     }
 }

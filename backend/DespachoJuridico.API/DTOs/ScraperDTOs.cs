@@ -91,3 +91,17 @@ public class RegistroScraperDiaResponse
     // diferenciar ambos orígenes.
     public bool DescartadoManualmente { get; set; }
 }
+
+// DJ-102: respuesta de GET /api/scraper/mi-estado-actualizacion -- estado del
+// botón "Actualizar expedientes" para el usuario autenticado.
+public class EstadoActualizacionScraperResponse
+{
+    public bool EnProgreso { get; set; }
+
+    // La corrida automática global más reciente, o la propia corrida manual del
+    // usuario, la que sea más nueva -- null si ninguna de las dos ocurrió todavía.
+    public DateTime? UltimaActualizacionEn { get; set; }
+
+    public int CooldownRestanteSegundos { get; set; }
+    public bool PuedeActualizar { get; set; }
+}

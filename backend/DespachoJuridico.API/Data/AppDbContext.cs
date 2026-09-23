@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<ExpedienteAcceso> ExpedienteAccesos => Set<ExpedienteAcceso>();
     public DbSet<SedeCatalogo> SedesCatalogo => Set<SedeCatalogo>();
     public DbSet<JuzgadoCatalogo> JuzgadosCatalogo => Set<JuzgadoCatalogo>();
+    public DbSet<EstadoScraper> EstadosScraper => Set<EstadoScraper>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

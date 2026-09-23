@@ -18,6 +18,11 @@ public class ScraperAcuerdosService : BackgroundService
     private readonly HttpClient _httpClient;
     private readonly Dictionary<int, int> _fallosConsecutivosPorJuzgado = new();
 
+    // DJ-102: evita que el ciclo automático y una corrida manual (botón "Actualizar
+    // expedientes" del litigante) le peguen a ADISON al mismo tiempo -- una espera a
+    // que la otra termine, nunca corren en paralelo.
+    private readonly SemaphoreSlim _scrapingLock = new(1, 1);
+
     private static readonly Dictionary<int, string> Juzgados = new()
     {
         // ── HERMOSILLO ─────────────────────────────────────────────────────
@@ -218,7 +223,19 @@ public class ScraperAcuerdosService : BackgroundService
 
             try
             {
-                await EjecutarScrapingAsync();
+                await _scrapingLock.WaitAsync(stoppingToken);
+                try
+                {
+                    await EjecutarScrapingAsync();
+                }
+                finally
+                {
+                    _scrapingLock.Release();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
@@ -252,7 +269,13 @@ public class ScraperAcuerdosService : BackgroundService
     // fechas atrasadas, donde escribir el registro histórico correcto no debe
     // traducirse en un correo "hoy" avisando de algo que pasó hace semanas. Por
     // default true: no cambia el comportamiento normal del ciclo automático.
-    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true)
+    // DJ-102: expedienteIdsFiltro acota además el universo de expedientes candidatos
+    // al matching (no solo qué juzgados se consultan, como ya hacía idsUnidad) --
+    // usado por una corrida manual de litigante para que nunca toque ni notifique
+    // sobre expedientes ajenos, aunque compartan juzgado con uno de los suyos.
+    // Default null: comportamiento idéntico al de siempre para el ciclo automático
+    // y los endpoints admin existentes.
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true, IReadOnlySet<int>? expedienteIdsFiltro = null)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
@@ -276,6 +299,7 @@ public class ScraperAcuerdosService : BackgroundService
             .Include(e => e.UsuarioAsignado)
             .Include(e => e.Banco)
             .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
+            .Where(e => expedienteIdsFiltro == null || expedienteIdsFiltro.Contains(e.Id))
             .ToListAsync();
 
         resultado.ExpedientesConsultados = expedientes.Count;
@@ -598,7 +622,109 @@ public class ScraperAcuerdosService : BackgroundService
             await Task.Delay(TimeSpan.FromSeconds(2));
         }
 
+        // DJ-102: solo una corrida real y sin ninguna restricción (ciclo automático,
+        // o un admin corriendo /ejecutar sin idsUnidad) cubre de verdad TODOS los
+        // juzgados -- es la única que puede actualizar con confianza "última
+        // actualización" para CUALQUIER litigante. Una corrida acotada (idsUnidad y/o
+        // expedienteIdsFiltro) nunca toca esta fila.
+        if (!dryRun && idsUnidad == null && expedienteIdsFiltro == null)
+        {
+            var estado = await context.EstadosScraper.FindAsync(1);
+            if (estado == null)
+                context.EstadosScraper.Add(new EstadoScraper { Id = 1, UltimaCorridaCompletaEn = DateTime.UtcNow });
+            else
+                estado.UltimaCorridaCompletaEn = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
+
         _logger.LogInformation("Scraping completado para {Fecha}", fecha);
+        return resultado;
+    }
+
+    // DJ-102: "Actualizar expedientes" del litigante -- corre el scraper acotado a
+    // los juzgados y expedientes propios de `usuarioId` (titular o colaborador,
+    // activos), sin tocar ni notificar sobre expedientes de otros litigantes aunque
+    // compartan juzgado. Siempre libera ScraperEnProgreso al terminar, con éxito o no.
+    public async Task EjecutarScrapingManualAsync(int usuarioId, CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        try
+        {
+            var expedientesPropios = await AplicarFiltroExpedientesPropios(context.Expedientes, usuarioId)
+                .Select(e => new { e.Id, e.Juzgado })
+                .ToListAsync();
+
+            var expedienteIds = expedientesPropios.Select(e => e.Id).ToHashSet();
+            var idsUnidad = DerivarIdsUnidadParaJuzgados(expedientesPropios.Select(e => e.Juzgado));
+
+            await _scrapingLock.WaitAsync(ct);
+            try
+            {
+                if (idsUnidad.Count > 0)
+                    await EjecutarScrapingAsync(null, false, idsUnidad, true, expedienteIds);
+            }
+            finally
+            {
+                _scrapingLock.Release();
+            }
+
+            var usuario = await context.Usuarios.FindAsync(usuarioId);
+            if (usuario != null)
+            {
+                usuario.UltimaConsultaScraperEn = DateTime.UtcNow;
+                usuario.ScraperEnProgreso = false;
+                await context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error durante la actualización manual de expedientes del usuario {UsuarioId}", usuarioId);
+
+            var usuario = await context.Usuarios.FindAsync(usuarioId);
+            if (usuario != null)
+            {
+                usuario.ScraperEnProgreso = false;
+                await context.SaveChangesAsync();
+            }
+        }
+    }
+
+    // DJ-102: expedientes "propios" de un usuario para el botón "Actualizar
+    // expedientes" -- titular O colaborador explícito (ExpedienteAccesos), activos.
+    // Mismo predicado que ExpedientesController.GetAll usa para su vista "mis
+    // expedientes" (ExpedientesController.cs:98-100), replicado aquí porque ese
+    // controller no es accesible desde este servicio. Extraído como IQueryable
+    // separado para poder testearlo sin correr el scraping completo (que necesita
+    // HTTP real a ADISON).
+    internal static IQueryable<Expediente> AplicarFiltroExpedientesPropios(IQueryable<Expediente> expedientes, int usuarioId) =>
+        expedientes
+            .Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado)
+            .Where(e => e.UsuarioAsignadoId == usuarioId || e.Accesos.Any(a => a.UsuarioId == usuarioId));
+
+    // DJ-102: para cada juzgado texto-libre de un expediente, encuentra el/los
+    // idUnidad del catálogo ADISON que le corresponden -- replica exactamente la
+    // misma decisión Hermosillo/foráneo que usa el matching real (JuzgadoCoincide
+    // para Hermosillo, JuzgadoForaneoCoincide para el resto, ver línea ~329) para que
+    // los juzgados consultados sean consistentes con los que de verdad producirían
+    // match para ese expediente. Pura y testeable sin BD/HTTP.
+    internal static HashSet<int> DerivarIdsUnidadParaJuzgados(IEnumerable<string?> juzgadosExpedientes)
+    {
+        var resultado = new HashSet<int>();
+
+        foreach (var juzgadoExp in juzgadosExpedientes.Where(j => !string.IsNullOrWhiteSpace(j)))
+        {
+            foreach (var (idUnidad, nombreJuzgado) in Juzgados)
+            {
+                var coincide = JuzgadosHermosillo.Contains(idUnidad)
+                    ? JuzgadoCoincide(juzgadoExp!, nombreJuzgado)
+                    : JuzgadoForaneoCoincide(juzgadoExp, nombreJuzgado);
+
+                if (coincide) resultado.Add(idUnidad);
+            }
+        }
+
         return resultado;
     }
 
