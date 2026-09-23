@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
   ClipboardList, User, Landmark, Pencil, Trash2, ChevronDown, Scale, Send, Users, UserPlus, X, MapPin, EyeOff, Check, HelpCircle
@@ -257,6 +257,7 @@ function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
 function DetalleExpediente() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const usuario = getUsuario()
 
   const [expediente, setExpediente] = useState(null)
@@ -284,6 +285,16 @@ function DetalleExpediente() {
   useEffect(() => {
     cargarDatos()
   }, [id])
+
+  // Link directo de los correos de acuerdos a #acuerdos: el scroll-a-hash
+  // nativo del navegador no es confiable aquí porque la sección se renderiza
+  // después de una carga async -- hay que hacerlo a mano una vez que ya
+  // terminó de cargar.
+  useEffect(() => {
+    if (!cargando && location.hash === '#acuerdos') {
+      document.getElementById('acuerdos')?.scrollIntoView()
+    }
+  }, [cargando, location.hash])
 
   async function cargarDatos() {
     setCargando(true)
@@ -707,7 +718,7 @@ function DetalleExpediente() {
         </section>
 
         {/* Acuerdos del Poder Judicial */}
-        <section>
+        <section id="acuerdos">
           <div className="flex items-center justify-between mb-3">
             <h2
               className="text-xs font-medium uppercase tracking-widest text-foreground flex items-center gap-2"

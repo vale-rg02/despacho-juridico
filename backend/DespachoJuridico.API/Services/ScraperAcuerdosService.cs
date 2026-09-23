@@ -794,9 +794,14 @@ public class ScraperAcuerdosService : BackgroundService
         // con un asunto y mensaje que dejan claro que necesita revisión, no que ya
         // se confirmó.
         var esSugerido = acuerdo.Confianza == "Media";
-        var asunto = esSugerido
-            ? $"¿Es tuyo? Posible acuerdo — Exp. {expediente.NumeroExpediente}"
-            : $"Nuevo acuerdo judicial — Exp. {expediente.NumeroExpediente}";
+        var asunto = ConstruirAsuntoNotificacion(expediente.NumeroExpediente, esSugerido);
+
+        // Link directo a la sección de Acuerdos del expediente (Alta y Media
+        // comparten el mismo destino) — evita que el litigante tenga que
+        // buscar el expediente a mano. RutaProtegida/Login preservan este
+        // destino si no hay sesión iniciada (ver frontend).
+        var frontendBaseUrl = _config.GetValue<string>("Frontend:BaseUrl") ?? "https://app.acedoehijos.com";
+        var urlAcuerdoEnc = System.Net.WebUtility.HtmlEncode(ConstruirUrlAcuerdo(frontendBaseUrl, expediente.Id));
 
         var nombreEnc = System.Net.WebUtility.HtmlEncode(expediente.UsuarioAsignado.Nombre);
         var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
@@ -819,6 +824,8 @@ public class ScraperAcuerdosService : BackgroundService
   .highlight p{{margin:4px 0;font-size:14px;color:#444;}}
   .highlight strong{{color:#1c2b4a;}}
   .sintesis{{background:#fffdf7;border:1px solid #e0ddd6;padding:16px 20px;margin:16px 0;border-radius:6px;font-size:14px;line-height:1.6;color:#555;}}
+  .cta{{text-align:center;margin:28px 0 8px;}}
+  .cta a{{display:inline-block;background:#1c2b4a;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:500;}}
   .footer{{background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e0ddd6;}}
   .footer p{{font-size:12px;color:#888;margin:0;}}
 </style></head>
@@ -841,6 +848,7 @@ public class ScraperAcuerdosService : BackgroundService
     </div>
     <p><strong>Síntesis del acuerdo:</strong></p>
     <div class='sintesis'>{sintesisEnc}</div>
+    <div class='cta'><a href='{urlAcuerdoEnc}'>Ver acuerdo en el expediente</a></div>
     <p>{(esSugerido
         ? "Entre al sistema y use \"Confirmar\" si el caso es suyo, o \"Descartar\" si no lo es."
         : "Le recomendamos revisar el expediente en el sistema para tomar las acciones correspondientes.")}</p>
@@ -858,6 +866,21 @@ public class ScraperAcuerdosService : BackgroundService
             asunto,
             cuerpo);
     }
+
+    // Link directo a la sección de Acuerdos del expediente (Opción A: ruta
+    // protegida normal, no token de acceso temporal). El "#acuerdos" depende
+    // de que el frontend tenga ese id en la sección correspondiente y maneje
+    // el scroll explícito ahí — ver DetalleExpediente.jsx.
+    internal static string ConstruirUrlAcuerdo(string frontendBaseUrl, int expedienteId) =>
+        $"{frontendBaseUrl.TrimEnd('/')}/expedientes/{expedienteId}#acuerdos";
+
+    // DJ-122: un acuerdo "Media" es una sugerencia, no una certeza (coincide
+    // juzgado+número+banco, pero no el nombre del demandado) — el asunto deja
+    // claro que necesita revisión, no que ya se confirmó.
+    internal static string ConstruirAsuntoNotificacion(string numeroExpediente, bool esSugerido) =>
+        esSugerido
+            ? $"Posible acuerdo del expediente (Exp. {numeroExpediente}) — confirma para notificar"
+            : $"Nuevo acuerdo judicial — Exp. {numeroExpediente}";
 
     private static string NormalizarNumero(string numero)
     {

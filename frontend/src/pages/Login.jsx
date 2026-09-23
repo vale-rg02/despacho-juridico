@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Scale } from 'lucide-react'
 import { login } from '../services/auth'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -22,7 +23,9 @@ function Login() {
     setCargando(true)
     try {
       await login(email, password)
-      navigate('/expedientes')
+      // Si llegó aquí desde una ruta protegida (ej. link de correo sin
+      // sesión iniciada), regresa exactamente ahí -- ver RutaProtegida.jsx.
+      navigate(location.state?.from ?? '/expedientes')
     } catch (err) {
   if (err.response?.status === 401) {
     setError(err.response?.data?.mensaje ?? 'Correo o contraseña incorrectos')
