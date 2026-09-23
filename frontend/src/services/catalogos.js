@@ -5,6 +5,12 @@ export async function getBancos() {
   return response.data
 }
 
+// DJ-105
+export async function crearBanco(nombre) {
+  const response = await api.post('/bancos', { nombre })
+  return response.data
+}
+
 export async function getUsuarios() {
   const response = await api.get('/usuarios?excluirSoporte=true')
   return response.data

@@ -11,6 +11,12 @@ public class BancoResponse
     public string? Telefono { get; set; }
 }
 
+// DJ-105
+public class CrearBancoRequest
+{
+    [Required] public string Nombre { get; set; } = string.Empty;
+}
+
 public class UsuarioResponse
 {
     public int Id { get; set; }

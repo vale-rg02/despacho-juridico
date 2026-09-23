@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using DespachoJuridico.API.Data;
 using DespachoJuridico.API.DTOs;
+using DespachoJuridico.API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,5 +35,25 @@ public class BancosController : ControllerBase
             .ToListAsync();
 
         return Ok(bancos);
+    }
+
+    // POST /api/bancos — solo admin (DJ-105, mismo criterio que
+    // SedesController/JuzgadosController: agregar catálogo nuevo = solo admin).
+    [HttpPost]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> Create([FromBody] CrearBancoRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var nombre = request.Nombre.Trim();
+        if (await _context.Bancos.AnyAsync(b => b.Nombre == nombre))
+            return BadRequest(new { mensaje = "Ya existe un banco con ese nombre" });
+
+        var banco = new Banco { Nombre = nombre };
+        _context.Bancos.Add(banco);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetAll), new BancoResponse { Id = banco.Id, Nombre = banco.Nombre });
     }
 }

@@ -5,7 +5,7 @@ import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
-import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado } from '../services/catalogos'
+import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
 import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
@@ -26,7 +26,7 @@ function NuevoExpediente() {
   const [sedes, setSedes] = useState([])
   const [juzgados, setJuzgados] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
-  const [modalAgregar, setModalAgregar] = useState(null) // 'sede' | 'juzgado' | null
+  const [modalAgregar, setModalAgregar] = useState(null) // 'sede' | 'juzgado' | 'banco' | null
 
   const usuarioActual = getUsuario()
   const esAdmin = usuarioActual?.nivelAcceso === 'Administrativo' || usuarioActual?.nivelAcceso === 'Superior'
@@ -36,7 +36,7 @@ function NuevoExpediente() {
   const [form, setForm] = useState({
     numeroExpediente: '',
     parteDemandada: '',
-    bancoId: '',
+    banco: '',
     sede: 'Hermosillo',
     juzgado: '',
     materia: '',
@@ -127,6 +127,13 @@ function NuevoExpediente() {
     setModalAgregar(null)
   }
 
+  async function handleAgregarBanco(nombre) {
+    const nuevo = await crearBanco(nombre)
+    setBancos(prev => [...prev, nuevo])
+    setForm(prev => ({ ...prev, banco: nuevo.nombre }))
+    setModalAgregar(null)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setErrores({})
@@ -149,7 +156,7 @@ function NuevoExpediente() {
       const payload = {
         numeroExpediente: form.numeroExpediente.trim(),
         parteDemandada: form.parteDemandada.trim(),
-        bancoId: form.bancoId ? Number(form.bancoId) : null,
+        bancoId: bancos.find(b => b.nombre === form.banco)?.id ?? null,
         sede: form.sede || null,
         juzgado: form.juzgado || null,
         materia: form.materia || null,
@@ -264,19 +271,16 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Banco</label>
-              <select
-                name="bancoId"
-                value={form.bancoId}
-                onChange={handleChange}
+              <ComboboxCatalogo
+                label="Banco"
+                value={form.banco}
+                onChange={valor => setForm(prev => ({ ...prev, banco: valor }))}
+                opciones={bancos.map(b => b.nombre)}
+                placeholder="— Sin banco — o escribe para buscar..."
                 disabled={cargandoCatalogos}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Sin banco —</option>
-                {bancos.map(b => (
-                  <option key={b.id} value={b.id}>{b.nombre}</option>
-                ))}
-              </select>
+                onAgregarNuevo={esAdmin ? () => setModalAgregar('banco') : undefined}
+                textoAgregarNuevo="+ Agregar banco nuevo"
+              />
             </div>
 
             <div>
@@ -383,6 +387,14 @@ function NuevoExpediente() {
             titulo={`Agregar juzgado nuevo en ${form.sede}`}
             label="Nombre del juzgado"
             onGuardar={handleAgregarJuzgado}
+            onCancelar={() => setModalAgregar(null)}
+          />
+        )}
+        {modalAgregar === 'banco' && (
+          <ModalAgregarCatalogo
+            titulo="Agregar banco nuevo"
+            label="Nombre del banco"
+            onGuardar={handleAgregarBanco}
             onCancelar={() => setModalAgregar(null)}
           />
         )}
