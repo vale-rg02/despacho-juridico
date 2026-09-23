@@ -15,6 +15,7 @@ public static class DbSeeder
         await MigrarAlmonedasBajoRemateAsync(context);
         await MigrarIncidenteASubmenuAsync(context);
         await MigrarTerminoATipoJuicioAsync(context);
+        await SeedSedesYJuzgadosAsync(context);
         await SeedExpedientesAsync(context);
     }
 
@@ -420,6 +421,136 @@ public static class DbSeeder
                 ActualizadoEn = ahora
             }
         );
+
+        await context.SaveChangesAsync();
+    }
+
+    // DJ-112/DJ-87: catálogo de Sede (municipio) y Juzgado dependiente. Fuente:
+    // el diccionario interno de ADISON en ScraperAcuerdosService.Juzgados (uso
+    // exclusivo del scraper, ~84 entradas) -- copia deliberada, no lectura en
+    // vivo, para no arriesgar la lógica de matching ya afinada ahí (ver DJ-103).
+    // Se excluye el IdUnidad 297 ("Juzgado Familiar Competencia Especializada")
+    // por no tener municipio confirmado (ver comentario "SIN DISTRITO
+    // CONFIRMADO" en ese diccionario) -- no aparece como opción seleccionable
+    // hasta que se confirme su sede real.
+    //
+    // Idempotente por (Sede, Juzgado) individual, igual que
+    // SeedEtapasCatalogoAsync, para poder agregar entradas nuevas a este
+    // catálogo en despliegues futuros sin que lo ya sembrado bloquee lo nuevo.
+    internal static async Task SeedSedesYJuzgadosAsync(AppDbContext context)
+    {
+        var catalogo = new (string Sede, string[] Juzgados)[]
+        {
+            ("Hermosillo", new[]
+            {
+                "1ro Civil Hermosillo", "2do Civil Hermosillo", "3ro Civil Hermosillo",
+                "1ro Mercantil Hermosillo", "2do Mercantil Hermosillo", "3ro Mercantil Hermosillo", "4to Mercantil Hermosillo",
+                "1ro Oral Mercantil Hermosillo", "2do Oral Mercantil Hermosillo",
+                "Arrendamiento Hermosillo",
+                "1ro Familiar Hermosillo", "2do Familiar Hermosillo", "3ro Familiar Hermosillo", "4to Familiar Hermosillo",
+                "Juzgado Especializado Violencia de Género Hermosillo",
+                "1er Tribunal Colegiado 1er Circuito", "2do Tribunal Colegiado 1er Circuito",
+                "Secretaría General de Acuerdos Hermosillo",
+                "1ro Penal Hermosillo", "2do Penal Hermosillo", "3ro Penal Hermosillo", "5to Penal Hermosillo",
+                "Juzgado Oral Penal Hermosillo",
+                "Juzgado Adolescentes Hermosillo",
+                "Tribunal Unitario Regional Adolescentes/Penal Oral Hermosillo",
+                "Juzgado Ejecución de Sanciones Hermosillo",
+                "1er Tribunal Laboral Hermosillo", "2do Tribunal Laboral Hermosillo", "3er Tribunal Laboral Hermosillo",
+            }),
+            ("Cajeme", new[]
+            {
+                "1ro Civil Cajeme", "2do Civil Cajeme", "3ro Civil Cajeme", "4to Civil Cajeme",
+                "1ro Familiar Cajeme", "2do Familiar Cajeme", "3ro Familiar Cajeme",
+                "Juzgado Especial Familiar Cajeme",
+                "1ro Penal Cajeme", "Juzgado Oral Penal Cajeme",
+                "2do Mixto Cajeme", "1ro Mixto Cajeme",
+                "1er Tribunal Colegiado 2do Circuito",
+                "Tribunal Laboral Cajeme",
+            }),
+            ("Agua Prieta", new[]
+            {
+                "Juzgado 1ro Civil/Mercantil/Penal Agua Prieta",
+                "Juzgado 1ro Mixto Agua Prieta",
+                "Juzgado Oral Penal Agua Prieta",
+            }),
+            ("Álamos", new[] { "Juzgado Mixto Álamos" }),
+            ("Caborca", new[]
+            {
+                "Juzgado 1ro Civil Caborca",
+                "Juzgado Oral Penal Caborca",
+                "Juzgado Mixto Especializado Caborca",
+                "1er Tribunal Colegiado Caborca",
+            }),
+            ("Cananea", new[] { "Juzgado Mixto Cananea", "Sala Oral Penal Cananea" }),
+            ("Cumpas", new[] { "Juzgado Mixto Cumpas" }),
+            ("Guaymas", new[]
+            {
+                "Juzgado 1ro Civil Guaymas",
+                "Juzgado Civil/Familiar Especializado Guaymas",
+                "Juzgado 1ro Familiar Guaymas",
+                "Juzgado Oral Penal Guaymas",
+                "Tribunal Laboral Guaymas",
+            }),
+            ("Huatabampo", new[]
+            {
+                "Juzgado 1ro Civil Huatabampo",
+                "Juzgado 1ro Penal Huatabampo",
+                "Sala Oral Penal Huatabampo",
+            }),
+            ("Magdalena", new[] { "Juzgado Mixto Magdalena" }),
+            ("Navojoa", new[]
+            {
+                "Juzgado 1ro Civil Navojoa",
+                "Juzgado 1ro Familiar Navojoa",
+                "Juzgado Oral Penal Navojoa",
+                "Tribunal Laboral Navojoa",
+            }),
+            ("Nogales", new[]
+            {
+                "Juzgado 1ro Civil Nogales",
+                "Juzgado 1ro Familiar Nogales",
+                "Juzgado 2do Familiar Nogales",
+                "Juzgado Oral Penal Nogales",
+                "Tribunal Laboral Nogales",
+            }),
+            ("Puerto Peñasco", new[]
+            {
+                "Juzgado 1ro Civil Puerto Peñasco",
+                "Sala Oral Penal Puerto Peñasco",
+                "Tribunal Laboral Puerto Peñasco",
+                "Juzgado 1ro Penal Puerto Peñasco",
+            }),
+            ("Sahuaripa", new[] { "Juzgado Mixto Sahuaripa" }),
+            ("San Luis Río Colorado", new[]
+            {
+                "Juzgado 1ro Civil San Luis Río Colorado",
+                "Juzgado Familiar San Luis Río Colorado",
+                "Juzgado Penal/Familiar San Luis Río Colorado",
+                "Juzgado Oral Penal San Luis Río Colorado",
+                "Tribunal Laboral San Luis Río Colorado",
+            }),
+            ("Ures", new[] { "Juzgado Mixto Ures" }),
+        };
+
+        foreach (var (nombreSede, juzgados) in catalogo)
+        {
+            var sede = await context.SedesCatalogo.FirstOrDefaultAsync(s => s.Nombre == nombreSede);
+            if (sede == null)
+            {
+                sede = new SedeCatalogo { Nombre = nombreSede };
+                context.SedesCatalogo.Add(sede);
+                await context.SaveChangesAsync(); // necesita Id antes de agregar sus juzgados
+            }
+
+            foreach (var nombreJuzgado in juzgados)
+            {
+                var existe = await context.JuzgadosCatalogo
+                    .AnyAsync(j => j.SedeId == sede.Id && j.Nombre == nombreJuzgado);
+                if (!existe)
+                    context.JuzgadosCatalogo.Add(new JuzgadoCatalogo { Nombre = nombreJuzgado, SedeId = sede.Id });
+            }
+        }
 
         await context.SaveChangesAsync();
     }

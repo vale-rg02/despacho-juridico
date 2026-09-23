@@ -1,4 +1,5 @@
 using DespachoJuridico.API.Data;
+using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -68,5 +69,18 @@ public class AdminController : ControllerBase
             desde,
             resumenPorUsuario
         });
+    }
+
+    // POST /api/admin/migrar-sede-juzgado?dryRun=true (default)
+    // POST /api/admin/migrar-sede-juzgado?dryRun=false — aplica los cambios
+    // DJ-112/DJ-87: deriva Sede y normaliza Juzgado en expedientes existentes.
+    // Por defecto dryRun=true: no escribe nada, solo reporta qué se mapearía
+    // (y qué quedaría sin mapear) para revisión humana antes de aplicar en
+    // firme — ver MigracionSedeJuzgadoService.
+    [HttpPost("migrar-sede-juzgado")]
+    public async Task<IActionResult> MigrarSedeJuzgado([FromQuery] bool dryRun = true)
+    {
+        var resultado = await MigracionSedeJuzgadoService.MigrarAsync(_context, dryRun);
+        return Ok(resultado);
     }
 }

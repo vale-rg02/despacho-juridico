@@ -8,6 +8,14 @@ public class Expediente
     public string NumeroExpediente { get; set; } = string.Empty;
     public string ParteDemandada { get; set; } = string.Empty;
     public int? BancoId { get; set; }
+
+    // DJ-112: municipio donde radica el expediente. Texto plano (como Materia/
+    // TipoJuicio), validado contra SedeCatalogo al crear/editar -- no es FK a
+    // propósito, para no tocar el código que ya lee Juzgado como texto directo
+    // (correos, bitácora, matching de acuerdos). Nullable: expedientes viejos
+    // migran vía MigrarSedeYJuzgadoDesdeTextoLibreAsync, y no todos podrán
+    // mapearse con confianza (queda null en vez de forzar un valor).
+    public string? Sede { get; set; }
     public string? Juzgado { get; set; }
     public string? Materia { get; set; }
     public string? TipoJuicio { get; set; }

@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<AcuerdoScrapeado> AcuerdosScrapeados { get; set; }
     public DbSet<Cita> Citas => Set<Cita>();
     public DbSet<ExpedienteAcceso> ExpedienteAccesos => Set<ExpedienteAcceso>();
+    public DbSet<SedeCatalogo> SedesCatalogo => Set<SedeCatalogo>();
+    public DbSet<JuzgadoCatalogo> JuzgadosCatalogo => Set<JuzgadoCatalogo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,5 +113,25 @@ public class AppDbContext : DbContext
             .WithMany(e => e.Subetapas)
             .HasForeignKey(e => e.EtapaPadreId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // DJ-112/DJ-87: catálogo de Sede/Juzgado. Restrict -- una Sede con
+        // juzgados no se puede borrar sin antes desvincularlos (nunca se borra
+        // ninguna de las dos desde la app hoy, pero evita un borrado accidental
+        // en cascada si algún día se agrega esa opción).
+        modelBuilder.Entity<JuzgadoCatalogo>()
+            .HasOne(j => j.Sede)
+            .WithMany(s => s.Juzgados)
+            .HasForeignKey(j => j.SedeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SedeCatalogo>()
+            .HasIndex(s => s.Nombre)
+            .IsUnique();
+
+        // Único por Sede, no global -- dos municipios distintos sí pueden tener
+        // un juzgado con el mismo nombre corto (ej. "Juzgado Mixto").
+        modelBuilder.Entity<JuzgadoCatalogo>()
+            .HasIndex(j => new { j.SedeId, j.Nombre })
+            .IsUnique();
     }
 }

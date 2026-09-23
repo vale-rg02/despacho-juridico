@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import ComboboxCatalogo from '../components/ComboboxCatalogo'
+import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
-import { getBancos, getUsuarios } from '../services/catalogos'
+import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado } from '../services/catalogos'
+import { getUsuario } from '../services/auth'
 import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
@@ -15,12 +18,22 @@ function EditarExpediente() {
 
   const [bancos, setBancos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [sedes, setSedes] = useState([])
+  const [juzgados, setJuzgados] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [modalAgregar, setModalAgregar] = useState(null) // 'sede' | 'juzgado' | null
+
+  const usuarioActual = getUsuario()
+  const esAdmin = usuarioActual?.nivelAcceso === 'Administrativo' || usuarioActual?.nivelAcceso === 'Superior'
 
   const [form, setForm] = useState({
     numeroExpediente: '',
     parteDemandada: '',
     bancoId: '',
+    // DJ-112: sin default aquí (a diferencia de NuevoExpediente) -- un
+    // expediente ya existente que aún no tenga Sede migrada se queda vacío,
+    // no se le fuerza un valor por el solo hecho de abrir el formulario.
+    sede: '',
     juzgado: '',
     materia: '',
     tipoJuicio: '',
@@ -32,23 +45,21 @@ function EditarExpediente() {
   const [errorGeneral, setErrorGeneral] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  useEffect(() => {
-    cargarDatos()
-  }, [id])
-
   async function cargarDatos() {
     setCargando(true)
     try {
-      const [expediente, dataBancos, dataUsuarios] = await Promise.all([
+      const [expediente, dataBancos, dataUsuarios, dataSedes] = await Promise.all([
         getExpedienteById(id),
         getBancos(),
         getUsuarios(),
+        getSedes(),
       ])
 
       setForm({
         numeroExpediente: expediente.numeroExpediente ?? '',
         parteDemandada: expediente.parteDemandada ?? '',
         bancoId: expediente.bancoId ?? '',
+        sede: expediente.sede ?? '',
         juzgado: expediente.juzgado ?? '',
         materia: expediente.materia ?? '',
         tipoJuicio: expediente.tipoJuicio ?? '',
@@ -58,11 +69,69 @@ function EditarExpediente() {
 
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
+      setSedes(dataSedes)
+
+      // Solo carga las opciones de Juzgado para mostrar en el combobox — a
+      // propósito NO limpia el Juzgado ya guardado aunque no calce exacto con
+      // el catálogo (frecuente en expedientes viejos todavía sin migrar, ver
+      // MigracionSedeJuzgadoService): abrir el formulario de edición no debe
+      // borrar silenciosamente un dato histórico que el litigante no tocó.
+      const sedeExistente = dataSedes.find(s => s.nombre === (expediente.sede ?? ''))
+      if (sedeExistente) {
+        try {
+          setJuzgados(await getJuzgados(sedeExistente.id))
+        } catch {
+          setJuzgados([])
+        }
+      }
     } catch {
       setErrorGeneral('No se pudo cargar el expediente')
     } finally {
       setCargando(false)
     }
+  }
+
+  useEffect(() => {
+    cargarDatos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  // DJ-87: a diferencia de la carga inicial, un cambio de Sede hecho por el
+  // usuario sí limpia el Juzgado si ya no pertenece a la Sede nueva (mismo
+  // criterio que Materia -> TipoJuicio, DJ-82).
+  async function handleSedeChange(nombreSede) {
+    setForm(prev => ({ ...prev, sede: nombreSede }))
+
+    const sede = sedes.find(s => s.nombre === nombreSede)
+    if (!sede) {
+      setJuzgados([])
+      setForm(prev => ({ ...prev, juzgado: '' }))
+      return
+    }
+    try {
+      const data = await getJuzgados(sede.id)
+      setJuzgados(data)
+      setForm(prev => (data.some(j => j.nombre === prev.juzgado) ? prev : { ...prev, juzgado: '' }))
+    } catch {
+      setJuzgados([])
+    }
+  }
+
+  async function handleAgregarSede(nombre) {
+    const nueva = await crearSede(nombre)
+    setSedes(prev => [...prev, nueva])
+    setJuzgados([]) // sede recién creada, todavía sin juzgados
+    setForm(prev => ({ ...prev, sede: nueva.nombre, juzgado: '' }))
+    setModalAgregar(null)
+  }
+
+  async function handleAgregarJuzgado(nombre) {
+    const sede = sedes.find(s => s.nombre === form.sede)
+    if (!sede) return
+    const nuevo = await crearJuzgado(nombre, sede.id)
+    setJuzgados(prev => [...prev, nuevo])
+    setForm(prev => ({ ...prev, juzgado: nuevo.nombre }))
+    setModalAgregar(null)
   }
 
   function handleChange(e) {
@@ -102,6 +171,7 @@ function EditarExpediente() {
         numeroExpediente: form.numeroExpediente.trim(),
         parteDemandada: form.parteDemandada.trim(),
         bancoId: form.bancoId ? Number(form.bancoId) : null,
+        sede: form.sede || null,
         juzgado: form.juzgado || null,
         materia: form.materia || null,
         tipoJuicio: form.tipoJuicio || null,
@@ -197,13 +267,27 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado</label>
-              <input
-                type="text"
-                name="juzgado"
+              <ComboboxCatalogo
+                label="Sede"
+                value={form.sede}
+                onChange={handleSedeChange}
+                opciones={sedes.map(s => s.nombre)}
+                placeholder="Municipio..."
+                onAgregarNuevo={esAdmin ? () => setModalAgregar('sede') : undefined}
+                textoAgregarNuevo="+ Agregar sede nueva"
+              />
+            </div>
+
+            <div>
+              <ComboboxCatalogo
+                label="Juzgado"
                 value={form.juzgado}
-                onChange={handleChange}
-                className={inputBase}
+                onChange={valor => setForm(prev => ({ ...prev, juzgado: valor }))}
+                opciones={juzgados.map(j => j.nombre)}
+                placeholder={form.sede ? 'Juzgado...' : 'Elige primero una Sede'}
+                disabled={!form.sede}
+                onAgregarNuevo={esAdmin && form.sede ? () => setModalAgregar('juzgado') : undefined}
+                textoAgregarNuevo="+ Agregar juzgado nuevo"
               />
             </div>
 
@@ -296,6 +380,23 @@ function EditarExpediente() {
             </button>
           </div>
         </form>
+
+        {modalAgregar === 'sede' && (
+          <ModalAgregarCatalogo
+            titulo="Agregar sede nueva"
+            label="Municipio"
+            onGuardar={handleAgregarSede}
+            onCancelar={() => setModalAgregar(null)}
+          />
+        )}
+        {modalAgregar === 'juzgado' && (
+          <ModalAgregarCatalogo
+            titulo={`Agregar juzgado nuevo en ${form.sede}`}
+            label="Nombre del juzgado"
+            onGuardar={handleAgregarJuzgado}
+            onCancelar={() => setModalAgregar(null)}
+          />
+        )}
       </main>
     </div>
   )

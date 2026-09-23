@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import ComboboxCatalogo from '../components/ComboboxCatalogo'
+import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
-import { getBancos, getUsuarios } from '../services/catalogos'
+import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado } from '../services/catalogos'
+import { getUsuario } from '../services/auth'
 import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const PRIORIDADES = [
@@ -20,12 +23,21 @@ function NuevoExpediente() {
 
   const [bancos, setBancos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [sedes, setSedes] = useState([])
+  const [juzgados, setJuzgados] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
+  const [modalAgregar, setModalAgregar] = useState(null) // 'sede' | 'juzgado' | null
 
+  const usuarioActual = getUsuario()
+  const esAdmin = usuarioActual?.nivelAcceso === 'Administrativo' || usuarioActual?.nivelAcceso === 'Superior'
+
+  // DJ-112: default Hermosillo -- la mayoría de los expedientes provienen de
+  // ahí, el litigante siempre puede cambiarlo.
   const [form, setForm] = useState({
     numeroExpediente: '',
     parteDemandada: '',
     bancoId: '',
+    sede: 'Hermosillo',
     juzgado: '',
     materia: '',
     tipoJuicio: '',
@@ -38,24 +50,52 @@ function NuevoExpediente() {
   const [errorGeneral, setErrorGeneral] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  useEffect(() => {
-    cargarCatalogos()
-  }, [])
-
   async function cargarCatalogos() {
     try {
-      const [dataBancos, dataUsuarios] = await Promise.all([
+      const [dataBancos, dataUsuarios, dataSedes] = await Promise.all([
         getBancos(),
         getUsuarios(),
+        getSedes(),
       ])
       setBancos(dataBancos)
       setUsuarios(dataUsuarios)
+      setSedes(dataSedes)
     } catch {
-      setErrorGeneral('No se pudieron cargar los catálogos de bancos y usuarios')
+      setErrorGeneral('No se pudieron cargar los catálogos')
     } finally {
       setCargandoCatalogos(false)
     }
   }
+
+  async function cargarJuzgadosDeSede(nombreSede) {
+    const sede = sedes.find(s => s.nombre === nombreSede)
+    if (!sede) {
+      setJuzgados([])
+      return
+    }
+    try {
+      const data = await getJuzgados(sede.id)
+      setJuzgados(data)
+      setForm(prev => {
+        const sigueSiendoValido = data.some(j => j.nombre === prev.juzgado)
+        return sigueSiendoValido ? prev : { ...prev, juzgado: '' }
+      })
+    } catch {
+      setJuzgados([])
+    }
+  }
+
+  useEffect(() => {
+    cargarCatalogos()
+  }, [])
+
+  // DJ-87: el catálogo de Juzgado depende de la Sede elegida -- se recarga
+  // cada vez que cambia, y si el Juzgado ya elegido no pertenece a la Sede
+  // nueva, se limpia (mismo criterio que Materia -> TipoJuicio, DJ-82).
+  useEffect(() => {
+    cargarJuzgadosDeSede(form.sede)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.sede, sedes])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -69,6 +109,22 @@ function NuevoExpediente() {
       }
       return { ...prev, [name]: value }
     })
+  }
+
+  async function handleAgregarSede(nombre) {
+    const nueva = await crearSede(nombre)
+    setSedes(prev => [...prev, nueva])
+    setForm(prev => ({ ...prev, sede: nueva.nombre }))
+    setModalAgregar(null)
+  }
+
+  async function handleAgregarJuzgado(nombre) {
+    const sede = sedes.find(s => s.nombre === form.sede)
+    if (!sede) return
+    const nuevo = await crearJuzgado(nombre, sede.id)
+    setJuzgados(prev => [...prev, nuevo])
+    setForm(prev => ({ ...prev, juzgado: nuevo.nombre }))
+    setModalAgregar(null)
   }
 
   async function handleSubmit(e) {
@@ -94,6 +150,7 @@ function NuevoExpediente() {
         numeroExpediente: form.numeroExpediente.trim(),
         parteDemandada: form.parteDemandada.trim(),
         bancoId: form.bancoId ? Number(form.bancoId) : null,
+        sede: form.sede || null,
         juzgado: form.juzgado || null,
         materia: form.materia || null,
         tipoJuicio: form.tipoJuicio || null,
@@ -181,14 +238,28 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado</label>
-              <input
-                type="text"
-                name="juzgado"
+              <ComboboxCatalogo
+                label="Sede"
+                value={form.sede}
+                onChange={valor => setForm(prev => ({ ...prev, sede: valor }))}
+                opciones={sedes.map(s => s.nombre)}
+                placeholder="Municipio..."
+                disabled={cargandoCatalogos}
+                onAgregarNuevo={esAdmin ? () => setModalAgregar('sede') : undefined}
+                textoAgregarNuevo="+ Agregar sede nueva"
+              />
+            </div>
+
+            <div>
+              <ComboboxCatalogo
+                label="Juzgado"
                 value={form.juzgado}
-                onChange={handleChange}
-                placeholder="Ej. 1ro Civil"
-                className={inputBase}
+                onChange={valor => setForm(prev => ({ ...prev, juzgado: valor }))}
+                opciones={juzgados.map(j => j.nombre)}
+                placeholder={form.sede ? 'Juzgado...' : 'Elige primero una Sede'}
+                disabled={cargandoCatalogos || !form.sede}
+                onAgregarNuevo={esAdmin && form.sede ? () => setModalAgregar('juzgado') : undefined}
+                textoAgregarNuevo="+ Agregar juzgado nuevo"
               />
             </div>
 
@@ -298,6 +369,23 @@ function NuevoExpediente() {
             </button>
           </div>
         </form>
+
+        {modalAgregar === 'sede' && (
+          <ModalAgregarCatalogo
+            titulo="Agregar sede nueva"
+            label="Municipio"
+            onGuardar={handleAgregarSede}
+            onCancelar={() => setModalAgregar(null)}
+          />
+        )}
+        {modalAgregar === 'juzgado' && (
+          <ModalAgregarCatalogo
+            titulo={`Agregar juzgado nuevo en ${form.sede}`}
+            label="Nombre del juzgado"
+            onGuardar={handleAgregarJuzgado}
+            onCancelar={() => setModalAgregar(null)}
+          />
+        )}
       </main>
     </div>
   )

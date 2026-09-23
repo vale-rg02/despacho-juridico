@@ -616,6 +616,7 @@ function DetalleExpediente() {
         <section>
           <EtiquetaSeccion className="mb-3">Información del expediente</EtiquetaSeccion>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <InfoCard icon={MapPin}   label="Sede"                 value={expediente.sede ?? '—'} />
             <InfoCard icon={Gavel}    label="Juzgado"              value={expediente.juzgado ?? '—'} />
             <InfoCard icon={FileText} label="Tipo de juicio"       value={expediente.tipoJuicio ?? '—'} />
             <InfoCard icon={User}     label="Asignado a"           value={expediente.usuarioAsignadoNombre ?? '—'} />

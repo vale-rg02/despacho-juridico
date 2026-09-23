@@ -9,6 +9,7 @@ public class ExpedienteResponse
     public int Id { get; set; }
     public string NumeroExpediente { get; set; } = string.Empty;
     public string ParteDemandada { get; set; } = string.Empty;
+    public string? Sede { get; set; }
     public string? Juzgado { get; set; }
     public string? Materia { get; set; }
     public string? TipoJuicio { get; set; }
@@ -57,6 +58,13 @@ public class ExpedienteCreateRequest
 
     public int? BancoId { get; set; }
 
+    // DJ-112: opcional a propósito -- compatibilidad hacia atrás mientras
+    // Frontend y Backend (dos servicios de Railway) no se despliegan al mismo
+    // tiempo. La validación estricta contra el catálogo solo se activa cuando
+    // Sede sí viene en la petición (ver Create/Update en ExpedientesController).
+    [StringLength(50)]
+    public string? Sede { get; set; }
+
     [StringLength(100)]
     public string? Juzgado { get; set; }
 
@@ -84,6 +92,13 @@ public class ExpedienteUpdateRequest
     public string ParteDemandada { get; set; } = string.Empty;
 
     public int? BancoId { get; set; }
+
+    // DJ-112: opcional a propósito -- compatibilidad hacia atrás mientras
+    // Frontend y Backend (dos servicios de Railway) no se despliegan al mismo
+    // tiempo. La validación estricta contra el catálogo solo se activa cuando
+    // Sede sí viene en la petición (ver Create/Update en ExpedientesController).
+    [StringLength(50)]
+    public string? Sede { get; set; }
 
     [StringLength(100)]
     public string? Juzgado { get; set; }

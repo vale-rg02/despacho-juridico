@@ -146,6 +146,10 @@ public class ExpedientesController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var errorCatalogo = await CatalogoUbicacionService.ValidarSedeYJuzgadoAsync(_context, request.Sede, request.Juzgado);
+        if (errorCatalogo != null)
+            return BadRequest(new { mensaje = errorCatalogo });
+
         var usuarioId = ObtenerUsuarioId();
 
         var expediente = new Expediente
@@ -153,6 +157,7 @@ public class ExpedientesController : ControllerBase
             NumeroExpediente = request.NumeroExpediente,
             ParteDemandada = request.ParteDemandada,
             BancoId = request.BancoId,
+            Sede = request.Sede,
             Juzgado = request.Juzgado,
             Materia = request.Materia,
             TipoJuicio = request.TipoJuicio,
@@ -188,6 +193,10 @@ public class ExpedientesController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var errorCatalogo = await CatalogoUbicacionService.ValidarSedeYJuzgadoAsync(_context, request.Sede, request.Juzgado);
+        if (errorCatalogo != null)
+            return BadRequest(new { mensaje = errorCatalogo });
+
         var expediente = await _context.Expedientes.FindAsync(id);
         if (expediente == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), expediente.UsuarioAsignadoId, id))
             return NotFound(new { mensaje = "Expediente no encontrado" });
@@ -200,6 +209,9 @@ public class ExpedientesController : ControllerBase
 
         if (expediente.ParteDemandada != request.ParteDemandada)
             cambios.Add($"Parte demandada: '{expediente.ParteDemandada}' → '{request.ParteDemandada}'");
+
+        if (expediente.Sede != request.Sede)
+            cambios.Add($"Sede: '{expediente.Sede ?? "—"}' → '{request.Sede ?? "—"}'");
 
         if (expediente.Juzgado != request.Juzgado)
             cambios.Add($"Juzgado: '{expediente.Juzgado ?? "—"}' → '{request.Juzgado ?? "—"}'");
@@ -226,6 +238,7 @@ public class ExpedientesController : ControllerBase
         expediente.NumeroExpediente = request.NumeroExpediente;
         expediente.ParteDemandada = request.ParteDemandada;
         expediente.BancoId = request.BancoId;
+        expediente.Sede = request.Sede;
         expediente.Juzgado = request.Juzgado;
         expediente.Materia = request.Materia;
         expediente.TipoJuicio = request.TipoJuicio;
@@ -883,6 +896,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         Id = e.Id,
         NumeroExpediente = e.NumeroExpediente,
         ParteDemandada = e.ParteDemandada,
+        Sede = e.Sede,
         Juzgado = e.Juzgado,
         Materia = e.Materia,
         TipoJuicio = e.TipoJuicio,
