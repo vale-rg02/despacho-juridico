@@ -61,6 +61,68 @@ describe('ComboboxCatalogo', () => {
     expect(onChange).not.toHaveBeenCalled() // nunca se confirmó un valor inválido
   })
 
+  it('encuentra opciones con acento aunque se escriba sin acento', () => {
+    const opcionesMunicipios = ['Álamos', 'Hermosillo', 'Cananea']
+    render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesMunicipios} />)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Alamos' } })
+
+    expect(screen.getByText('Álamos')).toBeInTheDocument()
+    expect(screen.queryByText('Hermosillo')).not.toBeInTheDocument()
+  })
+
+  it('escribir la primera letra sin acento ("A") encuentra la opción acentuada', () => {
+    const opcionesMunicipios = ['Álamos', 'Hermosillo', 'Cananea']
+    render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesMunicipios} />)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'A' } })
+
+    expect(screen.getByText('Álamos')).toBeInTheDocument()
+  })
+
+  it('la búsqueda es insensible a acentos en cualquier combinación (con/sin acento, mayúsculas/minúsculas)', () => {
+    const opcionesMunicipios = ['Álamos', 'Hermosillo', 'Cananea']
+
+    for (const consulta of ['alamos', 'ALAMOS', 'Álamos', 'álamos', 'ÁLAMOS']) {
+      const { unmount } = render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesMunicipios} />)
+      const input = screen.getByRole('textbox')
+      fireEvent.focus(input)
+      fireEvent.change(input, { target: { value: consulta } })
+      expect(screen.getByText('Álamos')).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('al seleccionar una opción con acento, el valor guardado conserva el acento correcto', () => {
+    const onChange = vi.fn()
+    const opcionesMunicipios = ['Álamos', 'Hermosillo', 'Cananea']
+    render(<ComboboxCatalogo value="" onChange={onChange} opciones={opcionesMunicipios} />)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Alamos' } })
+    fireEvent.click(screen.getByText('Álamos'))
+
+    expect(onChange).toHaveBeenCalledWith('Álamos') // se guarda con el acento correcto, no el texto tecleado
+    expect(input.value).toBe('Álamos')
+  })
+
+  it('nombres sin acento no se ven afectados por la normalización', () => {
+    render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesHermosillo} />)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'civil' } })
+
+    expect(screen.getByText('1ro Civil Hermosillo')).toBeInTheDocument()
+    expect(screen.getByText('2do Civil Hermosillo')).toBeInTheDocument()
+    expect(screen.queryByText('1ro Oral Mercantil Hermosillo')).not.toBeInTheDocument()
+  })
+
   it('no muestra "+ Agregar nueva" si no se pasa onAgregarNuevo (usuario no-admin)', () => {
     render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesHermosillo} />)
 

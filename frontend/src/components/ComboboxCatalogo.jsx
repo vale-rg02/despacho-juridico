@@ -3,6 +3,19 @@ import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
+// Insensible a mayúsculas Y a acentos, mismo criterio que unaccent() del
+// backend (DJ-110, AplicarFiltroBusqueda en ExpedientesController) -- solo
+// para COMPARAR durante la búsqueda; el valor mostrado/guardado siempre es el
+// texto original de `opciones`, con sus acentos correctos (ej. "Álamos").
+// ̀-ͯ es el bloque Unicode de marcas diacríticas combinantes (lo que
+// normalize('NFD') separa de la letra base, ej. "Á" -> "A" + acento combinante).
+function normalizarParaBusqueda(texto) {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+}
+
 // DJ-112/DJ-87: combobox genérico con autocompletado, reusado para Sede y
 // Juzgado. Solo acepta un valor que exista en `opciones` (nombres) -- a
 // diferencia de un <input> libre, si el usuario escribe algo que no coincide
@@ -58,7 +71,8 @@ function ComboboxCatalogo({
     setAbierto(false)
   }
 
-  const filtradas = opciones.filter(o => o.toLowerCase().includes(texto.toLowerCase()))
+  const textoNormalizado = normalizarParaBusqueda(texto)
+  const filtradas = opciones.filter(o => normalizarParaBusqueda(o).includes(textoNormalizado))
 
   return (
     <div ref={contenedorRef} className="relative">
