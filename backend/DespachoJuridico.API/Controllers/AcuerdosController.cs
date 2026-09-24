@@ -30,13 +30,22 @@ public class AcuerdosController : ControllerBase
     }
 
     // GET /api/acuerdos/no-vistos
+    // DJ-91: incluye también expedientes donde el usuario es colaborador, no
+    // solo titular -- antes un colaborador nunca veía el punto de "nuevo" en
+    // la lista de expedientes aunque sí tuviera acceso y ya se le notificara
+    // por correo (DJ-108). No se reusa AplicarFiltroExpedientesPropios (DJ-102)
+    // tal cual porque ese además excluye expedientes Cerrado, y aquí no había
+    // esa restricción antes -- se agrega solo lo que faltaba (colaborador),
+    // sin cambiar el comportamiento existente para expedientes cerrados.
     [HttpGet("no-vistos")]
     public async Task<IActionResult> GetNoVistos()
     {
         var usuarioIdActual = ObtenerUsuarioId();
 
         var noVistos = await _context.AcuerdosScrapeados
-            .Where(a => !a.Visto && !a.Oculto && a.Expediente.UsuarioAsignadoId == usuarioIdActual)
+            .Where(a => !a.Visto && !a.Oculto &&
+                (a.Expediente.UsuarioAsignadoId == usuarioIdActual ||
+                 a.Expediente.Accesos.Any(acc => acc.UsuarioId == usuarioIdActual)))
             .OrderByDescending(a => a.FechaAcuerdo)
             .Select(a => new
             {
