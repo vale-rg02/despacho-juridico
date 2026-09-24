@@ -31,6 +31,11 @@ export async function descartarAcuerdo(acuerdoId) {
   return response.data
 }
 
+export async function restaurarAcuerdo(acuerdoId) {
+  const response = await api.patch(`/acuerdos/${acuerdoId}/restaurar`)
+  return response.data
+}
+
 export async function confirmarAcuerdo(acuerdoId) {
   const response = await api.patch(`/acuerdos/${acuerdoId}/confirmar`)
   return response.data

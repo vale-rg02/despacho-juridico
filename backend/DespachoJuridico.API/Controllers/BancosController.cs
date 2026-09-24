@@ -56,4 +56,23 @@ public class BancosController : ControllerBase
 
         return CreatedAtAction(nameof(GetAll), new BancoResponse { Id = banco.Id, Nombre = banco.Nombre });
     }
+
+    // DELETE /api/bancos/{id} — solo admin, mismo criterio que POST.
+    [HttpDelete("{id}")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var banco = await _context.Bancos.FindAsync(id);
+        if (banco == null)
+            return NotFound(new { mensaje = "Banco no encontrado" });
+
+        var enUso = await _context.Expedientes.AnyAsync(e => e.BancoId == id);
+        if (enUso)
+            return BadRequest(new { mensaje = "No se puede borrar: hay expedientes que usan este banco" });
+
+        _context.Bancos.Remove(banco);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }

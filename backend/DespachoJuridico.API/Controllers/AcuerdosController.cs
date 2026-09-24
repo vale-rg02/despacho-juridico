@@ -326,6 +326,35 @@ public class AcuerdosController : ControllerBase
         return Ok(new { mensaje = "Acuerdo descartado correctamente" });
     }
 
+    // PATCH /api/acuerdos/{id}/restaurar
+    // Deshace un descarte manual (ver Descartar arriba) -- solo aplica a
+    // acuerdos con DescartadoManualmente=true; un acuerdo oculto por el
+    // algoritmo (Confianza=Baja) no se "restaura" por aquí, se reevalúa solo
+    // (ver ReevaluarOcultosAsync en ScraperAcuerdosService).
+    [HttpPatch("{id}/restaurar")]
+    public async Task<IActionResult> Restaurar(int id)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId, acuerdo.ExpedienteId))
+            return NotFound(new { mensaje = "Acuerdo no encontrado" });
+
+        if (!acuerdo.DescartadoManualmente)
+            return BadRequest(new { mensaje = "Este acuerdo no fue descartado manualmente" });
+
+        acuerdo.Oculto = false;
+        acuerdo.DescartadoManualmente = false;
+        await _context.SaveChangesAsync();
+
+        await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_restaurado",
+            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) restaurado: \"{acuerdo.Sintesis}\"");
+
+        return Ok(new { mensaje = "Acuerdo restaurado correctamente" });
+    }
+
     // PATCH /api/acuerdos/{id}/confirmar — DJ-122
     // El litigante confirma que un acuerdo "Media" (Confianza=Media, sugerido
     // porque coincide el banco pero no el nombre del demandado, o porque el

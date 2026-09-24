@@ -392,4 +392,87 @@ public class DescartarAcuerdoTests
         Assert.Contains(entradas, e => e.Detalle!.Contains("3ro Civil Hermosillo"));
         Assert.Contains(entradas, e => e.Detalle!.Contains("1ro Oral Mercantil Hermosillo"));
     }
+
+    [Fact]
+    public async Task Restaurar_AcuerdoDescartadoManualmente_VuelveAQuedarVisible()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Restaurar_AcuerdoDescartadoManualmente_VuelveAQuedarVisible));
+        var (litigante, expediente, acuerdo) = await SembrarEscenarioAsync(context);
+        var controller = CrearControllerComoUsuario(context, litigante.Id);
+        await controller.Descartar(acuerdo.Id);
+
+        var resultado = await controller.Restaurar(acuerdo.Id);
+
+        Assert.IsType<OkObjectResult>(resultado);
+        var actualizado = await context.AcuerdosScrapeados.FindAsync(acuerdo.Id);
+        Assert.False(actualizado!.Oculto);
+        Assert.False(actualizado.DescartadoManualmente);
+
+        var visibleDeNuevo = await controller.GetByExpediente(expediente.Id);
+        var ok = Assert.IsType<OkObjectResult>(visibleDeNuevo);
+        var lista = Assert.IsAssignableFrom<System.Collections.IEnumerable>(ok.Value);
+        Assert.Single(lista.Cast<object>());
+    }
+
+    [Fact]
+    public async Task Restaurar_RegistraQuienYCuandoEnBitacora()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Restaurar_RegistraQuienYCuandoEnBitacora));
+        var (litigante, expediente, acuerdo) = await SembrarEscenarioAsync(context);
+        var controller = CrearControllerComoUsuario(context, litigante.Id);
+        await controller.Descartar(acuerdo.Id);
+
+        var antes = DateTime.UtcNow;
+        await controller.Restaurar(acuerdo.Id);
+        var despues = DateTime.UtcNow;
+
+        var entrada = await context.BitacoraCambios.SingleOrDefaultAsync(b => b.ExpedienteId == expediente.Id && b.Accion == "acuerdo_restaurado");
+        Assert.NotNull(entrada);
+        Assert.Equal(litigante.Id, entrada!.UsuarioId);
+        Assert.Contains(acuerdo.NombreJuzgado, entrada.Detalle);
+        Assert.InRange(entrada.Fecha, antes, despues);
+    }
+
+    [Fact]
+    public async Task Restaurar_AcuerdoNoDescartadoManualmente_RegresaBadRequest()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Restaurar_AcuerdoNoDescartadoManualmente_RegresaBadRequest));
+        var (litigante, _, acuerdo) = await SembrarEscenarioAsync(context);
+        var controller = CrearControllerComoUsuario(context, litigante.Id);
+
+        var resultado = await controller.Restaurar(acuerdo.Id);
+
+        Assert.IsType<BadRequestObjectResult>(resultado);
+    }
+
+    [Fact]
+    public async Task Restaurar_UsuarioSinAccesoAlExpediente_RegresaNotFound()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Restaurar_UsuarioSinAccesoAlExpediente_RegresaNotFound));
+        var (litigante, _, acuerdo) = await SembrarEscenarioAsync(context);
+        var dueno = CrearControllerComoUsuario(context, litigante.Id);
+        await dueno.Descartar(acuerdo.Id);
+
+        var soporte = new Usuario { Nombre = "dev1", Email = $"{Guid.NewGuid()}@despacho.com", PasswordHash = "x", EsCuentaSoporte = true };
+        context.Usuarios.Add(soporte);
+        await context.SaveChangesAsync();
+        var controller = CrearControllerComoUsuario(context, soporte.Id);
+
+        var resultado = await controller.Restaurar(acuerdo.Id);
+
+        Assert.IsType<NotFoundObjectResult>(resultado);
+        Assert.True((await context.AcuerdosScrapeados.FindAsync(acuerdo.Id))!.Oculto);
+    }
+
+    [Fact]
+    public async Task Restaurar_AcuerdoInexistente_RegresaNotFound()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Restaurar_AcuerdoInexistente_RegresaNotFound));
+        var (litigante, _, _) = await SembrarEscenarioAsync(context);
+        var controller = CrearControllerComoUsuario(context, litigante.Id);
+
+        var resultado = await controller.Restaurar(999999);
+
+        Assert.IsType<NotFoundObjectResult>(resultado);
+    }
 }

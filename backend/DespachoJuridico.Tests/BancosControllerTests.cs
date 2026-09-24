@@ -92,4 +92,63 @@ public class BancosControllerTests
 
         Assert.Equal(new[] { "Banco Azteca", "Scotiabank" }, bancos.Select(b => b.Nombre));
     }
+
+    [Fact]
+    public void Delete_RequiereLaPoliticaAccesoAdmin()
+    {
+        var metodo = typeof(BancosController).GetMethod(nameof(BancosController.Delete))!;
+
+        var authorize = metodo.GetCustomAttribute<AuthorizeAttribute>();
+
+        Assert.NotNull(authorize);
+        Assert.Equal("AccesoAdmin", authorize!.Policy);
+    }
+
+    [Fact]
+    public async Task Delete_BancoSinUso_SeBorra()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Delete_BancoSinUso_SeBorra));
+        var banco = new Banco { Nombre = "RappiCard" };
+        context.Bancos.Add(banco);
+        await context.SaveChangesAsync();
+        var controller = new BancosController(context);
+
+        var resultado = await controller.Delete(banco.Id);
+
+        Assert.IsType<NoContentResult>(resultado);
+        Assert.False(await context.Bancos.AnyAsync(b => b.Id == banco.Id));
+    }
+
+    [Fact]
+    public async Task Delete_BancoUsadoPorUnExpediente_RegresaBadRequestYNoLoBorra()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Delete_BancoUsadoPorUnExpediente_RegresaBadRequestYNoLoBorra));
+        var banco = new Banco { Nombre = "BBVA México" };
+        context.Bancos.Add(banco);
+        await context.SaveChangesAsync();
+        context.Expedientes.Add(new Expediente
+        {
+            NumeroExpediente = "123/2026",
+            BancoId = banco.Id,
+            UsuarioAsignadoId = 1
+        });
+        await context.SaveChangesAsync();
+        var controller = new BancosController(context);
+
+        var resultado = await controller.Delete(banco.Id);
+
+        Assert.IsType<BadRequestObjectResult>(resultado);
+        Assert.True(await context.Bancos.AnyAsync(b => b.Id == banco.Id));
+    }
+
+    [Fact]
+    public async Task Delete_BancoInexistente_RegresaNotFound()
+    {
+        using var context = CrearContextoEnMemoria(nameof(Delete_BancoInexistente_RegresaNotFound));
+        var controller = new BancosController(context);
+
+        var resultado = await controller.Delete(999);
+
+        Assert.IsType<NotFoundObjectResult>(resultado);
+    }
 }
