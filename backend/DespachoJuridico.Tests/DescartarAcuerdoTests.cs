@@ -27,7 +27,10 @@ public class DescartarAcuerdoTests
 
     private static AcuerdosController CrearControllerComoUsuario(AppDbContext context, int usuarioId)
     {
-        var controller = new AcuerdosController(context, new AccesoExpedientesService(context));
+        var controller = new AcuerdosController(
+            context, new AccesoExpedientesService(context), new FakeEmailService(),
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AcuerdosController>.Instance);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {

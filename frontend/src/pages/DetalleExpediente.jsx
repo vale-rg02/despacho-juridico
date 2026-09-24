@@ -11,7 +11,7 @@ import HistorialEtapas from '../components/HistorialEtapas'
 import ModalEditarEtapa from '../components/ModalEditarEtapa'
 import { getHistorialEtapas, completarEtapa, revertirEtapa, eliminarEtapa } from '../services/etapas'
 import { getUsuario } from '../services/auth'
-import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarExhortoManual, eliminarAcuerdoManual, descartarAcuerdo, confirmarAcuerdo } from '../services/acuerdos'
+import { getAcuerdos, marcarAcuerdoVisto, actualizarDestinoExhorto, registrarAcuerdoManual, eliminarAcuerdoManual, descartarAcuerdo, confirmarAcuerdo } from '../services/acuerdos'
 import { getAccesos, agregarAcceso, quitarAcceso } from '../services/accesos'
 import { getUsuarios } from '../services/catalogos'
 import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumero, prioridadANumero } from '../utils/formato'
@@ -269,12 +269,17 @@ function DetalleExpediente() {
   const [etapaEditando, setEtapaEditando] = useState(null)
   const [accesos, setAccesos] = useState([])
   const [usuarios, setUsuarios] = useState([])
-  const [mostrarFormExhorto, setMostrarFormExhorto] = useState(false)
-  const [formExhorto, setFormExhorto] = useState({
+  // DJ-108: un solo formulario para exhorto o acuerdo normal, con selector de
+  // tipo -- comparten fecha y síntesis, solo difieren en los campos propios
+  // de cada uno (Juzgado/Ciudad destino vs. Tipo de trámite).
+  const [mostrarFormAcuerdo, setMostrarFormAcuerdo] = useState(false)
+  const [formAcuerdo, setFormAcuerdo] = useState({
+    esExhorto: false,
     sintesis: '',
     fechaAcuerdo: '',
     nombreJuzgado: '',
-    ciudadDestino: ''
+    ciudadDestino: '',
+    tipoAsunto: ''
   })
 
   const [cargando, setCargando] = useState(true)
@@ -405,21 +410,23 @@ function DetalleExpediente() {
     }
   }
 
-  async function handleGuardarExhortoManual() {
+  async function handleGuardarAcuerdoManual() {
     try {
-      await registrarExhortoManual(id, {
-        sintesis: formExhorto.sintesis,
-        fechaAcuerdo: formExhorto.fechaAcuerdo,
-        nombreJuzgado: formExhorto.nombreJuzgado || null,
-        ciudadDestino: formExhorto.ciudadDestino || null,
+      await registrarAcuerdoManual(id, {
+        esExhorto: formAcuerdo.esExhorto,
+        sintesis: formAcuerdo.sintesis,
+        fechaAcuerdo: formAcuerdo.fechaAcuerdo,
+        nombreJuzgado: formAcuerdo.esExhorto ? (formAcuerdo.nombreJuzgado || null) : null,
+        ciudadDestino: formAcuerdo.esExhorto ? (formAcuerdo.ciudadDestino || null) : null,
+        tipoAsunto: formAcuerdo.esExhorto ? null : formAcuerdo.tipoAsunto,
       })
-      setMostrarFormExhorto(false)
-      setFormExhorto({ sintesis: '', fechaAcuerdo: '', nombreJuzgado: '', ciudadDestino: '' })
+      setMostrarFormAcuerdo(false)
+      setFormAcuerdo({ esExhorto: false, sintesis: '', fechaAcuerdo: '', nombreJuzgado: '', ciudadDestino: '', tipoAsunto: '' })
       await cargarDatos()
-      setExito('Exhorto registrado correctamente')
+      setExito(formAcuerdo.esExhorto ? 'Exhorto registrado correctamente' : 'Acuerdo registrado correctamente')
       setTimeout(() => setExito(''), 3000)
     } catch {
-      setError('No se pudo registrar el exhorto')
+      setError('No se pudo registrar el acuerdo')
     }
   }
 
@@ -516,6 +523,10 @@ function DetalleExpediente() {
     u.id !== expediente.usuarioAsignadoId &&
     !accesos.some(a => a.usuarioId === u.id)
   )
+
+  // DJ-108: titular o colaborador -- el backend acota el registro manual a
+  // esto mismo (AplicarFiltroExpedientesPropios), se oculta el botón acorde.
+  const esPropio = expediente.usuarioAsignadoId === usuario?.id || expediente.esColaborador
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
   const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
@@ -733,72 +744,117 @@ function DetalleExpediente() {
                 </span>
               )}
             </h2>
-            {!mostrarFormExhorto && (
+            {/* DJ-108: escribir un registro manual está acotado a expedientes
+                propios (titular o colaborador) en el backend -- se oculta el
+                botón para el resto de litigantes que sí pueden VER el
+                expediente (regla más amplia, "trabajan en conjunto") pero ya
+                no podrían registrar aquí, para no toparlos con un error de
+                permiso confuso. */}
+            {!mostrarFormAcuerdo && esPropio && (
               <button
-                onClick={() => setMostrarFormExhorto(true)}
+                onClick={() => setMostrarFormAcuerdo(true)}
                 className="text-xs text-accent hover:underline font-medium"
               >
-                + Registrar exhorto manualmente
+                + Registrar acuerdo manualmente
               </button>
             )}
           </div>
 
-          {mostrarFormExhorto && (
+          {mostrarFormAcuerdo && (
             <div className="bg-secondary/40 border border-border rounded-lg p-4 mb-3">
+              <div className="mb-3">
+                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</label>
+                <div className="flex gap-4 text-sm">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={!formAcuerdo.esExhorto}
+                      onChange={() => setFormAcuerdo(f => ({ ...f, esExhorto: false }))}
+                    />
+                    Acuerdo normal
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={formAcuerdo.esExhorto}
+                      onChange={() => setFormAcuerdo(f => ({ ...f, esExhorto: true }))}
+                    />
+                    Exhorto
+                  </label>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
                   <input
                     type="date"
-                    value={formExhorto.fechaAcuerdo}
-                    onChange={e => setFormExhorto(f => ({ ...f, fechaAcuerdo: e.target.value }))}
+                    value={formAcuerdo.fechaAcuerdo}
+                    onChange={e => setFormAcuerdo(f => ({ ...f, fechaAcuerdo: e.target.value }))}
                     className={inputClass}
                   />
                 </div>
-                <div>
-                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                {formAcuerdo.esExhorto ? (
+                  <div>
+                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                    <input
+                      type="text"
+                      value={formAcuerdo.nombreJuzgado}
+                      onChange={e => setFormAcuerdo(f => ({ ...f, nombreJuzgado: e.target.value }))}
+                      placeholder="Ej. 1ro Civil Hermosillo"
+                      className={inputClass}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de trámite *</label>
+                    <input
+                      type="text"
+                      value={formAcuerdo.tipoAsunto}
+                      onChange={e => setFormAcuerdo(f => ({ ...f, tipoAsunto: e.target.value }))}
+                      placeholder="Ej. Contestación, Notificación..."
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+              </div>
+              {formAcuerdo.esExhorto && (
+                <div className="mb-3">
+                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
                   <input
                     type="text"
-                    value={formExhorto.nombreJuzgado}
-                    onChange={e => setFormExhorto(f => ({ ...f, nombreJuzgado: e.target.value }))}
-                    placeholder="Ej. 1ro Civil Hermosillo"
+                    value={formAcuerdo.ciudadDestino}
+                    onChange={e => setFormAcuerdo(f => ({ ...f, ciudadDestino: e.target.value }))}
+                    placeholder="Ej. Guadalajara, Jalisco"
                     className={inputClass}
                   />
                 </div>
-              </div>
-              <div className="mb-3">
-                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
-                <input
-                  type="text"
-                  value={formExhorto.ciudadDestino}
-                  onChange={e => setFormExhorto(f => ({ ...f, ciudadDestino: e.target.value }))}
-                  placeholder="Ej. Guadalajara, Jalisco"
-                  className={inputClass}
-                />
-              </div>
+              )}
               <div className="mb-3">
                 <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
                 <textarea
-                  value={formExhorto.sintesis}
-                  onChange={e => setFormExhorto(f => ({ ...f, sintesis: e.target.value }))}
+                  value={formAcuerdo.sintesis}
+                  onChange={e => setFormAcuerdo(f => ({ ...f, sintesis: e.target.value }))}
                   rows={3}
-                  placeholder="Descripción del exhorto..."
+                  placeholder="Descripción del acuerdo..."
                   className={`${inputClass} resize-none`}
                 />
               </div>
+              <p className="text-xs text-muted-foreground italic mb-3">
+                Capturado manualmente, sin verificación automática.
+              </p>
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setMostrarFormExhorto(false)}
+                  onClick={() => setMostrarFormAcuerdo(false)}
                   className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={handleGuardarExhortoManual}
-                  disabled={!formExhorto.sintesis || !formExhorto.fechaAcuerdo}
+                  onClick={handleGuardarAcuerdoManual}
+                  disabled={!formAcuerdo.sintesis || !formAcuerdo.fechaAcuerdo || (!formAcuerdo.esExhorto && !formAcuerdo.tipoAsunto)}
                   className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
                 >
-                  Guardar exhorto
+                  {formAcuerdo.esExhorto ? 'Guardar exhorto' : 'Guardar acuerdo'}
                 </button>
               </div>
             </div>
@@ -829,6 +885,12 @@ function DetalleExpediente() {
                             {acuerdo.registradoManualmente && (
                               <span className="italic font-normal">(manual)</span>
                             )}
+                          </span>
+                        )}
+                        {!acuerdo.esExhorto && acuerdo.registradoManualmente && (
+                          <span className="flex items-center gap-1 bg-secondary text-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                            {acuerdo.tipoAsunto || 'Acuerdo'}
+                            <span className="italic font-normal">(manual)</span>
                           </span>
                         )}
                         {acuerdo.registradoManualmente && (
@@ -978,7 +1040,7 @@ function DetalleExpediente() {
                 ? `¿Estás seguro de que deseas eliminar el expediente ${expediente.numeroExpediente}? Esta acción no se puede deshacer.`
                 : confirmacion.tipo === 'descartarAcuerdo'
                 ? '¿Seguro que este acuerdo no es relevante para el expediente? Dejará de mostrarse aquí.'
-                : '¿Eliminar este exhorto registrado manualmente?'
+                : '¿Eliminar este acuerdo registrado manualmente?'
             }
             confirmLabel={confirmacion.tipo === 'descartarAcuerdo' ? 'Descartar' : 'Eliminar'}
             peligroso={confirmacion.tipo !== 'descartarAcuerdo'}

@@ -15,7 +15,9 @@ export async function actualizarDestinoExhorto(acuerdoId, ciudadDestino) {
   return response.data
 }
 
-export async function registrarExhortoManual(expedienteId, datos) {
+// DJ-108: generaliza el registro manual (antes solo exhortos) a cualquier
+// acuerdo -- datos incluye esExhorto/tipoAsunto además de los campos previos.
+export async function registrarAcuerdoManual(expedienteId, datos) {
   const response = await api.post(`/acuerdos/${expedienteId}/manual`, datos)
   return response.data
 }

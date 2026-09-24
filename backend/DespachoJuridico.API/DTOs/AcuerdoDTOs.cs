@@ -17,6 +17,7 @@ public class AcuerdoResponse
     public string? CiudadDestino { get; set; }
     public bool RegistradoManualmente { get; set; }
     public string? Confianza { get; set; }
+    public string? TipoAsunto { get; set; }
 }
 
 public class ActualizarDestinoExhortoRequest
@@ -26,7 +27,12 @@ public class ActualizarDestinoExhortoRequest
     public string CiudadDestino { get; set; } = string.Empty;
 }
 
-public class RegistrarExhortoManualRequest
+// DJ-108: generaliza el registro manual a acuerdos normales, no solo
+// exhortos. EsExhorto default true a propósito -- si un frontend viejo (sin
+// desplegar todavía) manda un request sin este campo, System.Text.Json deja
+// el default del DTO, y el comportamiento sigue siendo "es un exhorto" como
+// era antes de este cambio.
+public class RegistrarAcuerdoManualRequest
 {
     [Required(ErrorMessage = "La síntesis es obligatoria")]
     public string Sintesis { get; set; } = string.Empty;
@@ -39,4 +45,12 @@ public class RegistrarExhortoManualRequest
 
     [StringLength(150)]
     public string? CiudadDestino { get; set; }
+
+    public bool EsExhorto { get; set; } = true;
+
+    // Obligatorio solo cuando EsExhorto=false (validado en el controller, no
+    // con [Required], porque es condicional) -- para un exhorto se sigue
+    // usando el valor fijo "Exhorto (manual)" como hasta ahora.
+    [StringLength(150)]
+    public string? TipoAsunto { get; set; }
 }
