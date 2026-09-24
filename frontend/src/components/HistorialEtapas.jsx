@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, ChevronDown } from 'lucide-react'
 import { formatearFecha } from '../utils/formato'
 import { agregarNotaEtapa } from '../services/etapas'
 import EstadoVacio from './EstadoVacio'
@@ -87,6 +87,22 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
   const [textoNota, setTextoNota] = useState('')
   const [guardandoNota, setGuardandoNota] = useState(false)
 
+  // Colapsado por defecto: solo se ve la nota más reciente de cada etapa; el
+  // resto del historial se expande por etapa individual (Set de ids, no un
+  // solo booleano, para que varias etapas puedan estar expandidas a la vez).
+  // Esto es puro estado de UI local -- no toca Visto de AcuerdosScrapeados
+  // (DJ-91), que es un modelo completamente distinto sin relación con notas.
+  const [notasExpandidas, setNotasExpandidas] = useState(new Set())
+
+  function toggleExpandida(etapaId) {
+    setNotasExpandidas(prev => {
+      const next = new Set(prev)
+      if (next.has(etapaId)) next.delete(etapaId)
+      else next.add(etapaId)
+      return next
+    })
+  }
+
   function confirmar() {
     if (confirmacion.tipo === 'revertir') onRevertir(confirmacion.etapaId)
     else onEliminar(confirmacion.etapaId)
@@ -149,20 +165,53 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                 <span>Completada: {formatearFecha(etapa.fechaCompletada)}</span>
               )}
             </div>
-            {etapa.notas?.length > 0 && (
-              <div className="mt-1.5 space-y-1.5">
-                {etapa.notas.map(nota => (
-                  <div key={nota.id} className="bg-secondary/30 rounded px-2.5 py-1.5">
-                    <p className="text-sm text-foreground/80">{nota.texto}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {nota.creadoPorNombre} — {formatearFechaConHora(nota.creadoEn)}
+            {etapa.notas?.length > 0 && (() => {
+              const notas = etapa.notas // orden del endpoint: cronológico ascendente
+              const ultima = notas[notas.length - 1]
+              const anteriores = notas.slice(0, -1)
+              const expandida = notasExpandidas.has(etapa.id)
+              return (
+                <div className="mt-1.5">
+                  {/* Contraste: fondo y borde en dorado (--accent, paleta navy/dorado
+                      de DJ-87) para que la nota más reciente resalte de un vistazo
+                      frente al resto de la fila (fecha/tipo, en gris neutro). */}
+                  <div className="bg-accent/10 border-l-2 border-l-accent rounded px-2.5 py-1.5">
+                    <p className="text-sm text-foreground">{ultima.texto}</p>
+                    <p className="text-xs text-accent mt-0.5 font-medium">
+                      {ultima.creadoPorNombre} — {formatearFechaConHora(ultima.creadoEn)}
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {agregandoNotaId === etapa.id ? (
+                  {anteriores.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandida(etapa.id)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition mt-1"
+                    >
+                      <ChevronDown size={12} className={`transition-transform ${expandida ? 'rotate-180' : ''}`} />
+                      {expandida
+                        ? 'Ocultar historial'
+                        : `Ver ${anteriores.length} nota${anteriores.length !== 1 ? 's' : ''} anterior${anteriores.length !== 1 ? 'es' : ''}`}
+                    </button>
+                  )}
+
+                  {expandida && (
+                    <div className="mt-1.5 space-y-1.5">
+                      {[...anteriores].reverse().map(nota => (
+                        <div key={nota.id} className="bg-secondary/30 rounded px-2.5 py-1.5">
+                          <p className="text-sm text-foreground/80">{nota.texto}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {nota.creadoPorNombre} — {formatearFechaConHora(nota.creadoEn)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {agregandoNotaId === etapa.id && (
               <div className="mt-2">
                 <textarea
                   value={textoNota}
@@ -190,14 +239,6 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                   </button>
                 </div>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => abrirFormNota(etapa.id)}
-                className="text-xs text-accent hover:underline font-medium mt-1.5"
-              >
-                + Agregar nota
-              </button>
             )}
 
             <div className="flex flex-wrap items-center gap-3 mt-2">
@@ -222,6 +263,15 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
               >
                 Editar
               </button>
+              {agregandoNotaId !== etapa.id && (
+                <button
+                  type="button"
+                  onClick={() => abrirFormNota(etapa.id)}
+                  className="text-xs px-3 py-1 rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground transition font-medium"
+                >
+                  + Agregar nota
+                </button>
+              )}
               <button
                 onClick={() => setConfirmacion({ tipo: 'eliminar', etapaId: etapa.id })}
                 className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition font-medium"

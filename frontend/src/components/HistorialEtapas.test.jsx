@@ -93,4 +93,61 @@ describe('HistorialEtapas - historial de notas', () => {
     expect(screen.queryByText('Primera nota')).not.toBeInTheDocument()
     expect(screen.getByText('+ Agregar nota')).toBeInTheDocument()
   })
+
+  describe('colapsado por defecto (varias notas)', () => {
+    const etapaConHistorial = {
+      ...etapaBase,
+      notas: [
+        { id: 10, texto: 'Nota vieja', creadoEn: '2026-09-01T10:00:00', creadoPorNombre: 'Mario Acedo' },
+        { id: 11, texto: 'Nota más reciente', creadoEn: '2026-09-20T10:00:00', creadoPorNombre: 'Carlos' },
+      ],
+    }
+
+    it('por defecto solo muestra la nota más reciente, no las anteriores', () => {
+      render(<HistorialEtapas etapas={[etapaConHistorial]} {...props} />)
+
+      expect(screen.getByText('Nota más reciente')).toBeInTheDocument()
+      expect(screen.queryByText('Nota vieja')).not.toBeInTheDocument()
+      expect(screen.getByText(/Ver 1 nota anterior/)).toBeInTheDocument()
+    })
+
+    it('expandir el historial muestra la nota anterior sin ocultar la más reciente', () => {
+      render(<HistorialEtapas etapas={[etapaConHistorial]} {...props} />)
+
+      fireEvent.click(screen.getByText(/Ver 1 nota anterior/))
+
+      expect(screen.getByText('Nota vieja')).toBeInTheDocument()
+      expect(screen.getByText('Nota más reciente')).toBeInTheDocument()
+      expect(screen.getByText('Ocultar historial')).toBeInTheDocument()
+    })
+
+    it('colapsar de nuevo vuelve a ocultar la nota anterior', () => {
+      render(<HistorialEtapas etapas={[etapaConHistorial]} {...props} />)
+
+      fireEvent.click(screen.getByText(/Ver 1 nota anterior/))
+      fireEvent.click(screen.getByText('Ocultar historial'))
+
+      expect(screen.queryByText('Nota vieja')).not.toBeInTheDocument()
+      expect(screen.getByText(/Ver 1 nota anterior/)).toBeInTheDocument()
+    })
+
+    it('con una sola nota no muestra ningún control de expandir', () => {
+      render(<HistorialEtapas etapas={[etapaBase]} {...props} />)
+
+      expect(screen.queryByText(/Ver.*nota/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Ocultar historial')).not.toBeInTheDocument()
+    })
+  })
+
+  it('"+ Agregar nota" vive en la misma fila que Editar y Eliminar', () => {
+    render(<HistorialEtapas etapas={[etapaBase]} {...props} />)
+
+    const eliminar = screen.getByText('Eliminar')
+    const editar = screen.getByText('Editar')
+    const agregarNota = screen.getByText('+ Agregar nota')
+
+    // Mismo contenedor padre directo (la fila de acciones)
+    expect(agregarNota.parentElement).toBe(eliminar.parentElement)
+    expect(agregarNota.parentElement).toBe(editar.parentElement)
+  })
 })
