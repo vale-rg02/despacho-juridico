@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 import { formatearFecha } from '../utils/formato'
+import { agregarNotaEtapa } from '../services/etapas'
 import EstadoVacio from './EstadoVacio'
 import ModalConfirmacion from './ModalConfirmacion'
 
@@ -75,13 +76,45 @@ function EstadoFecha({ etapa }) {
   return <span className="text-xs text-muted-foreground">Vence en {dias} días</span>
 }
 
-function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar }) {
+function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEditar, onEliminar, onNotaAgregada }) {
   const [confirmacion, setConfirmacion] = useState(null) // { tipo: 'revertir' | 'eliminar', etapaId }
+
+  // Historial de notas por etapa: "+ Agregar nota" es un flujo aparte de
+  // Editar etapa (mismo patrón que "+ Registrar acuerdo manualmente" en
+  // DetalleExpediente.jsx) -- se guarda directo sin recargar todo el
+  // historial, agregando la nota nueva a la lista local vía onNotaAgregada.
+  const [agregandoNotaId, setAgregandoNotaId] = useState(null)
+  const [textoNota, setTextoNota] = useState('')
+  const [guardandoNota, setGuardandoNota] = useState(false)
 
   function confirmar() {
     if (confirmacion.tipo === 'revertir') onRevertir(confirmacion.etapaId)
     else onEliminar(confirmacion.etapaId)
     setConfirmacion(null)
+  }
+
+  function abrirFormNota(etapaId) {
+    setAgregandoNotaId(etapaId)
+    setTextoNota('')
+  }
+
+  function cerrarFormNota() {
+    setAgregandoNotaId(null)
+    setTextoNota('')
+  }
+
+  async function handleGuardarNota(etapaId) {
+    if (!textoNota.trim()) return
+    setGuardandoNota(true)
+    try {
+      const nota = await agregarNotaEtapa(expedienteId, etapaId, textoNota.trim())
+      onNotaAgregada(etapaId, nota)
+      cerrarFormNota()
+    } catch {
+      // se queda el formulario abierto para reintentar
+    } finally {
+      setGuardandoNota(false)
+    }
   }
 
   if (etapas.length === 0) {
@@ -116,9 +149,57 @@ function HistorialEtapas({ etapas, onCompletar, onRevertir, onEditar, onEliminar
                 <span>Completada: {formatearFecha(etapa.fechaCompletada)}</span>
               )}
             </div>
-            {etapa.notas && (
-              <p className="text-sm text-foreground/80 mt-1">{etapa.notas}</p>
+            {etapa.notas?.length > 0 && (
+              <div className="mt-1.5 space-y-1.5">
+                {etapa.notas.map(nota => (
+                  <div key={nota.id} className="bg-secondary/30 rounded px-2.5 py-1.5">
+                    <p className="text-sm text-foreground/80">{nota.texto}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {nota.creadoPorNombre} — {formatearFechaConHora(nota.creadoEn)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
+
+            {agregandoNotaId === etapa.id ? (
+              <div className="mt-2">
+                <textarea
+                  value={textoNota}
+                  onChange={e => setTextoNota(e.target.value)}
+                  rows={2}
+                  autoFocus
+                  placeholder="Escribe la nota..."
+                  className="w-full bg-input-background text-foreground text-sm px-2.5 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition resize-none"
+                />
+                <div className="flex justify-end gap-2 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={cerrarFormNota}
+                    className="text-xs text-muted-foreground hover:text-foreground transition px-2 py-1"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleGuardarNota(etapa.id)}
+                    disabled={!textoNota.trim() || guardandoNota}
+                    className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded-md font-medium hover:opacity-90 transition disabled:opacity-50"
+                  >
+                    {guardandoNota ? 'Guardando...' : 'Guardar nota'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => abrirFormNota(etapa.id)}
+                className="text-xs text-accent hover:underline font-medium mt-1.5"
+              >
+                + Agregar nota
+              </button>
+            )}
+
             <div className="flex flex-wrap items-center gap-3 mt-2">
               {activa ? (
                 <button

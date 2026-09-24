@@ -185,7 +185,7 @@ public static class MigracionExcel
                         FechaLimite = null,
                         Atendido = fechaCompletada.HasValue,
                         RegistradoPorId = creadoPorUsuarioId,
-                        Notas = notasEtapa
+                        NotasLegado = notasEtapa
                     });
                 }
 

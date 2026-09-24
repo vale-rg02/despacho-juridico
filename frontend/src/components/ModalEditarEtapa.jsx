@@ -26,7 +26,6 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
   const [horaInicio, setHoraInicio] = useState(horaDe(etapa.fechaInicio))
   const [fechaLimite, setFechaLimite] = useState(etapa.fechaLimite ? etapa.fechaLimite.slice(0, 10) : '')
   const [horaLimite, setHoraLimite] = useState(horaDe(etapa.fechaLimite))
-  const [notas, setNotas] = useState(etapa.notas ?? '')
 
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -65,7 +64,6 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
         horaInicio: horaInicio || null,
         fechaLimite: fechaLimite || null,
         horaLimite: horaLimite || null,
-        notas: notas || null,
       })
       onGuardado()
     } catch {
@@ -79,7 +77,6 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
   const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-  const inputClass = `w-full ${inputBase}`
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
@@ -171,17 +168,6 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
             Recalcular fecha límite sugerida
           </button>
         )}
-
-        <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
-          <input
-            type="text"
-            value={notas}
-            onChange={e => setNotas(e.target.value)}
-            placeholder="Información adicional (opcional)"
-            className={inputClass}
-          />
-        </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <button

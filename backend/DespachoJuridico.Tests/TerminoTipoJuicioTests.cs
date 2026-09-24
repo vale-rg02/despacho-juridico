@@ -140,7 +140,7 @@ public class TerminoTipoJuicioTests
             EtapaCatalogoId = huerfana.Id,
             FechaInicio = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
             RegistradoPorId = usuario.Id,
-            Notas = "Importado del Excel original"
+            NotasLegado = "Importado del Excel original"
         };
         context.HistorialEtapas.Add(historial);
         await context.SaveChangesAsync();
@@ -154,7 +154,7 @@ public class TerminoTipoJuicioTests
         Assert.Equal("Término para Amparo", leidaDespues.EtapaCatalogo!.Nombre);
         Assert.Equal("Oral Mercantil", leidaDespues.EtapaCatalogo!.TipoJuicio);
         Assert.Equal(destino.Id, leidaDespues.EtapaCatalogoId);
-        Assert.Equal("Importado del Excel original", leidaDespues.Notas);
+        Assert.Equal("Importado del Excel original", leidaDespues.NotasLegado);
     }
 
     [Fact]

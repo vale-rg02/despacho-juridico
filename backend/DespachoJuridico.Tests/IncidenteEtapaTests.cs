@@ -107,7 +107,7 @@ public class IncidenteEtapaTests
             EtapaCatalogoId = incidente.Id,
             FechaInicio = DateTime.UtcNow,
             RegistradoPorId = usuario.Id,
-            Notas = "Incidente de nulidad de notificaciones"
+            NotasLegado = "Incidente de nulidad de notificaciones"
         });
         await context.SaveChangesAsync();
 

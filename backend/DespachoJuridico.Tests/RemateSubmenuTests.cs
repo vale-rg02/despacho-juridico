@@ -144,7 +144,7 @@ public class RemateSubmenuTests
             EtapaCatalogoId = primera.Id,
             FechaInicio = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc),
             RegistradoPorId = usuario.Id,
-            Notas = "Registrado antes de DJ-76"
+            NotasLegado = "Registrado antes de DJ-76"
         };
         context.HistorialEtapas.Add(historial);
         await context.SaveChangesAsync();
@@ -159,7 +159,7 @@ public class RemateSubmenuTests
 
         Assert.Equal("1ra Almoneda", leidaDespues.EtapaCatalogo!.Nombre);
         Assert.Equal(primera.Id, leidaDespues.EtapaCatalogoId);
-        Assert.Equal("Registrado antes de DJ-76", leidaDespues.Notas);
+        Assert.Equal("Registrado antes de DJ-76", leidaDespues.NotasLegado);
     }
 
     [Fact]

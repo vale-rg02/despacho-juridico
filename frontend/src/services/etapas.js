@@ -36,3 +36,10 @@ export async function eliminarEtapa(expedienteId, etapaId) {
   const response = await api.delete(`/expedientes/${expedienteId}/etapas/${etapaId}`)
   return response.data
 }
+
+// Historial de notas por etapa: agrega una nota nueva sin borrar las
+// anteriores (flujo aparte de editarEtapa, ver HistorialEtapas.jsx)
+export async function agregarNotaEtapa(expedienteId, etapaId, texto) {
+  const response = await api.post(`/expedientes/${expedienteId}/etapas/${etapaId}/notas`, { texto })
+  return response.data
+}

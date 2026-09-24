@@ -401,6 +401,16 @@ function DetalleExpediente() {
     }
   }
 
+  // Historial de notas por etapa: HistorialEtapas.jsx ya llamó al backend y
+  // trae la nota creada -- solo se agrega a la lista local de esa etapa, sin
+  // recargar todo el historial (agregar una nota es frecuente, no amerita el
+  // viaje redondo completo que sí tiene sentido para el resto de acciones).
+  function handleNotaAgregada(etapaId, nota) {
+    setEtapas(prev => prev.map(e =>
+      e.id === etapaId ? { ...e, notas: [...e.notas, nota] } : e
+    ))
+  }
+
   async function handleGuardarDestinoExhorto(acuerdoId, ciudadDestino) {
     try {
       await actualizarDestinoExhorto(acuerdoId, ciudadDestino)
@@ -710,11 +720,13 @@ function DetalleExpediente() {
 
           <div className="bg-card border border-border rounded-lg p-4">
             <HistorialEtapas
+              expedienteId={id}
               etapas={etapas}
               onCompletar={handleCompletarEtapa}
               onRevertir={handleRevertirEtapa}
               onEditar={handleEditarEtapa}
               onEliminar={handleEliminarEtapa}
+              onNotaAgregada={handleNotaAgregada}
             />
           </div>
 

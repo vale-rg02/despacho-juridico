@@ -17,6 +17,7 @@ public static class DbSeeder
         await MigrarTerminoATipoJuicioAsync(context);
         await SeedSedesYJuzgadosAsync(context);
         await SeedExpedientesAsync(context);
+        await MigrarNotasEtapaLegadoAsync(context);
     }
 
     private static async Task SeedUsuariosAsync(AppDbContext context)
@@ -324,6 +325,36 @@ public static class DbSeeder
         }
 
         await context.SaveChangesAsync();
+    }
+
+    // Historial de notas por etapa: NotasLegado (antes "Notas", ver
+    // HistorialEtapa.cs) era un solo campo que se sobreescribía en cada edición
+    // -- no hay forma de recuperar lo que decía antes de la última edición, solo
+    // el valor vigente al momento del deploy. Esa nota vigente se migra como la
+    // primera NotaEtapa de su historial (con la fecha más cercana disponible,
+    // FechaInicio, y el mismo usuario que registró la etapa). Idempotente: una
+    // vez migrada, la etapa ya tiene NotaEtapa y no se vuelve a tocar -- permite
+    // correr esto en cada arranque sin duplicar.
+    internal static async Task MigrarNotasEtapaLegadoAsync(AppDbContext context)
+    {
+        var pendientes = await context.HistorialEtapas
+            .Where(h => h.NotasLegado != null && h.NotasLegado != "")
+            .Where(h => !context.NotasEtapa.Any(n => n.HistorialEtapaId == h.Id))
+            .ToListAsync();
+
+        foreach (var historial in pendientes)
+        {
+            context.NotasEtapa.Add(new NotaEtapa
+            {
+                HistorialEtapaId = historial.Id,
+                Texto = historial.NotasLegado!,
+                CreadoEn = historial.FechaInicio,
+                CreadoPorId = historial.RegistradoPorId
+            });
+        }
+
+        if (pendientes.Count > 0)
+            await context.SaveChangesAsync();
     }
 
     private static async Task SeedExpedientesAsync(AppDbContext context)

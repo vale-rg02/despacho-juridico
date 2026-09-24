@@ -344,6 +344,7 @@ public class ExpedientesController : ControllerBase
         var etapas = await _context.HistorialEtapas
             .Include(h => h.EtapaCatalogo)
             .Include(h => h.RegistradoPor)
+            .Include(h => h.Notas).ThenInclude(n => n.CreadoPor)
             .Where(h => h.ExpedienteId == id)
             .OrderByDescending(h => h.FechaInicio)
             .Select(h => new EtapaHistorialResponse
@@ -355,7 +356,16 @@ public class ExpedientesController : ControllerBase
                 FechaLimite = h.FechaLimite,
                 FechaCompletada = h.FechaCompletada,
                 Atendido = h.Atendido,
-                Notas = h.Notas,
+                Notas = h.Notas
+                    .OrderBy(n => n.CreadoEn)
+                    .Select(n => new NotaEtapaResponse
+                    {
+                        Id = n.Id,
+                        Texto = n.Texto,
+                        CreadoEn = n.CreadoEn,
+                        CreadoPorNombre = n.CreadoPor.Nombre
+                    })
+                    .ToList(),
                 RegistradoPorNombre = h.RegistradoPor.Nombre
             })
             .ToListAsync();
@@ -399,7 +409,6 @@ public class ExpedientesController : ControllerBase
             EtapaCatalogoId = etapaCatalogo.Id,
             FechaInicio = fechaInicioUtc,
             FechaLimite = fechaLimiteUtc,
-            Notas = request.Notas,
             RegistradoPorId = usuarioId
         };
 
@@ -408,6 +417,21 @@ public class ExpedientesController : ControllerBase
         expediente.ActualizadoEn = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        // Historial de notas por etapa: si vino texto, es la primera NotaEtapa
+        // del historial (ya no un campo plano en HistorialEtapa).
+        NotaEtapa? notaInicial = null;
+        if (!string.IsNullOrWhiteSpace(request.Notas))
+        {
+            notaInicial = new NotaEtapa
+            {
+                HistorialEtapaId = historial.Id,
+                Texto = request.Notas,
+                CreadoPorId = usuarioId
+            };
+            _context.NotasEtapa.Add(notaInicial);
+            await _context.SaveChangesAsync();
+        }
 
         await RegistrarBitacora(id, usuarioId, "etapa_nueva",
         $"Etapa '{etapaCatalogo.Nombre}' iniciada el {fechaInicioUtc:yyyy-MM-dd}" +
@@ -424,7 +448,16 @@ public class ExpedientesController : ControllerBase
             FechaLimite = historial.FechaLimite,
             FechaCompletada = historial.FechaCompletada,
             Atendido = historial.Atendido,
-            Notas = historial.Notas,
+            Notas = notaInicial == null ? new() : new()
+            {
+                new NotaEtapaResponse
+                {
+                    Id = notaInicial.Id,
+                    Texto = notaInicial.Texto,
+                    CreadoEn = notaInicial.CreadoEn,
+                    CreadoPorNombre = historial.RegistradoPor.Nombre
+                }
+            },
             RegistradoPorNombre = historial.RegistradoPor.Nombre
         };
 
@@ -471,6 +504,7 @@ public class ExpedientesController : ControllerBase
             .Include(h => h.EtapaCatalogo)
             .Include(h => h.RegistradoPor)
             .Include(h => h.Expediente)
+            .Include(h => h.Notas).ThenInclude(n => n.CreadoPor)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
         if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
@@ -485,6 +519,8 @@ public class ExpedientesController : ControllerBase
             ? CombinarFechaHora(request.FechaLimite.Value, request.HoraLimite)
             : null;
 
+        // Historial de notas por etapa: editar una etapa ya no toca notas (flujo
+        // aparte, ver AgregarNotaEtapa) -- esto es solo metadata.
         var cambios = new List<string>();
         if (historial.EtapaCatalogoId != etapaCatalogo.Id)
             cambios.Add($"Etapa: '{historial.EtapaCatalogo?.Nombre ?? "—"}' → '{etapaCatalogo.Nombre}'");
@@ -492,13 +528,10 @@ public class ExpedientesController : ControllerBase
             cambios.Add($"Fecha inicio: '{historial.FechaInicio:yyyy-MM-dd}' → '{fechaInicioUtc:yyyy-MM-dd}'");
         if (historial.FechaLimite != fechaLimiteUtc)
             cambios.Add($"Fecha límite: '{historial.FechaLimite?.ToString("yyyy-MM-dd") ?? "—"}' → '{fechaLimiteUtc?.ToString("yyyy-MM-dd") ?? "—"}'");
-        if (historial.Notas != request.Notas)
-            cambios.Add("Notas actualizadas");
 
         historial.EtapaCatalogoId = etapaCatalogo.Id;
         historial.FechaInicio = fechaInicioUtc;
         historial.FechaLimite = fechaLimiteUtc;
-        historial.Notas = request.Notas;
 
         await _context.SaveChangesAsync();
 
@@ -519,8 +552,55 @@ public class ExpedientesController : ControllerBase
             FechaLimite = historial.FechaLimite,
             FechaCompletada = historial.FechaCompletada,
             Atendido = historial.Atendido,
-            Notas = historial.Notas,
+            Notas = historial.Notas
+                .OrderBy(n => n.CreadoEn)
+                .Select(n => new NotaEtapaResponse
+                {
+                    Id = n.Id,
+                    Texto = n.Texto,
+                    CreadoEn = n.CreadoEn,
+                    CreadoPorNombre = n.CreadoPor.Nombre
+                })
+                .ToList(),
             RegistradoPorNombre = historial.RegistradoPor.Nombre
+        });
+    }
+
+    // POST /api/expedientes/5/etapas/12/notas
+    // Historial de notas por etapa: agrega una nota nueva sin borrar las
+    // anteriores (flujo aparte de EditarEtapa, ver DetalleExpediente.jsx).
+    // Mismo chequeo de acceso que el resto de acciones sobre HistorialEtapa.
+    [HttpPost("{id}/etapas/{etapaId}/notas")]
+    public async Task<IActionResult> AgregarNotaEtapa(int id, int etapaId, [FromBody] AgregarNotaEtapaRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var historial = await _context.HistorialEtapas
+            .Include(h => h.Expediente)
+            .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
+
+        if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
+            return NotFound(new { mensaje = "Etapa no encontrada en este expediente" });
+
+        var usuarioId = ObtenerUsuarioId();
+        var nota = new NotaEtapa
+        {
+            HistorialEtapaId = etapaId,
+            Texto = request.Texto,
+            CreadoPorId = usuarioId
+        };
+        _context.NotasEtapa.Add(nota);
+        await _context.SaveChangesAsync();
+
+        var usuario = await _context.Usuarios.FindAsync(usuarioId);
+
+        return Ok(new NotaEtapaResponse
+        {
+            Id = nota.Id,
+            Texto = nota.Texto,
+            CreadoEn = nota.CreadoEn,
+            CreadoPorNombre = usuario?.Nombre ?? string.Empty
         });
     }
 

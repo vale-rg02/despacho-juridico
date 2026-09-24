@@ -120,7 +120,7 @@ public class IncidenteSubmenuTests
             EtapaCatalogoId = incidente.Id,
             FechaInicio = new DateTime(2026, 9, 3, 0, 0, 0, DateTimeKind.Utc),
             RegistradoPorId = usuario.Id,
-            Notas = "Registrado antes de DJ-121, con el modelo plano"
+            NotasLegado = "Registrado antes de DJ-121, con el modelo plano"
         };
         context.HistorialEtapas.Add(historial);
         await context.SaveChangesAsync();
@@ -133,7 +133,7 @@ public class IncidenteSubmenuTests
 
         Assert.Equal("Incidente", leidaDespues.EtapaCatalogo!.Nombre);
         Assert.Equal(incidente.Id, leidaDespues.EtapaCatalogoId);
-        Assert.Equal("Registrado antes de DJ-121, con el modelo plano", leidaDespues.Notas);
+        Assert.Equal("Registrado antes de DJ-121, con el modelo plano", leidaDespues.NotasLegado);
     }
 
     [Fact]
