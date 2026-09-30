@@ -16,10 +16,12 @@ vi.mock('react-router-dom', async () => {
 
 // DJ-105: el campo Banco pasó de <select> a ComboboxCatalogo (mismo patrón ya
 // probado de Sede/Juzgado) -- lo que importa cubrir aquí es lo NUEVO: que
-// "+ Agregar banco nuevo" solo aparece para admin, que Banco sigue siendo
-// opcional (no bloquea guardar sin seleccionar uno), y que al guardar se
-// resuelve el bancoId correcto a partir del nombre elegido. El filtrado/
-// selección del combobox en sí ya está cubierto en ComboboxCatalogo.test.jsx.
+// "+ Agregar banco nuevo" está abierto a cualquier usuario autenticado (no
+// solo admin -- decisión explícita del despacho, a diferencia de Sede/Juzgado
+// que sí siguen restringidos), que Banco sigue siendo opcional (no bloquea
+// guardar sin seleccionar uno), y que al guardar se resuelve el bancoId
+// correcto a partir del nombre elegido. El filtrado/selección del combobox en
+// sí ya está cubierto en ComboboxCatalogo.test.jsx.
 describe('NuevoExpediente - campo Banco (DJ-105)', () => {
   const bancosDisponibles = [
     { id: 1, nombre: 'BBVA México' },
@@ -58,14 +60,14 @@ describe('NuevoExpediente - campo Banco (DJ-105)', () => {
     expect(screen.getByText('+ Agregar banco nuevo')).toBeInTheDocument()
   })
 
-  it('litigante estándar: NO ve "+ Agregar banco nuevo"', async () => {
+  it('litigante estándar: también ve "+ Agregar banco nuevo" (abierto a todos)', async () => {
     getUsuario.mockReturnValue({ id: 2, nivelAcceso: 'Estandar' })
     renderPagina()
 
     const inputBanco = await screen.findByPlaceholderText(/sin banco/i)
     fireEvent.focus(inputBanco)
 
-    expect(screen.queryByText('+ Agregar banco nuevo')).not.toBeInTheDocument()
+    expect(screen.getByText('+ Agregar banco nuevo')).toBeInTheDocument()
   })
 
   it('guardar sin elegir Banco no falla -- sigue siendo opcional', async () => {

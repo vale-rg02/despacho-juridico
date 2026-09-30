@@ -9,9 +9,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DespachoJuridico.Tests;
 
-// DJ-105: POST /api/bancos -- mismo patrón de catálogo autogestionable que
-// SedesController/JuzgadosController (DJ-112/DJ-87): agregar banco nuevo
-// restringido a admin, GET abierto a cualquier usuario autenticado.
+// DJ-105: POST /api/bancos -- a diferencia de SedesController/JuzgadosController
+// (DJ-112/DJ-87, restringidos a admin), agregar un banco nuevo está abierto a
+// cualquier usuario autenticado -- decisión explícita del despacho, no hay
+// motivo para limitarlo. GET también abierto a cualquier usuario autenticado.
 public class BancosControllerTests
 {
     private static AppDbContext CrearContextoEnMemoria(string nombreBD)
@@ -23,18 +24,18 @@ public class BancosControllerTests
     }
 
     [Fact]
-    public void Create_RequiereLaPoliticaAccesoAdmin()
+    public void Create_NoRequiereNingunaPoliticaDeAutorizacionAdicional()
     {
         // Igual que en DJ-102 (ver ScraperControllerAutorizacionTests): [Authorize]
         // en un método de controller no se aplica al llamarlo directamente en un
-        // test -- se verifica por reflexión, que es exactamente lo que ASP.NET Core
-        // usa para decidir si autoriza la petición.
+        // test -- se verifica por reflexión. Create ya no debe traer AccesoAdmin;
+        // cualquier usuario autenticado (autorización de clase [Authorize], sin
+        // política) puede crear un banco.
         var metodo = typeof(BancosController).GetMethod(nameof(BancosController.Create))!;
 
         var authorize = metodo.GetCustomAttribute<AuthorizeAttribute>();
 
-        Assert.NotNull(authorize);
-        Assert.Equal("AccesoAdmin", authorize!.Policy);
+        Assert.Null(authorize);
     }
 
     [Fact]
@@ -96,6 +97,8 @@ public class BancosControllerTests
     [Fact]
     public void Delete_RequiereLaPoliticaAccesoAdmin()
     {
+        // A diferencia de Create (abierto a todos), Delete sigue restringido --
+        // solo se pidió abrir "agregar", no "borrar".
         var metodo = typeof(BancosController).GetMethod(nameof(BancosController.Delete))!;
 
         var authorize = metodo.GetCustomAttribute<AuthorizeAttribute>();

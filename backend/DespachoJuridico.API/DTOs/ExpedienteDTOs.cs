@@ -21,6 +21,7 @@ public class ExpedienteResponse
 
     public int? BancoId { get; set; }
     public string? BancoNombre { get; set; }
+    public string? ParteActoraParticular { get; set; }
 
     public int? UsuarioAsignadoId { get; set; }
     public string? UsuarioAsignadoNombre { get; set; }
@@ -58,6 +59,12 @@ public class ExpedienteCreateRequest
 
     public int? BancoId { get; set; }
 
+    // Alternativa a BancoId -- ver comentario en Models/Expediente.cs. El
+    // backend decide cuál de los dos se guarda (ver Create en
+    // ExpedientesController), no hace falta que el frontend mande uno solo.
+    [StringLength(200)]
+    public string? ParteActoraParticular { get; set; }
+
     // DJ-112: opcional a propósito -- compatibilidad hacia atrás mientras
     // Frontend y Backend (dos servicios de Railway) no se despliegan al mismo
     // tiempo. La validación estricta contra el catálogo solo se activa cuando
@@ -92,6 +99,10 @@ public class ExpedienteUpdateRequest
     public string ParteDemandada { get; set; } = string.Empty;
 
     public int? BancoId { get; set; }
+
+    // Alternativa a BancoId -- ver comentario en Models/Expediente.cs.
+    [StringLength(200)]
+    public string? ParteActoraParticular { get; set; }
 
     // DJ-112: opcional a propósito -- compatibilidad hacia atrás mientras
     // Frontend y Backend (dos servicios de Railway) no se despliegan al mismo

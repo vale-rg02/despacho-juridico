@@ -37,10 +37,11 @@ public class BancosController : ControllerBase
         return Ok(bancos);
     }
 
-    // POST /api/bancos — solo admin (DJ-105, mismo criterio que
-    // SedesController/JuzgadosController: agregar catálogo nuevo = solo admin).
+    // POST /api/bancos — abierto a cualquier usuario autenticado (a diferencia
+    // de SedesController/JuzgadosController, que sí siguen restringidos a
+    // admin). Decisión explícita: el despacho no ve motivo para limitar quién
+    // agrega un banco nuevo al catálogo.
     [HttpPost]
-    [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Create([FromBody] CrearBancoRequest request)
     {
         if (!ModelState.IsValid)

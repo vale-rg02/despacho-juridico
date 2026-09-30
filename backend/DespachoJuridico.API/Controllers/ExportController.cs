@@ -53,7 +53,7 @@ public class ExportController : ControllerBase
             ws.Cell(row, 3).Value = e.Juzgado ?? "";
             ws.Cell(row, 4).Value = e.Materia ?? "";
             ws.Cell(row, 5).Value = e.TipoJuicio ?? "";
-            ws.Cell(row, 6).Value = e.Banco?.Nombre ?? "";
+            ws.Cell(row, 6).Value = e.Banco?.Nombre ?? e.ParteActoraParticular ?? "";
             ws.Cell(row, 7).Value = e.Estado.ToString();
             ws.Cell(row, 8).Value = e.Prioridad.ToString();
             ws.Cell(row, 9).Value = e.UsuarioAsignado?.Nombre ?? "";

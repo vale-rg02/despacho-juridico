@@ -54,7 +54,8 @@ public static class DbSeeder
             new Banco { Nombre = "HSBC", Telefono = "800-712-4722" },
             new Banco { Nombre = "Santander", Telefono = "800-501-0000" },
             new Banco { Nombre = "Banco Azteca", Telefono = "800-912-3456" },
-            new Banco { Nombre = "Scotiabank", Telefono = "800-704-5900" }
+            new Banco { Nombre = "Scotiabank", Telefono = "800-704-5900" },
+            new Banco { Nombre = "Banco Nacional de México" }
         };
 
         var nombresExistentes = await context.Bancos.Select(b => b.Nombre).ToListAsync();

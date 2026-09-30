@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
+import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
@@ -37,6 +38,8 @@ function NuevoExpediente() {
     numeroExpediente: '',
     parteDemandada: '',
     banco: '',
+    modoParteActora: 'banco', // 'banco' | 'particular'
+    parteActoraParticular: '',
     sede: 'Hermosillo',
     juzgado: '',
     materia: '',
@@ -130,7 +133,7 @@ function NuevoExpediente() {
   async function handleAgregarBanco(nombre) {
     const nuevo = await crearBanco(nombre)
     setBancos(prev => [...prev, nuevo])
-    setForm(prev => ({ ...prev, banco: nuevo.nombre }))
+    setForm(prev => ({ ...prev, banco: nuevo.nombre, modoParteActora: 'banco' }))
     setModalAgregar(null)
   }
 
@@ -156,7 +159,8 @@ function NuevoExpediente() {
       const payload = {
         numeroExpediente: form.numeroExpediente.trim(),
         parteDemandada: form.parteDemandada.trim(),
-        bancoId: bancos.find(b => b.nombre === form.banco)?.id ?? null,
+        bancoId: form.modoParteActora === 'banco' ? (bancos.find(b => b.nombre === form.banco)?.id ?? null) : null,
+        parteActoraParticular: form.modoParteActora === 'particular' ? (form.parteActoraParticular.trim() || null) : null,
         sede: form.sede || null,
         juzgado: form.juzgado || null,
         materia: form.materia || null,
@@ -271,15 +275,16 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <ComboboxCatalogo
-                label="Banco"
-                value={form.banco}
-                onChange={valor => setForm(prev => ({ ...prev, banco: valor }))}
-                opciones={bancos.map(b => b.nombre)}
-                placeholder="— Sin banco — o escribe para buscar..."
+              <SelectorBancoOParticular
+                modo={form.modoParteActora}
+                onCambiarModo={modo => setForm(prev => ({ ...prev, modoParteActora: modo }))}
+                banco={form.banco}
+                onCambiarBanco={valor => setForm(prev => ({ ...prev, banco: valor }))}
+                bancosOpciones={bancos.map(b => b.nombre)}
+                onAgregarBanco={() => setModalAgregar('banco')}
+                parteActoraParticular={form.parteActoraParticular}
+                onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
                 disabled={cargandoCatalogos}
-                onAgregarNuevo={esAdmin ? () => setModalAgregar('banco') : undefined}
-                textoAgregarNuevo="+ Agregar banco nuevo"
               />
             </div>
 

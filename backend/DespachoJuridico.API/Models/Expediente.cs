@@ -9,6 +9,13 @@ public class Expediente
     public string ParteDemandada { get; set; } = string.Empty;
     public int? BancoId { get; set; }
 
+    // Alternativa a BancoId: cuando el despacho representa directamente a una
+    // persona como parte actora ("asunto particular"), sin banco institucional
+    // de por medio. Mutuamente excluyente con BancoId -- el backend garantiza
+    // que solo uno de los dos tenga valor (ver Create/Update en
+    // ExpedientesController), nunca ambos a la vez.
+    public string? ParteActoraParticular { get; set; }
+
     // DJ-112: municipio donde radica el expediente. Texto plano (como Materia/
     // TipoJuicio), validado contra SedeCatalogo al crear/editar -- no es FK a
     // propósito, para no tocar el código que ya lee Juzgado como texto directo

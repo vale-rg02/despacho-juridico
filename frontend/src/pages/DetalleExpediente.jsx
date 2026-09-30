@@ -669,7 +669,7 @@ function DetalleExpediente() {
               }
             />
             <InfoCard icon={BookOpen} label="Materia"              value={expediente.materia ?? '—'} />
-            <InfoCard icon={Landmark} label="Banco"                value={expediente.bancoNombre ?? '—'} />
+            <InfoCard icon={Landmark} label={expediente.parteActoraParticular ? 'Parte actora' : 'Banco'} value={expediente.bancoNombre ?? expediente.parteActoraParticular ?? '—'} />
             <InfoCard icon={Clock}    label="Última actualización" value={formatearFecha(expediente.actualizadoEn)} />
           </div>
 

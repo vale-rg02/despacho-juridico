@@ -151,12 +151,14 @@ public class ExpedientesController : ControllerBase
             return BadRequest(new { mensaje = errorCatalogo });
 
         var usuarioId = ObtenerUsuarioId();
+        var (bancoId, parteActoraParticular) = ResolverParteActora(request.BancoId, request.ParteActoraParticular);
 
         var expediente = new Expediente
         {
             NumeroExpediente = request.NumeroExpediente,
             ParteDemandada = request.ParteDemandada,
-            BancoId = request.BancoId,
+            BancoId = bancoId,
+            ParteActoraParticular = parteActoraParticular,
             Sede = request.Sede,
             Juzgado = request.Juzgado,
             Materia = request.Materia,
@@ -203,6 +205,7 @@ public class ExpedientesController : ControllerBase
 
         var usuarioId = ObtenerUsuarioId();
         var cambios = new List<string>();
+        var (bancoId, parteActoraParticular) = ResolverParteActora(request.BancoId, request.ParteActoraParticular);
 
         if (expediente.NumeroExpediente != request.NumeroExpediente)
             cambios.Add($"Número: '{expediente.NumeroExpediente}' → '{request.NumeroExpediente}'");
@@ -222,8 +225,11 @@ public class ExpedientesController : ControllerBase
         if (expediente.TipoJuicio != request.TipoJuicio)
             cambios.Add($"Tipo de juicio: '{expediente.TipoJuicio ?? "—"}' → '{request.TipoJuicio ?? "—"}'");
 
-        if (expediente.BancoId != request.BancoId)
-            cambios.Add($"Banco: '{expediente.BancoId?.ToString() ?? "—"}' → '{request.BancoId?.ToString() ?? "—"}'");
+        if (expediente.BancoId != bancoId)
+            cambios.Add($"Banco: '{expediente.BancoId?.ToString() ?? "—"}' → '{bancoId?.ToString() ?? "—"}'");
+
+        if (expediente.ParteActoraParticular != parteActoraParticular)
+            cambios.Add($"Parte actora particular: '{expediente.ParteActoraParticular ?? "—"}' → '{parteActoraParticular ?? "—"}'");
 
         var usuarioAsignadoCambio = expediente.UsuarioAsignadoId != request.UsuarioAsignadoId;
         if (usuarioAsignadoCambio)
@@ -237,7 +243,8 @@ public class ExpedientesController : ControllerBase
 
         expediente.NumeroExpediente = request.NumeroExpediente;
         expediente.ParteDemandada = request.ParteDemandada;
-        expediente.BancoId = request.BancoId;
+        expediente.BancoId = bancoId;
+        expediente.ParteActoraParticular = parteActoraParticular;
         expediente.Sede = request.Sede;
         expediente.Juzgado = request.Juzgado;
         expediente.Materia = request.Materia;
@@ -971,6 +978,19 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
     internal static string EscaparComodinesLike(string texto) =>
         texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
+    // BancoId y ParteActoraParticular son mutuamente excluyentes (misma parte
+    // actora, o un banco del catálogo o una persona con nombre libre en un
+    // "asunto particular") -- el backend es la fuente de verdad de esa regla,
+    // no se confía en que el frontend mande uno solo. Si viene BancoId, gana
+    // sobre cualquier texto de ParteActoraParticular.
+    internal static (int? BancoId, string? ParteActoraParticular) ResolverParteActora(int? bancoId, string? parteActoraParticular)
+    {
+        if (bancoId.HasValue) return (bancoId, null);
+
+        var texto = parteActoraParticular?.Trim();
+        return (null, string.IsNullOrEmpty(texto) ? null : texto);
+    }
+
     private static ExpedienteResponse MapToResponse(Expediente e, int usuarioIdActual) => new()
     {
         Id = e.Id,
@@ -987,6 +1007,7 @@ public async Task<IActionResult> GetPorUsuario([FromQuery] string? busqueda)
         ActualizadoEn = e.ActualizadoEn,
         BancoId = e.BancoId,
         BancoNombre = e.Banco?.Nombre,
+        ParteActoraParticular = e.ParteActoraParticular,
         EsColaborador = e.UsuarioAsignadoId != usuarioIdActual && e.Accesos.Any(a => a.UsuarioId == usuarioIdActual),
         UsuarioAsignadoId = e.UsuarioAsignadoId,
         UsuarioAsignadoNombre = e.UsuarioAsignado?.Nombre,

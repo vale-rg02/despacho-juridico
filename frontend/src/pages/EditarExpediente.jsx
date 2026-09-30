@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
+import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
@@ -30,6 +31,8 @@ function EditarExpediente() {
     numeroExpediente: '',
     parteDemandada: '',
     banco: '',
+    modoParteActora: 'banco', // 'banco' | 'particular'
+    parteActoraParticular: '',
     // DJ-112: sin default aquí (a diferencia de NuevoExpediente) -- un
     // expediente ya existente que aún no tenga Sede migrada se queda vacío,
     // no se le fuerza un valor por el solo hecho de abrir el formulario.
@@ -59,6 +62,8 @@ function EditarExpediente() {
         numeroExpediente: expediente.numeroExpediente ?? '',
         parteDemandada: expediente.parteDemandada ?? '',
         banco: expediente.bancoNombre ?? '',
+        modoParteActora: expediente.parteActoraParticular ? 'particular' : 'banco',
+        parteActoraParticular: expediente.parteActoraParticular ?? '',
         sede: expediente.sede ?? '',
         juzgado: expediente.juzgado ?? '',
         materia: expediente.materia ?? '',
@@ -137,7 +142,7 @@ function EditarExpediente() {
   async function handleAgregarBanco(nombre) {
     const nuevo = await crearBanco(nombre)
     setBancos(prev => [...prev, nuevo])
-    setForm(prev => ({ ...prev, banco: nuevo.nombre }))
+    setForm(prev => ({ ...prev, banco: nuevo.nombre, modoParteActora: 'banco' }))
     setModalAgregar(null)
   }
 
@@ -177,7 +182,8 @@ function EditarExpediente() {
       const payload = {
         numeroExpediente: form.numeroExpediente.trim(),
         parteDemandada: form.parteDemandada.trim(),
-        bancoId: bancos.find(b => b.nombre === form.banco)?.id ?? null,
+        bancoId: form.modoParteActora === 'banco' ? (bancos.find(b => b.nombre === form.banco)?.id ?? null) : null,
+        parteActoraParticular: form.modoParteActora === 'particular' ? (form.parteActoraParticular.trim() || null) : null,
         sede: form.sede || null,
         juzgado: form.juzgado || null,
         materia: form.materia || null,
@@ -299,14 +305,15 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <ComboboxCatalogo
-                label="Banco"
-                value={form.banco}
-                onChange={valor => setForm(prev => ({ ...prev, banco: valor }))}
-                opciones={bancos.map(b => b.nombre)}
-                placeholder="— Sin banco — o escribe para buscar..."
-                onAgregarNuevo={esAdmin ? () => setModalAgregar('banco') : undefined}
-                textoAgregarNuevo="+ Agregar banco nuevo"
+              <SelectorBancoOParticular
+                modo={form.modoParteActora}
+                onCambiarModo={modo => setForm(prev => ({ ...prev, modoParteActora: modo }))}
+                banco={form.banco}
+                onCambiarBanco={valor => setForm(prev => ({ ...prev, banco: valor }))}
+                bancosOpciones={bancos.map(b => b.nombre)}
+                onAgregarBanco={() => setModalAgregar('banco')}
+                parteActoraParticular={form.parteActoraParticular}
+                onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
               />
             </div>
 
