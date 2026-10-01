@@ -27,10 +27,14 @@ export async function crearSede(nombre) {
   return response.data
 }
 
-// DJ-87 — sin sedeId, el backend regresa lista vacía (nada que elegir todavía)
-export async function getJuzgados(sedeId) {
+// DJ-87 — sin sedeId, el backend regresa lista vacía (nada que elegir todavía).
+// DJ-122: materia es opcional -- filtra también por Materia (el backend hace
+// fallback a la sede completa si ninguna coincide, ver JuzgadosController).
+export async function getJuzgados(sedeId, materia) {
   if (!sedeId) return []
-  const response = await api.get(`/juzgados?sedeId=${sedeId}`)
+  const params = { sedeId }
+  if (materia) params.materia = materia
+  const response = await api.get('/juzgados', { params })
   return response.data
 }
 

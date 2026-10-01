@@ -20,12 +20,13 @@ public class JuzgadosController : ControllerBase
         _context = context;
     }
 
-    // GET /api/juzgados?sedeId=3 — filtrado por Sede, para el combobox
-    // dependiente del formulario de expediente. Sin sedeId, lista vacía (igual
-    // que EtapasCatalogoController.GetAll sin tipoJuicio) -- no tiene sentido
+    // GET /api/juzgados?sedeId=3&materia=Civil — filtrado por Sede (y,
+    // opcionalmente, Materia -- DJ-122) para el combobox dependiente del
+    // formulario de expediente. Sin sedeId, lista vacía (igual que
+    // EtapasCatalogoController.GetAll sin tipoJuicio) -- no tiene sentido
     // mostrar los 83 juzgados de todo el estado mezclados.
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int? sedeId)
+    public async Task<IActionResult> GetAll([FromQuery] int? sedeId, [FromQuery] string? materia)
     {
         if (sedeId == null)
             return Ok(new List<JuzgadoCatalogoResponse>());
@@ -34,16 +35,26 @@ public class JuzgadosController : ControllerBase
             .Include(j => j.Sede)
             .Where(j => j.SedeId == sedeId)
             .OrderBy(j => j.Nombre)
-            .Select(j => new JuzgadoCatalogoResponse
-            {
-                Id = j.Id,
-                Nombre = j.Nombre,
-                SedeId = j.SedeId,
-                SedeNombre = j.Sede.Nombre
-            })
             .ToListAsync();
 
-        return Ok(juzgados);
+        var filtrados = string.IsNullOrWhiteSpace(materia)
+            ? juzgados
+            : juzgados.Where(j => j.EsMixto || (j.Materias != null && j.Materias.Contains(materia))).ToList();
+
+        // DJ-122: en varias sedes el catálogo no tiene ningún juzgado con la
+        // Materia confirmada para esa materia ni un Mixto que la cubra (dato
+        // incompleto/ambiguo, ver ClasificarJuzgado en DbSeeder) -- en vez de
+        // dejar el combobox vacío y bloquear la captura, se regresa la sede
+        // completa sin filtrar, igual que antes de que este filtro existiera.
+        var resultado = filtrados.Count > 0 ? filtrados : juzgados;
+
+        return Ok(resultado.Select(j => new JuzgadoCatalogoResponse
+        {
+            Id = j.Id,
+            Nombre = j.Nombre,
+            SedeId = j.SedeId,
+            SedeNombre = j.Sede.Nombre
+        }));
     }
 
     // POST /api/juzgados — solo admin (mismo criterio que SedesController).

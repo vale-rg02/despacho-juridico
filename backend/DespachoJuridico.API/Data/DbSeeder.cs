@@ -577,13 +577,62 @@ public static class DbSeeder
 
             foreach (var nombreJuzgado in juzgados)
             {
-                var existe = await context.JuzgadosCatalogo
-                    .AnyAsync(j => j.SedeId == sede.Id && j.Nombre == nombreJuzgado);
-                if (!existe)
-                    context.JuzgadosCatalogo.Add(new JuzgadoCatalogo { Nombre = nombreJuzgado, SedeId = sede.Id });
+                var (materias, esMixto) = ClasificarJuzgado(nombreJuzgado);
+                var existente = await context.JuzgadosCatalogo
+                    .FirstOrDefaultAsync(j => j.SedeId == sede.Id && j.Nombre == nombreJuzgado);
+
+                if (existente == null)
+                {
+                    context.JuzgadosCatalogo.Add(new JuzgadoCatalogo
+                    {
+                        Nombre = nombreJuzgado,
+                        SedeId = sede.Id,
+                        Materias = materias,
+                        EsMixto = esMixto,
+                    });
+                }
+                else
+                {
+                    // DJ-122: a diferencia del resto de este seeder, sí se
+                    // actualizan filas ya sembradas -- es la única forma de
+                    // que los 79 juzgados ya desplegados en producción (desde
+                    // DJ-87) reciban su Materia/EsMixto en el próximo deploy,
+                    // sin esperar a que alguien los vuelva a crear a mano.
+                    existente.Materias = materias;
+                    existente.EsMixto = esMixto;
+                }
             }
         }
 
         await context.SaveChangesAsync();
+    }
+
+    // DJ-122: deriva la(s) materia(s) de un juzgado a partir de su propio
+    // nombre -- la mayoría ya la trae explícita (ej. "1ro Civil Hermosillo",
+    // "Juzgado Civil/Familiar Especializado Guaymas"). Solo se reconocen las 4
+    // materias que litiga el despacho (ver MATERIAS en
+    // frontend/src/utils/materiaTipoJuicio.js); un juzgado de Penal, Laboral,
+    // Tribunal Colegiado, Adolescentes, Secretaría de Acuerdos, Violencia de
+    // Género o Ejecución de Sanciones no menciona ninguna de esas palabras y
+    // queda sin materia asignada a propósito -- no se fuerza a encajarlo en
+    // una de las 4 solo por tener que elegir algo.
+    //
+    // "Mixto" es distinto: son juzgados (casi siempre el único en su
+    // municipio -- Álamos, Cumpas, Magdalena, Sahuaripa, Ures) que en la
+    // práctica atienden cualquier materia, pero ADISON no documenta cuáles
+    // exactamente -- por eso se marcan con EsMixto en vez de intentar
+    // adivinar su lista de materias.
+    private static (string? Materias, bool EsMixto) ClasificarJuzgado(string nombre)
+    {
+        if (nombre.Contains("Mixto"))
+            return (null, true);
+
+        var materias = new List<string>();
+        if (nombre.Contains("Civil")) materias.Add("Civil");
+        if (nombre.Contains("Mercantil")) materias.Add("Mercantil"); // cubre también "Oral Mercantil"
+        if (nombre.Contains("Familiar")) materias.Add("Familiar");
+        if (nombre.Contains("Arrendamiento")) materias.Add("Arrendamiento");
+
+        return (materias.Count > 0 ? string.Join(",", materias) : null, false);
     }
 }

@@ -71,14 +71,14 @@ function NuevoExpediente() {
     }
   }
 
-  async function cargarJuzgadosDeSede(nombreSede) {
+  async function cargarJuzgadosDeSede(nombreSede, materia) {
     const sede = sedes.find(s => s.nombre === nombreSede)
     if (!sede) {
       setJuzgados([])
       return
     }
     try {
-      const data = await getJuzgados(sede.id)
+      const data = await getJuzgados(sede.id, materia)
       setJuzgados(data)
       setForm(prev => {
         const sigueSiendoValido = data.some(j => j.nombre === prev.juzgado)
@@ -93,13 +93,14 @@ function NuevoExpediente() {
     cargarCatalogos()
   }, [])
 
-  // DJ-87: el catálogo de Juzgado depende de la Sede elegida -- se recarga
-  // cada vez que cambia, y si el Juzgado ya elegido no pertenece a la Sede
-  // nueva, se limpia (mismo criterio que Materia -> TipoJuicio, DJ-82).
+  // DJ-87/DJ-122: el catálogo de Juzgado depende de Sede + Materia -- se
+  // recarga cada vez que cualquiera de las dos cambia, y si el Juzgado ya
+  // elegido no sigue en la lista filtrada, se limpia (mismo criterio que
+  // Materia -> TipoJuicio, DJ-82).
   useEffect(() => {
-    cargarJuzgadosDeSede(form.sede)
+    cargarJuzgadosDeSede(form.sede, form.materia)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.sede, sedes])
+  }, [form.sede, form.materia, sedes])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -263,6 +264,21 @@ function NuevoExpediente() {
             </div>
 
             <div>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
+              <SelectConFlecha
+                name="materia"
+                value={form.materia}
+                onChange={handleChange}
+                className={`${inputBase} cursor-pointer`}
+              >
+                <option value="">— Selecciona —</option>
+                {MATERIAS.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </SelectConFlecha>
+            </div>
+
+            <div>
               <ComboboxCatalogo
                 label="Juzgado"
                 value={form.juzgado}
@@ -287,21 +303,6 @@ function NuevoExpediente() {
                 onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
                 disabled={cargandoCatalogos}
               />
-            </div>
-
-            <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <SelectConFlecha
-                name="materia"
-                value={form.materia}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {MATERIAS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </SelectConFlecha>
             </div>
 
             <div>

@@ -85,7 +85,7 @@ function EditarExpediente() {
       const sedeExistente = dataSedes.find(s => s.nombre === (expediente.sede ?? ''))
       if (sedeExistente) {
         try {
-          setJuzgados(await getJuzgados(sedeExistente.id))
+          setJuzgados(await getJuzgados(sedeExistente.id, expediente.materia))
         } catch {
           setJuzgados([])
         }
@@ -102,9 +102,9 @@ function EditarExpediente() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // DJ-87: a diferencia de la carga inicial, un cambio de Sede hecho por el
-  // usuario sí limpia el Juzgado si ya no pertenece a la Sede nueva (mismo
-  // criterio que Materia -> TipoJuicio, DJ-82).
+  // DJ-87/DJ-122: a diferencia de la carga inicial, un cambio de Sede hecho
+  // por el usuario sí limpia el Juzgado si ya no pertenece a la Sede+Materia
+  // nueva (mismo criterio que Materia -> TipoJuicio, DJ-82).
   async function handleSedeChange(nombreSede) {
     setForm(prev => ({ ...prev, sede: nombreSede }))
 
@@ -115,7 +115,29 @@ function EditarExpediente() {
       return
     }
     try {
-      const data = await getJuzgados(sede.id)
+      const data = await getJuzgados(sede.id, form.materia)
+      setJuzgados(data)
+      setForm(prev => (data.some(j => j.nombre === prev.juzgado) ? prev : { ...prev, juzgado: '' }))
+    } catch {
+      setJuzgados([])
+    }
+  }
+
+  // DJ-82/DJ-122: cambiar Materia limpia Tipo de juicio si ya no aplica
+  // (DJ-82), y vuelve a filtrar Juzgado por Sede + Materia, limpiándolo si ya
+  // no calza -- mismo criterio "solo en cambios del usuario, no al cargar"
+  // que handleSedeChange.
+  async function handleMateriaChange(materia) {
+    const opcionesValidas = tiposJuicioDisponibles(materia).map(t => t.valor)
+    setForm(prev => {
+      const tipoJuicioSigueValido = opcionesValidas.includes(prev.tipoJuicio)
+      return { ...prev, materia, tipoJuicio: tipoJuicioSigueValido ? prev.tipoJuicio : '' }
+    })
+
+    const sede = sedes.find(s => s.nombre === form.sede)
+    if (!sede) return
+    try {
+      const data = await getJuzgados(sede.id, materia)
       setJuzgados(data)
       setForm(prev => (data.some(j => j.nombre === prev.juzgado) ? prev : { ...prev, juzgado: '' }))
     } catch {
@@ -149,16 +171,7 @@ function EditarExpediente() {
 
   function handleChange(e) {
     const { name, value } = e.target
-    setForm(prev => {
-      if (name === 'materia') {
-        // Si el tipo de juicio ya elegido no aplica a la nueva materia, se limpia
-        // (DJ-82) — evita dejar guardada una combinación inconsistente
-        const opcionesValidas = tiposJuicioDisponibles(value).map(t => t.valor)
-        const tipoJuicioSigueValido = opcionesValidas.includes(prev.tipoJuicio)
-        return { ...prev, materia: value, tipoJuicio: tipoJuicioSigueValido ? prev.tipoJuicio : '' }
-      }
-      return { ...prev, [name]: value }
-    })
+    setForm(prev => ({ ...prev, [name]: value }))
   }
 
   async function handleSubmit(e) {
@@ -293,6 +306,21 @@ function EditarExpediente() {
             </div>
 
             <div>
+              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
+              <SelectConFlecha
+                name="materia"
+                value={form.materia}
+                onChange={e => handleMateriaChange(e.target.value)}
+                className={`${inputBase} cursor-pointer`}
+              >
+                <option value="">— Selecciona —</option>
+                {MATERIAS.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </SelectConFlecha>
+            </div>
+
+            <div>
               <ComboboxCatalogo
                 label="Juzgado"
                 value={form.juzgado}
@@ -316,21 +344,6 @@ function EditarExpediente() {
                 parteActoraParticular={form.parteActoraParticular}
                 onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
               />
-            </div>
-
-            <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <SelectConFlecha
-                name="materia"
-                value={form.materia}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {MATERIAS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </SelectConFlecha>
             </div>
 
             <div>
