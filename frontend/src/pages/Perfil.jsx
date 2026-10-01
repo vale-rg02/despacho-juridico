@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Lock, ShieldCheck, Users, Download, Pencil, Plus, X, Check } from 'lucide-react'
 import Topbar from '../components/Topbar'
+import SelectConFlecha from '../components/SelectConFlecha'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
@@ -420,20 +421,20 @@ function Perfil() {
                       )}
                       <div>
                         <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Rol</label>
-                        <select value={formUsuario.rol} onChange={e => setFormUsuario(f => ({ ...f, rol: e.target.value }))}
+                        <SelectConFlecha value={formUsuario.rol} onChange={e => setFormUsuario(f => ({ ...f, rol: e.target.value }))}
                           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50">
                           <option value="Litigante">Litigante</option>
                           <option value="Socio">Socio</option>
-                        </select>
+                        </SelectConFlecha>
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
-                        <select value={formUsuario.nivelAcceso} onChange={e => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(e.target.value) }))}
+                        <SelectConFlecha value={formUsuario.nivelAcceso} onChange={e => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(e.target.value) }))}
                           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50">
                           {NIVEL_ACCESO_OPCIONES.map(op => (
                             <option key={op.valor} value={op.valor}>{op.etiqueta}</option>
                           ))}
-                        </select>
+                        </SelectConFlecha>
                       </div>
                       {errorUsuario && <p className="text-red-500 text-xs">{errorUsuario}</p>}
                     </div>

@@ -5,6 +5,7 @@ import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
+import SelectConFlecha from '../components/SelectConFlecha'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
@@ -319,7 +320,7 @@ function EditarExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <select
+              <SelectConFlecha
                 name="materia"
                 value={form.materia}
                 onChange={handleChange}
@@ -329,12 +330,12 @@ function EditarExpediente() {
                 {MATERIAS.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
-              <select
+              <SelectConFlecha
                 name="tipoJuicio"
                 value={form.tipoJuicio}
                 onChange={handleChange}
@@ -344,12 +345,12 @@ function EditarExpediente() {
                 {tiposJuicioDisponibles(form.materia).map(t => (
                   <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div className="md:col-span-2">
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
-              <select
+              <SelectConFlecha
                 name="usuarioAsignadoId"
                 value={form.usuarioAsignadoId}
                 onChange={handleChange}
@@ -359,7 +360,7 @@ function EditarExpediente() {
                 {usuarios.map(u => (
                   <option key={u.id} value={u.id}>{u.nombre}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div className="md:col-span-2">

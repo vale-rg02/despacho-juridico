@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
+import SelectConFlecha from '../components/SelectConFlecha'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
@@ -290,7 +291,7 @@ function NuevoExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <select
+              <SelectConFlecha
                 name="materia"
                 value={form.materia}
                 onChange={handleChange}
@@ -300,12 +301,12 @@ function NuevoExpediente() {
                 {MATERIAS.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
-              <select
+              <SelectConFlecha
                 name="tipoJuicio"
                 value={form.tipoJuicio}
                 onChange={handleChange}
@@ -315,12 +316,12 @@ function NuevoExpediente() {
                 {tiposJuicioDisponibles(form.materia).map(t => (
                   <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
-              <select
+              <SelectConFlecha
                 name="prioridad"
                 value={form.prioridad}
                 onChange={handleChange}
@@ -329,12 +330,12 @@ function NuevoExpediente() {
                 {PRIORIDADES.map(p => (
                   <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
-              <select
+              <SelectConFlecha
                 name="usuarioAsignadoId"
                 value={form.usuarioAsignadoId}
                 onChange={handleChange}
@@ -345,7 +346,7 @@ function NuevoExpediente() {
                 {usuarios.map(u => (
                   <option key={u.id} value={u.id}>{u.nombre}</option>
                 ))}
-              </select>
+              </SelectConFlecha>
             </div>
 
             <div className="md:col-span-2">

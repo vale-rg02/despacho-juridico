@@ -7,6 +7,7 @@
 // de una hoja — nunca el de un padre como "Remate" — porque es lo único que
 // HistorialEtapa puede guardar.
 import { useEffect, useState } from 'react'
+import SelectConFlecha from './SelectConFlecha'
 
 function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, className }) {
   const [principalId, setPrincipalId] = useState('')
@@ -60,7 +61,7 @@ function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, classNa
 
   return (
     <div className={className}>
-      <select
+      <SelectConFlecha
         value={principalId}
         onChange={e => handlePrincipalChange(e.target.value)}
         disabled={disabled}
@@ -70,20 +71,21 @@ function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, classNa
         {etapasPrincipales.map(e => (
           <option key={e.id} value={e.id}>{e.nombre}</option>
         ))}
-      </select>
+      </SelectConFlecha>
 
       {tieneSubmenu && (
-        <select
+        <SelectConFlecha
           value={subetapaId}
           onChange={e => handleSubetapaChange(e.target.value)}
           disabled={disabled}
-          className={`w-full cursor-pointer mt-2 ${inputBase}`}
+          wrapperClassName="mt-2"
+          className={`w-full cursor-pointer ${inputBase}`}
         >
           <option value="">— Selecciona una opción —</option>
           {subetapas.map(e => (
             <option key={e.id} value={e.id}>{e.nombre}</option>
           ))}
-        </select>
+        </SelectConFlecha>
       )}
     </div>
   )
