@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scale, Bell, LogOut, AlertTriangle, Calendar } from 'lucide-react'
+import { Scale, Bell, LogOut, AlertTriangle, FileText, Calendar } from 'lucide-react'
 import { logout, getUsuario } from '../services/auth'
 import { getAlertas, marcarAtendida } from '../services/notificaciones'
+import { getAcuerdosNoVistos } from '../services/acuerdos'
 import { formatearFecha } from '../utils/formato'
 
 function iniciales(nombre) {
@@ -23,6 +24,30 @@ function formatFechaAlerta(diasRestantes) {
   if (diasRestantes === 0) return 'Hoy'
   if (diasRestantes === 1) return 'Mañana'
   return `en ${diasRestantes} días`
+}
+
+function AcuerdoItem({ acuerdo, onNavegar }) {
+  return (
+    <div
+      onClick={() => onNavegar(acuerdo.expedienteId)}
+      className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-foreground line-clamp-2">{acuerdo.sintesis || 'Acuerdo sin síntesis'}</p>
+          <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {acuerdo.numeroExpediente}
+          </p>
+          {acuerdo.nombreJuzgado && (
+            <p className="text-xs text-muted-foreground mt-0.5">{acuerdo.nombreJuzgado}</p>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+          {formatearFecha(acuerdo.fechaAcuerdo)}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 function AlertaItem({ alerta, onAtender, onNavegar }) {
@@ -63,6 +88,7 @@ function Topbar({ breadcrumb }) {
   const esSocioPrincipal = usuario?.id === 1
   const [bellOpen, setBellOpen] = useState(false)
   const [alertas, setAlertas] = useState([])
+  const [acuerdosNuevos, setAcuerdosNuevos] = useState([])
   const bellRef = useRef(null)
 
   // Separar alertas propias de las ajenas (solo aplica para Socio Principal;
@@ -84,6 +110,7 @@ function Topbar({ breadcrumb }) {
 
   useEffect(() => {
     cargarAlertas()
+    cargarAcuerdosNuevos()
   }, [])
 
   useEffect(() => {
@@ -100,6 +127,15 @@ function Topbar({ breadcrumb }) {
     try {
       const data = await getAlertas()
       setAlertas(data)
+    } catch {
+      // silencioso: la topbar no debe romper la pantalla
+    }
+  }
+
+  async function cargarAcuerdosNuevos() {
+    try {
+      const data = await getAcuerdosNoVistos()
+      setAcuerdosNuevos(data)
     } catch {
       // silencioso: la topbar no debe romper la pantalla
     }
@@ -170,86 +206,124 @@ function Topbar({ breadcrumb }) {
             <button
               onClick={() => setBellOpen(o => !o)}
               className="relative p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
-              aria-label="Ver alertas próximas"
+              aria-label="Ver notificaciones"
             >
               <Bell size={17} />
-              {alertas.length > 0 && (
+              {(alertas.length + acuerdosNuevos.length) > 0 && (
                 <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                  {alertas.length > 9 ? '9+' : alertas.length}
+                  {(alertas.length + acuerdosNuevos.length) > 9 ? '9+' : alertas.length + acuerdosNuevos.length}
                 </span>
               )}
             </button>
 
             {bellOpen && (
               <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={14} className="text-accent" />
-                    <span
-                      className="text-xs font-medium uppercase tracking-widest text-foreground"
-                      style={{ fontFamily: "'DM Mono', monospace" }}
-                    >
-                      Alertas próximas
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-                    ≤ 15 días
+                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                  <Bell size={14} className="text-accent" />
+                  <span
+                    className="text-xs font-medium uppercase tracking-widest text-foreground"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
+                  >
+                    Notificaciones
                   </span>
                 </div>
 
                 <div className="divide-y divide-border max-h-80 overflow-y-auto">
-                  {alertas.length === 0 ? (
+                  {(alertas.length === 0 && acuerdosNuevos.length === 0) ? (
                     <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                      Sin alertas pendientes
+                      Sin notificaciones pendientes
                     </p>
                   ) : (
                     <>
-                      {alertasPropias.length > 0 && (
-                        <>
-                          {esSocioPrincipal && (
-                            <div className="px-4 py-2 bg-secondary/30 border-b border-border">
-                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
-                                style={{ fontFamily: "'DM Mono', monospace" }}>
-                                Mis expedientes
-                              </span>
-                            </div>
-                          )}
-                          {alertasPropias.map(alerta => (
-                            <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
-                          ))}
-                        </>
-                      )}
+                      {/* Vencimientos próximos (RevisionFechasService) */}
+                      <div>
+                        <div className="px-4 py-2 bg-secondary/30 border-b border-border flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                            style={{ fontFamily: "'DM Mono', monospace" }}>
+                            <AlertTriangle size={12} className="text-accent" />
+                            Vencimientos próximos
+                          </span>
+                          <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            ≤ 15 días
+                          </span>
+                        </div>
 
-                      {esSocioPrincipal && alertasAjenas.length > 0 && (
-                        <>
-                          <div className="px-4 py-2 bg-secondary/30 border-b border-border border-t">
-                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest"
-                              style={{ fontFamily: "'DM Mono', monospace" }}>
-                              Otros litigantes
-                            </span>
-                          </div>
-                          {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
-                            <div key={nombre}>
-                              <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
-                                <span className="text-xs font-medium text-accent"
-                                  style={{ fontFamily: "'DM Mono', monospace" }}>
-                                  {nombre}
-                                </span>
-                              </div>
-                              {alertasUsuario.map(alerta => (
-                                <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
-                              ))}
-                            </div>
-                          ))}
-                        </>
-                      )}
+                        {alertas.length === 0 ? (
+                          <p className="px-4 py-4 text-center text-xs text-muted-foreground">
+                            Sin vencimientos próximos
+                          </p>
+                        ) : (
+                          <>
+                            {alertasPropias.length > 0 && (
+                              <>
+                                {esSocioPrincipal && (
+                                  <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
+                                    <span className="text-xs font-medium text-accent"
+                                      style={{ fontFamily: "'DM Mono', monospace" }}>
+                                      Mis expedientes
+                                    </span>
+                                  </div>
+                                )}
+                                {alertasPropias.map(alerta => (
+                                  <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                                ))}
+                              </>
+                            )}
+
+                            {esSocioPrincipal && alertasAjenas.length > 0 && (
+                              <>
+                                <div className="px-4 py-1.5 bg-accent/5 border-b border-border border-t">
+                                  <span className="text-xs font-medium text-accent"
+                                    style={{ fontFamily: "'DM Mono', monospace" }}>
+                                    Otros litigantes
+                                  </span>
+                                </div>
+                                {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
+                                  <div key={nombre}>
+                                    <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
+                                      <span className="text-xs font-medium text-accent"
+                                        style={{ fontFamily: "'DM Mono', monospace" }}>
+                                        {nombre}
+                                      </span>
+                                    </div>
+                                    {alertasUsuario.map(alerta => (
+                                      <AlertaItem key={alerta.etapaHistorialId} alerta={alerta} onAtender={handleAtender} onNavegar={irAlExpediente} />
+                                    ))}
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Acuerdos nuevos (scraper de ADISON) */}
+                      <div>
+                        <div className="px-4 py-2 bg-secondary/30 border-b border-border">
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
+                            style={{ fontFamily: "'DM Mono', monospace" }}>
+                            <FileText size={12} className="text-accent" />
+                            Acuerdos nuevos
+                          </span>
+                        </div>
+
+                        {acuerdosNuevos.length === 0 ? (
+                          <p className="px-4 py-4 text-center text-xs text-muted-foreground">
+                            Sin acuerdos nuevos
+                          </p>
+                        ) : (
+                          acuerdosNuevos.map(acuerdo => (
+                            <AcuerdoItem key={acuerdo.id} acuerdo={acuerdo} onNavegar={irAlExpediente} />
+                          ))
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
 
                 <div className="px-4 py-2.5 border-t border-border bg-secondary/30">
                   <span className="text-xs text-muted-foreground">
-                    {alertas.length} vencimiento{alertas.length !== 1 ? 's' : ''} en los próximos 15 días
+                    {alertas.length} vencimiento{alertas.length !== 1 ? 's' : ''} · {acuerdosNuevos.length} acuerdo{acuerdosNuevos.length !== 1 ? 's' : ''} nuevo{acuerdosNuevos.length !== 1 ? 's' : ''}
                   </span>
                 </div>
 

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Clock, XCircle, CheckCircle, Filter, ChevronDown } from 'lucide-react'
+import { AlertTriangle, Clock, XCircle, CheckCircle, FileText, Filter, ChevronDown } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import EstadoVacio from '../components/EstadoVacio'
 import { getUsuario } from '../services/auth'
 import { getPanelNotificaciones, getUsuariosDisponibles, marcarAtendida } from '../services/notificaciones'
+import { getAcuerdosNoVistos } from '../services/acuerdos'
 import { formatearFechaCorta } from '../utils/formato'
 
 function urgenciaClase(dias) {
@@ -85,6 +86,31 @@ function FilaEtapa({ item, tipo, onNavegar, onAtender }) {
   )
 }
 
+function FilaAcuerdo({ acuerdo, onNavegar }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border last:border-0">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <button
+            onClick={() => onNavegar(acuerdo.expedienteId)}
+            className="text-xs font-medium text-accent hover:underline"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            {acuerdo.numeroExpediente}
+          </button>
+          {acuerdo.nombreJuzgado && (
+            <span className="text-xs text-muted-foreground">· {acuerdo.nombreJuzgado}</span>
+          )}
+        </div>
+        <p className="text-sm text-foreground line-clamp-2">{acuerdo.sintesis || 'Acuerdo sin síntesis'}</p>
+      </div>
+      <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
+        {formatearFechaCorta(acuerdo.fechaAcuerdo)}
+      </span>
+    </div>
+  )
+}
+
 function Notificaciones() {
   const navigate = useNavigate()
   const usuario = getUsuario()
@@ -92,6 +118,7 @@ function Notificaciones() {
 
   const [seccionActiva, setSeccionActiva] = useState('urgentes')
   const [panel, setPanel] = useState({ expedientesUrgentes: [], proximas: [], vencidas: [], atendidas: [] })
+  const [acuerdosNuevos, setAcuerdosNuevos] = useState([])
   const [usuarios, setUsuarios] = useState([])
   const [filtroUsuarioId, setFiltroUsuarioId] = useState(0)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -106,6 +133,13 @@ function Notificaciones() {
   useEffect(() => {
     cargarPanel()
   }, [filtroUsuarioId])
+
+  // DJ-126: a diferencia del resto del panel, GetNoVistos siempre se limita al
+  // usuario autenticado (titular o colaborador) -- no tiene equivalente al
+  // "el Socio ve todo" de GetAlertas -- así que no depende de filtroUsuarioId.
+  useEffect(() => {
+    cargarAcuerdosNuevos()
+  }, [])
 
   async function cargarUsuariosDisponibles() {
     try {
@@ -126,6 +160,15 @@ function Notificaciones() {
       setError('No se pudo cargar el panel de notificaciones')
     } finally {
       setCargando(false)
+    }
+  }
+
+  async function cargarAcuerdosNuevos() {
+    try {
+      const data = await getAcuerdosNoVistos()
+      setAcuerdosNuevos(data)
+    } catch {
+      // silencioso: no debe romper el resto del panel
     }
   }
 
@@ -154,6 +197,7 @@ function Notificaciones() {
     { key: 'urgentes', label: 'Urgentes', icon: AlertTriangle, count: panel.expedientesUrgentes.length },
     { key: 'proximas', label: 'Próximas', icon: Clock, count: panel.proximas.length },
     { key: 'vencidas', label: 'Vencidas', icon: XCircle, count: panel.vencidas.length },
+    { key: 'acuerdosNuevos', label: 'Acuerdos nuevos', icon: FileText, count: acuerdosNuevos.length },
     { key: 'atendidas', label: 'Atendidas', icon: CheckCircle, count: panel.atendidas.length },
   ]
 
@@ -304,6 +348,22 @@ function Notificaciones() {
                   <div className="bg-card border border-border rounded-lg overflow-hidden">
                     {panel.vencidas.map(item => (
                       <FilaEtapa key={item.id} item={item} tipo="vencida" onNavegar={irAlExpediente} onAtender={handleAtender} />
+                    ))}
+                  </div>
+                )
+              )}
+
+              {seccionActiva === 'acuerdosNuevos' && (
+                acuerdosNuevos.length === 0 ? (
+                  <EstadoVacio
+                    icon={FileText}
+                    titulo="Sin acuerdos nuevos"
+                    subtitulo="Los acuerdos detectados por el scraper que aún no has visto aparecerán aquí."
+                  />
+                ) : (
+                  <div className="bg-card border border-border rounded-lg overflow-hidden">
+                    {acuerdosNuevos.map(acuerdo => (
+                      <FilaAcuerdo key={acuerdo.id} acuerdo={acuerdo} onNavegar={irAlExpediente} />
                     ))}
                   </div>
                 )

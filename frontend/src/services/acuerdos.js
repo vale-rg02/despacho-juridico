@@ -51,3 +51,12 @@ export async function getExpedientesConAcuerdosNoVistos() {
     return []
   }
 }
+
+// DJ-126: a diferencia de getExpedientesConAcuerdosNoVistos (que reduce a ids
+// únicos para el punto de "nuevo" en la lista de expedientes), esta regresa
+// el detalle completo de cada acuerdo no visto -- lo que necesita el
+// desplegable de notificaciones para listarlos.
+export async function getAcuerdosNoVistos() {
+  const response = await api.get('/acuerdos/no-vistos')
+  return response.data
+}
