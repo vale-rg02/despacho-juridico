@@ -25,4 +25,42 @@ Dos puntos importantes para que la solución no reintroduzca el mismo problema e
 
 ---
 
-*Última actualización: 1 de septiembre de 2026.*
+## 2. Alias de nombres de banco en el matching del scraper no escala a multi-tenant (DJ-125)
+
+**El problema:** `MencionaBancoOAlias` (en `ScraperAcuerdosService.cs`) resuelve que ADISON nombre a un banco distinto a su razón social (ej. "Bancomer" en vez de "BBVA México") con un `if` puntual hardcodeado en código C#, validado caso por caso con datos reales antes de desplegarlo. Funciona para Acedo e Hijos hoy porque el despacho tiene pocos bancos y el equipo puede medir y revisar cada alias a mano.
+
+Ese enfoque dejaría de funcionar en un producto multi-tenant:
+- Cada despacho cliente trae su propio portafolio de bancos, desconocido de antemano — no se puede precargar una lista fija de alias que cubra a todos.
+- Desde DJ-105 (y reafirmado al abrir "Agregar banco" a cualquier usuario autenticado), cualquier usuario puede agregar un banco nuevo al catálogo sin que el equipo de desarrollo se entere — un alias hardcodeado en código nunca podría mantenerse al día con bancos agregados en producción después del último deploy.
+- Agregar un `if` nuevo en el código por cada alias de cada despacho no escala operativamente (requiere un deploy por alias).
+
+**Patrones de solución a futuro** *(solo para anotar, no decidir ni construir ahora)*:
+
+1. **Catálogo de alias por banco, editable desde el panel.** Agregar un campo (ej. `Banco.NombresAlternativos`, lista de strings) que el usuario capture directamente — razón social, nombre comercial, variantes conocidas — sin pasar por el equipo de desarrollo ni un deploy.
+   - *Riesgo:* depende de que el usuario del despacho sepa y se tome el tiempo de capturar los alias correctos; un alias mal puesto (muy corto o genérico) puede generar falsos positivos tan fácilmente como uno hardcodeado mal medido — ver el riesgo #2 más abajo, que aplica igual aquí.
+
+2. **Matching tolerante a variantes, en el espíritu de `PartesCoinciden`/`SimilitudMaximaSubcadena` (Levenshtein) pero aplicado al nombre del banco**, en vez de depender de una lista de alias explícita.
+   - *Riesgo:* un nombre comercial corto puede coincidir por accidente con texto ajeno sin relación — el mismo patrón de falso positivo ya documentado en DJ-79 para nombres de personas ("ANA" coincidiendo dentro de "LILIANA"). Para nombres de banco el riesgo es mayor aún porque las razones sociales mexicanas comparten fragmentos comunes ("Banco Nacional de...", "Banco X de México"). Cualquier implementación necesitaría un mínimo de longitud del patrón (como ya hace `EsNombreConfiable` para nombres de personas, que exige 2+ palabras) para no activar con fragmentos triviales.
+
+Ambos patrones son compatibles entre sí (un catálogo de alias explícito + tolerancia a variaciones de ortografía dentro de cada alias) y no son mutuamente excluyentes — pero cualquiera de los dos es una decisión de producto nueva, no una extensión directa de lo que existe hoy.
+
+**Qué falta decidir / construir:** *(pendiente — no se ha decidido si/cuándo se aborda; depende de si el negocio avanza hacia multi-tenant)*
+
+---
+
+## 3. El "número de expediente" que usa el scraper para encontrar coincidencias en realidad es el número de orden del juzgado, reutilizado entre trámites ajenos
+
+**El problema:** el matching de `ScraperAcuerdosService` busca coincidencias de `AcuerdosScrapeados` contra los expedientes del despacho por número + juzgado. Al investigar DJ-125 (alias de bancos) se encontró que ese número, en varios juzgados, no identifica un solo caso — es el **número de orden** correlativo que el juzgado asigna a todo lo que recibe (cuadernillos, exhortos, legajos, oficios), reutilizado entre trámites completamente ajenos entre sí.
+
+**Evidencia real (6 oct 2026):** al revisar los acuerdos reales ligados al expediente 108/2026 (Scotiabank, demandado Alma Melissa Salazar Gracia), entre los resultados aparecían divorcios, sucesorios, juicios de amparo y demandas de terceros sin ninguna relación con ese expediente ni ese banco — todos comparten el mismo número 108/2026 en el mismo juzgado, simplemente porque les tocó ese número de orden en algún momento. El mismo patrón se repitió en varios de los expedientes revisados ese día (24/2026, 242/2026, 299/2026, 300/2026, 325/2026, 347/2026, 363/2026, 57/2026, entre otros).
+
+**Por qué no causó problemas en la medición de DJ-125:** `PartesCoinciden` sigue comparando contra `ParteDemandada`, así que estos acuerdos ajenos no pasaron como coincidencias reales — el ruido queda filtrado por el nombre, no por el número. Pero es ruido real que vive en `AcuerdosScrapeados`, y cualquier lógica futura que confíe más en número+juzgado que en el nombre de las partes (ej. un matching menos estricto, o un alias de banco demasiado permisivo) heredaría este riesgo de falsos positivos sin darse cuenta.
+
+**Qué falta decidir / construir:** *(solo observación, no se investigó más a fondo — pendiente si alguien quiere profundizar)*
+- Confirmar si es un patrón de TODOS los juzgados o solo de algunos (los ejemplos encontrados fueron foráneos, no de Hermosillo).
+- Medir qué tan seguido genera "ruido" real en `AcuerdosScrapeados` (cuántas filas por expediente son del caso real vs. de otros trámites).
+- Si el volumen de ruido crece, considerar si vale la pena dejar de guardar los acuerdos que no matchean por nombre, en vez de guardarlos todos bajo el mismo número.
+
+---
+
+*Última actualización: 6 de octubre de 2026.*

@@ -1088,6 +1088,26 @@ public class ScraperAcuerdosService : BackgroundService
         if (NormalizarTexto(nombreBanco) == "BBVA MEXICO")
             return PartesCoinciden("BANCOMER", partesScrapeadas, umbralSimilitud);
 
+        // DJ-125: investigado si hacía falta repetir este patrón para otros bancos
+        // del portafolio real (6 oct 2026) -- sin evidencia que lo justifique, no
+        // se agregó ningún alias más:
+        // - Scotiabank (21 expedientes, 10 acuerdos reales encontrados): en los 10,
+        //   ADISON ya nombra al demandado junto al banco ("SCOTIABANK INVERLAT,
+        //   S.A. VS [demandado]") -- PartesCoinciden ya resuelve esos casos por el
+        //   nombre del demandado, y "Scotiabank" ya es subcadena literal de lo que
+        //   escribe ADISON, así que ni siquiera hace falta un alias para el banco.
+        // - Banco Nacional de México (1 expediente, el único acuerdo real
+        //   encontrado): mismo patrón, demandado nombrado junto al banco. Con un
+        //   solo expediente no hay base estadística para decidir un alias, y el
+        //   único caso real tampoco lo necesitaría. ADISON usa la razón social
+        //   completa ("BANCO NACIONAL DE MEXICO"), nunca "BANAMEX", en los datos
+        //   reales disponibles.
+        // - HSBC/Banco Azteca/Santander: sin acuerdos reales suficientes para medir.
+        // El patrón que sí justificó el alias de Bancomer (ADISON nombra SOLO al
+        // banco, nunca al demandado, típico de la etapa de radicación) no se ha
+        // repetido todavía con ningún otro banco del portafolio real -- revisar de
+        // nuevo si el portafolio de alguno de estos bancos crece y aparece ese
+        // patrón en datos reales, no antes.
         return false;
     }
 
