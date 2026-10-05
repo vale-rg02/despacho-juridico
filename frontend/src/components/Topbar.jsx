@@ -126,7 +126,7 @@ function Topbar({ breadcrumb }) {
   async function cargarAlertas() {
     try {
       const data = await getAlertas()
-      setAlertas(data)
+      setAlertas(data ?? [])
     } catch {
       // silencioso: la topbar no debe romper la pantalla
     }
@@ -135,7 +135,7 @@ function Topbar({ breadcrumb }) {
   async function cargarAcuerdosNuevos() {
     try {
       const data = await getAcuerdosNoVistos()
-      setAcuerdosNuevos(data)
+      setAcuerdosNuevos(data ?? [])
     } catch {
       // silencioso: la topbar no debe romper la pantalla
     }
