@@ -12,4 +12,12 @@ Lista viva de preguntas/temas para plantear a Mario y demás litigantes del desp
 
 ---
 
-*Última actualización: 31 de agosto de 2026.*
+## ¿El despacho lleva asuntos Laborales o Penales?
+
+**Contexto:** DJ-122 clasificó automáticamente los 83 juzgados del catálogo por materia (Civil, Mercantil, Familiar, Arrendamiento) a partir de su nombre, para filtrar el combobox de Juzgado según la Materia elegida al capturar un expediente. 36 de esos 83 juzgados quedaron sin clasificar — son Penales, Laborales, Tribunales Colegiados, Adolescentes, etc., materias que hoy no existen como opción en el catálogo `MATERIAS` del sistema (solo Civil/Mercantil/Familiar/Arrendamiento). No es un error: si el despacho nunca litiga en esas materias, no hace falta nada más.
+
+**Qué preguntar:** ¿el despacho alguna vez lleva un asunto Laboral o Penal (aunque sea ocasional)? Si la respuesta es sí, habría que agregar esas materias al catálogo del sistema como una historia nueva — hoy, si se diera el caso, el litigante podría capturar el expediente igual dejando el campo Materia vacío (el filtro de Juzgado no se aplica y se ve el catálogo completo de la sede), pero sin el filtrado automático ni cualquier otra lógica que dependa de la Materia.
+
+---
+
+*Última actualización: 4 de octubre de 2026.*
