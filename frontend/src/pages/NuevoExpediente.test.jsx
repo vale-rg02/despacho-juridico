@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import NuevoExpediente from './NuevoExpediente'
+import { AcuerdosNoVistosProvider } from '../context/AcuerdosNoVistosContext'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
@@ -40,7 +41,9 @@ describe('NuevoExpediente - campo Banco (DJ-105)', () => {
   function renderPagina() {
     return render(
       <MemoryRouter>
-        <NuevoExpediente />
+        <AcuerdosNoVistosProvider>
+          <NuevoExpediente />
+        </AcuerdosNoVistosProvider>
       </MemoryRouter>
     )
   }

@@ -54,7 +54,11 @@ public class AcuerdosController : ControllerBase
                 a.NumeroExpediente,
                 a.NombreJuzgado,
                 a.Sintesis,
-                a.FechaAcuerdo
+                a.FechaAcuerdo,
+                // DJ-127: el popup en vivo necesita distinguir Media (igual que ya
+                // se hace en el detalle del expediente y en el correo) -- antes no
+                // se exponía porque la campana (DJ-126) no lo necesitaba.
+                a.Confianza
             })
             .ToListAsync();
 

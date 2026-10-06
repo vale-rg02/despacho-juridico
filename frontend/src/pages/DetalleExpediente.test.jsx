@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import DetalleExpediente from './DetalleExpediente'
+import { AcuerdosNoVistosProvider } from '../context/AcuerdosNoVistosContext'
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 import { getHistorialEtapas } from '../services/etapas'
 import { getAccesos } from '../services/accesos'
@@ -53,7 +54,9 @@ describe('DetalleExpediente - registro manual de acuerdos (DJ-108)', () => {
   function renderPagina() {
     return render(
       <MemoryRouter>
-        <DetalleExpediente />
+        <AcuerdosNoVistosProvider>
+          <DetalleExpediente />
+        </AcuerdosNoVistosProvider>
       </MemoryRouter>
     )
   }

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Scale, Bell, LogOut, AlertTriangle, FileText, Calendar } from 'lucide-react'
 import { logout, getUsuario } from '../services/auth'
 import { getAlertas, marcarAtendida } from '../services/notificaciones'
-import { getAcuerdosNoVistos } from '../services/acuerdos'
 import { formatearFecha } from '../utils/formato'
+import { useAcuerdosNoVistos } from '../context/AcuerdosNoVistosContext'
 
 function iniciales(nombre) {
   if (!nombre) return '??'
@@ -29,7 +29,7 @@ function formatFechaAlerta(diasRestantes) {
 function AcuerdoItem({ acuerdo, onNavegar }) {
   return (
     <div
-      onClick={() => onNavegar(acuerdo.expedienteId)}
+      onClick={() => onNavegar(acuerdo)}
       className="px-4 py-3 hover:bg-secondary/40 transition cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
@@ -88,7 +88,10 @@ function Topbar({ breadcrumb }) {
   const esSocioPrincipal = usuario?.id === 1
   const [bellOpen, setBellOpen] = useState(false)
   const [alertas, setAlertas] = useState([])
-  const [acuerdosNuevos, setAcuerdosNuevos] = useState([])
+  // DJ-127: los acuerdos nuevos ya no se piden aquí -- vienen del mismo
+  // polling que alimenta el popup activo, para que marcar uno como visto por
+  // cualquiera de los dos caminos se refleje en el otro de inmediato.
+  const { acuerdosNoVistos: acuerdosNuevos, marcarVistoLocal } = useAcuerdosNoVistos()
   const bellRef = useRef(null)
 
   // Separar alertas propias de las ajenas (solo aplica para Socio Principal;
@@ -110,7 +113,6 @@ function Topbar({ breadcrumb }) {
 
   useEffect(() => {
     cargarAlertas()
-    cargarAcuerdosNuevos()
   }, [])
 
   useEffect(() => {
@@ -132,15 +134,6 @@ function Topbar({ breadcrumb }) {
     }
   }
 
-  async function cargarAcuerdosNuevos() {
-    try {
-      const data = await getAcuerdosNoVistos()
-      setAcuerdosNuevos(data ?? [])
-    } catch {
-      // silencioso: la topbar no debe romper la pantalla
-    }
-  }
-
   async function handleAtender(alerta) {
     try {
       await marcarAtendida(alerta.expedienteId, alerta.etapaHistorialId)
@@ -153,6 +146,16 @@ function Topbar({ breadcrumb }) {
   function irAlExpediente(expedienteId) {
     setBellOpen(false)
     navigate(`/expedientes/${expedienteId}`)
+  }
+
+  // DJ-127: a diferencia de irAlExpediente (que también usan las alertas de
+  // vencimiento, sin acuerdo de por medio), este además sincroniza con el
+  // popup activo y hace scroll directo a la sección de Acuerdos -- mismo
+  // destino al que ya llevan los correos de notificación.
+  function irAlAcuerdo(acuerdo) {
+    setBellOpen(false)
+    marcarVistoLocal(acuerdo.id)
+    navigate(`/expedientes/${acuerdo.expedienteId}#acuerdos`)
   }
 
   function handleLogout() {
@@ -313,7 +316,7 @@ function Topbar({ breadcrumb }) {
                           </p>
                         ) : (
                           acuerdosNuevos.map(acuerdo => (
-                            <AcuerdoItem key={acuerdo.id} acuerdo={acuerdo} onNavegar={irAlExpediente} />
+                            <AcuerdoItem key={acuerdo.id} acuerdo={acuerdo} onNavegar={irAlAcuerdo} />
                           ))
                         )}
                       </div>

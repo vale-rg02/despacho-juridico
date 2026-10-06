@@ -8,32 +8,37 @@ import RutaProtegida from './components/RutaProtegida'
 import Perfil from './pages/Perfil'
 import Calendario from './pages/Calendario'
 import Notificaciones from './pages/Notificaciones'
+import { AcuerdosNoVistosProvider } from './context/AcuerdosNoVistosContext'
+import AcuerdoPopup from './components/AcuerdoPopup'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/expedientes" element={
-        <RutaProtegida><Expedientes /></RutaProtegida>
-      } />
-      <Route path="/expedientes/nuevo" element={
-        <RutaProtegida><NuevoExpediente /></RutaProtegida>
-      } />
-      <Route path="/expedientes/:id/editar" element={
-        <RutaProtegida><EditarExpediente /></RutaProtegida>
-      } />
-      <Route path="/expedientes/:id" element={
-        <RutaProtegida><DetalleExpediente /></RutaProtegida>
-      } />
-      <Route path="/perfil" element={<Perfil />} />
-      <Route path="/calendario" element={
-        <RutaProtegida><Calendario /></RutaProtegida>
-      } />
-      <Route path="/notificaciones" element={
-        <RutaProtegida><Notificaciones /></RutaProtegida>
-      } />
-    </Routes>
+    <AcuerdosNoVistosProvider>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/expedientes" element={
+          <RutaProtegida><Expedientes /></RutaProtegida>
+        } />
+        <Route path="/expedientes/nuevo" element={
+          <RutaProtegida><NuevoExpediente /></RutaProtegida>
+        } />
+        <Route path="/expedientes/:id/editar" element={
+          <RutaProtegida><EditarExpediente /></RutaProtegida>
+        } />
+        <Route path="/expedientes/:id" element={
+          <RutaProtegida><DetalleExpediente /></RutaProtegida>
+        } />
+        <Route path="/perfil" element={<Perfil />} />
+        <Route path="/calendario" element={
+          <RutaProtegida><Calendario /></RutaProtegida>
+        } />
+        <Route path="/notificaciones" element={
+          <RutaProtegida><Notificaciones /></RutaProtegida>
+        } />
+      </Routes>
+      <AcuerdoPopup />
+    </AcuerdosNoVistosProvider>
   )
 }
 
