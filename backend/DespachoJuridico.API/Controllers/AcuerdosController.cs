@@ -43,7 +43,8 @@ public class AcuerdosController : ControllerBase
         var usuarioIdActual = ObtenerUsuarioId();
 
         var noVistos = await _context.AcuerdosScrapeados
-            .Where(a => !a.Visto && !a.Oculto &&
+            .Where(a => !a.Oculto &&
+                !a.VistosPor.Any(v => v.UsuarioId == usuarioIdActual) &&
                 (a.Expediente.UsuarioAsignadoId == usuarioIdActual ||
                  a.Expediente.Accesos.Any(acc => acc.UsuarioId == usuarioIdActual)))
             .OrderByDescending(a => a.FechaAcuerdo)
@@ -87,7 +88,7 @@ public class AcuerdosController : ControllerBase
                 FechaAcuerdo = a.FechaAcuerdo,
                 FechaDetectado = a.FechaDetectado,
                 NotificacionEnviada = a.NotificacionEnviada,
-                Visto = a.Visto,
+                Visto = a.VistosPor.Any(v => v.UsuarioId == usuarioIdActual),
                 EsExhorto = a.EsExhorto,
                 CiudadDestino = a.CiudadDestino,
                 RegistradoManualmente = a.RegistradoManualmente,
@@ -144,8 +145,7 @@ public class AcuerdosController : ControllerBase
             EsExhorto = request.EsExhorto,
             CiudadDestino = request.CiudadDestino,
             TipoAsunto = request.EsExhorto ? "Exhorto (manual)" : request.TipoAsunto,
-            RegistradoManualmente = true,
-            Visto = false
+            RegistradoManualmente = true
         };
 
         _context.AcuerdosScrapeados.Add(acuerdo);
@@ -172,7 +172,9 @@ public class AcuerdosController : ControllerBase
             FechaAcuerdo = acuerdo.FechaAcuerdo,
             FechaDetectado = acuerdo.FechaDetectado,
             NotificacionEnviada = acuerdo.NotificacionEnviada,
-            Visto = acuerdo.Visto,
+            // Recién creado en esta misma llamada -- nadie (ni siquiera quien lo
+            // registró) lo ha "visto" todavía en el sentido de DJ-91/127.
+            Visto = false,
             EsExhorto = acuerdo.EsExhorto,
             CiudadDestino = acuerdo.CiudadDestino,
             RegistradoManualmente = acuerdo.RegistradoManualmente,
@@ -263,6 +265,9 @@ public class AcuerdosController : ControllerBase
         acuerdo.CiudadDestino = request.CiudadDestino;
         await _context.SaveChangesAsync();
 
+        var yaVistoPorMi = await _context.AcuerdoVistoPorUsuarios
+            .AnyAsync(v => v.AcuerdoId == acuerdo.Id && v.UsuarioId == usuarioIdActual);
+
         return Ok(new AcuerdoResponse
         {
             Id = acuerdo.Id,
@@ -273,7 +278,7 @@ public class AcuerdosController : ControllerBase
             FechaAcuerdo = acuerdo.FechaAcuerdo,
             FechaDetectado = acuerdo.FechaDetectado,
             NotificacionEnviada = acuerdo.NotificacionEnviada,
-            Visto = acuerdo.Visto,
+            Visto = yaVistoPorMi,
             EsExhorto = acuerdo.EsExhorto,
             CiudadDestino = acuerdo.CiudadDestino,
             RegistradoManualmente = acuerdo.RegistradoManualmente,
@@ -293,8 +298,18 @@ public class AcuerdosController : ControllerBase
         if (acuerdo == null || !await _acceso.TieneAccesoAsync(usuarioIdActual, acuerdo.Expediente.UsuarioAsignadoId, acuerdo.ExpedienteId))
             return NotFound(new { mensaje = "Acuerdo no encontrado" });
 
-        acuerdo.Visto = true;
-        await _context.SaveChangesAsync();
+        var yaVisto = await _context.AcuerdoVistoPorUsuarios
+            .AnyAsync(v => v.AcuerdoId == id && v.UsuarioId == usuarioIdActual);
+
+        if (!yaVisto)
+        {
+            _context.AcuerdoVistoPorUsuarios.Add(new AcuerdoVistoPorUsuario
+            {
+                AcuerdoId = id,
+                UsuarioId = usuarioIdActual
+            });
+            await _context.SaveChangesAsync();
+        }
 
         return Ok(new { mensaje = "Acuerdo marcado como visto" });
     }

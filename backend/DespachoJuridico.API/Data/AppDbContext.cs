@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<JuzgadoCatalogo> JuzgadosCatalogo => Set<JuzgadoCatalogo>();
     public DbSet<EstadoScraper> EstadosScraper => Set<EstadoScraper>();
     public DbSet<NotaEtapa> NotasEtapa => Set<NotaEtapa>();
+    public DbSet<AcuerdoVistoPorUsuario> AcuerdoVistoPorUsuarios => Set<AcuerdoVistoPorUsuario>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +106,24 @@ public class AppDbContext : DbContext
         // Evita agregar al mismo usuario dos veces como colaborador del mismo expediente
         modelBuilder.Entity<ExpedienteAcceso>()
             .HasIndex(a => new { a.ExpedienteId, a.UsuarioId })
+            .IsUnique();
+
+        modelBuilder.Entity<AcuerdoVistoPorUsuario>()
+            .HasOne(v => v.Acuerdo)
+            .WithMany(a => a.VistosPor)
+            .HasForeignKey(v => v.AcuerdoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AcuerdoVistoPorUsuario>()
+            .HasOne(v => v.Usuario)
+            .WithMany()
+            .HasForeignKey(v => v.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Un usuario solo puede haber "visto" un acuerdo una vez -- marcar visto
+        // debe ser idempotente, nunca duplicar la fila
+        modelBuilder.Entity<AcuerdoVistoPorUsuario>()
+            .HasIndex(v => new { v.AcuerdoId, v.UsuarioId })
             .IsUnique();
 
         // Jerarquía de etapas para submenús (ej. Remate → Almonedas, DJ-76) —

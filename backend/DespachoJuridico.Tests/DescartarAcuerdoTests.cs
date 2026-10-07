@@ -280,13 +280,13 @@ public class DescartarAcuerdoTests
     {
         using var context = CrearContextoEnMemoria(nameof(Descartar_NoAlteraElCampoVisto));
         var (litigante, _, acuerdo) = await SembrarEscenarioAsync(context);
-        acuerdo.Visto = true;
+        context.AcuerdoVistoPorUsuarios.Add(new AcuerdoVistoPorUsuario { AcuerdoId = acuerdo.Id, UsuarioId = litigante.Id });
         await context.SaveChangesAsync();
         var controller = CrearControllerComoUsuario(context, litigante.Id);
 
         await controller.Descartar(acuerdo.Id);
 
-        Assert.True((await context.AcuerdosScrapeados.FindAsync(acuerdo.Id))!.Visto);
+        Assert.True(await context.AcuerdoVistoPorUsuarios.AnyAsync(v => v.AcuerdoId == acuerdo.Id && v.UsuarioId == litigante.Id));
     }
 
     [Fact]

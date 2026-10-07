@@ -13,8 +13,6 @@ public class AcuerdoScrapeado
     public DateTime FechaDetectado { get; set; } = DateTime.UtcNow;
     public bool NotificacionEnviada { get; set; } = false;
 
-    public bool Visto { get; set; } = false;
-
     // Clasificación cruda que trae ADISON (ej. "Exp.", "Exh.", "Amp.", "Toca")
     public string? TipoAsunto { get; set; }
 
@@ -54,4 +52,5 @@ public class AcuerdoScrapeado
     public bool RecordatorioPendienteEnviado { get; set; } = false;
 
     public Expediente Expediente { get; set; } = null!;
+    public ICollection<AcuerdoVistoPorUsuario> VistosPor { get; set; } = new List<AcuerdoVistoPorUsuario>();
 }

@@ -58,7 +58,7 @@ public class GetNoVistosTests
         context.AcuerdosScrapeados.Add(new AcuerdoScrapeado
         {
             ExpedienteId = expediente.Id, NumeroExpediente = expediente.NumeroExpediente,
-            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Visto = false, Oculto = false
+            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Oculto = false
         });
         await context.SaveChangesAsync();
 
@@ -87,7 +87,7 @@ public class GetNoVistosTests
         context.AcuerdosScrapeados.Add(new AcuerdoScrapeado
         {
             ExpedienteId = expediente.Id, NumeroExpediente = expediente.NumeroExpediente,
-            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Visto = false, Oculto = false
+            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Oculto = false
         });
         await context.SaveChangesAsync();
 
@@ -115,13 +115,52 @@ public class GetNoVistosTests
         context.AcuerdosScrapeados.Add(new AcuerdoScrapeado
         {
             ExpedienteId = expediente.Id, NumeroExpediente = expediente.NumeroExpediente,
-            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Visto = false, Oculto = false
+            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Oculto = false
         });
         await context.SaveChangesAsync();
 
         var controller = CrearControllerComoUsuario(context, titular.Id);
         var resultado = Assert.IsType<OkObjectResult>(await controller.GetNoVistos());
 
+        var lista = Assert.IsAssignableFrom<System.Collections.IEnumerable>(resultado.Value).Cast<object>().ToList();
+        Assert.Single(lista);
+    }
+
+    // docs/hallazgo-visto-global-acuerdos.md: antes "Visto" era un booleano
+    // compartido por el acuerdo -- que un colaborador lo marcara visto (ej. al
+    // abrir la página del expediente) lo ocultaba para TODOS los demás con
+    // acceso, aunque nunca lo hubieran visto. Ahora es por (acuerdo, usuario).
+    [Fact]
+    public async Task ColaboradorMarcaVisto_NoAfectaLoQueVeElTitular()
+    {
+        using var context = CrearContextoEnMemoria(nameof(ColaboradorMarcaVisto_NoAfectaLoQueVeElTitular));
+        var titular = new Usuario { Nombre = "Mario Acedo", Email = $"{Guid.NewGuid()}@despacho.com", PasswordHash = "x" };
+        var colaborador = new Usuario { Nombre = "Carlos", Email = $"{Guid.NewGuid()}@despacho.com", PasswordHash = "x" };
+        context.Usuarios.AddRange(titular, colaborador);
+        await context.SaveChangesAsync();
+
+        var expediente = new Expediente
+        {
+            NumeroExpediente = "401/2026", ParteDemandada = "Juan Pérez", UsuarioAsignadoId = titular.Id, CreadoPorId = titular.Id
+        };
+        context.Expedientes.Add(expediente);
+        await context.SaveChangesAsync();
+        context.ExpedienteAccesos.Add(new ExpedienteAcceso { ExpedienteId = expediente.Id, UsuarioId = colaborador.Id });
+        var acuerdo = new AcuerdoScrapeado
+        {
+            ExpedienteId = expediente.Id, NumeroExpediente = expediente.NumeroExpediente,
+            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 25), Oculto = false
+        };
+        context.AcuerdosScrapeados.Add(acuerdo);
+        await context.SaveChangesAsync();
+
+        // El colaborador lo marca visto (ej. abrió la página del expediente)...
+        var controllerColaborador = CrearControllerComoUsuario(context, colaborador.Id);
+        await controllerColaborador.MarcarVisto(acuerdo.Id);
+
+        // ...pero el titular, que nunca lo vio, debe seguir viéndolo como no-visto.
+        var controllerTitular = CrearControllerComoUsuario(context, titular.Id);
+        var resultado = Assert.IsType<OkObjectResult>(await controllerTitular.GetNoVistos());
         var lista = Assert.IsAssignableFrom<System.Collections.IEnumerable>(resultado.Value).Cast<object>().ToList();
         Assert.Single(lista);
     }
