@@ -10,8 +10,7 @@ vi.mock('../services/auth')
 
 // DJ-127: pequeño harness que expone el estado del contexto para poder
 // aserirlo directamente, más un botón para navegar (prueba el corte de
-// polling al llegar a /login y la supresión de popup al estar ya en el
-// expediente del acuerdo).
+// polling al llegar a /login).
 function Harness() {
   const { acuerdosNoVistos, popups, marcarVistoLocal } = useAcuerdosNoVistos()
   const navigate = useNavigate()
@@ -106,7 +105,10 @@ describe('AcuerdosNoVistosContext', () => {
     expect(screen.getByTestId('popups-count')).toHaveTextContent('1') // sigue siendo el mismo, no se duplicó
   })
 
-  it('no dispara popup si el litigante ya está viendo el expediente de ese acuerdo', async () => {
+  it('sí dispara popup aunque el litigante ya esté viendo el expediente de ese acuerdo', async () => {
+    // La página del expediente tiene varias secciones (Notas, Historial de
+    // etapas, Acuerdos...) -- estar ahí no garantiza que esté viendo la
+    // sección de Acuerdos, así que el popup avisa de todas formas.
     getAcuerdosNoVistos
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([acuerdo(1, 55)])
@@ -115,10 +117,8 @@ describe('AcuerdosNoVistosContext', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
 
-    // El badge/campana sí se entera (DJ-91 ya lo muestra ahí mismo)...
     expect(screen.getByTestId('no-vistos-count')).toHaveTextContent('1')
-    // ...pero no hace falta además un popup encima.
-    expect(screen.getByTestId('popups-count')).toHaveTextContent('0')
+    expect(screen.getByTestId('popups-count')).toHaveTextContent('1')
   })
 
   it('el polling se pausa cuando la pestaña está oculta y retoma con consulta inmediata al volver', async () => {

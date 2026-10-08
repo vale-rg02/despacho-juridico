@@ -24,15 +24,10 @@ export function AcuerdosNoVistosProvider({ children }) {
   // null = todavía no se estableció la línea base de esta sesión -- la
   // primera consulta nunca dispara popup, solo arma la línea base.
   const baselineRef = useRef(null)
-  const pathnameRef = useRef('')
   const visible = usePestanaVisible()
   const location = useLocation()
   const enLogin = location.pathname === '/login'
   const prevEnLoginRef = useRef(enLogin)
-
-  useEffect(() => {
-    pathnameRef.current = location.pathname
-  }, [location.pathname])
 
   // Si se acaba de iniciar sesión (transición real desde /login), es una
   // sesión nueva -- la línea base de la sesión anterior (si la hubo, ej. otro
@@ -66,12 +61,12 @@ export function AcuerdosNoVistosProvider({ children }) {
     if (nuevos.length === 0) return
     nuevos.forEach(a => baselineRef.current.add(a.id))
 
-    // Si el litigante ya está viendo ese expediente, el badge de ahí (DJ-91)
-    // ya avisa -- no hace falta además un popup para el mismo acuerdo.
-    const paraPopup = nuevos.filter(a => pathnameRef.current !== `/expedientes/${a.expedienteId}`)
-    if (paraPopup.length === 0) return
-
-    setPopups(prev => [...prev, { id: `popup-${Date.now()}-${Math.random().toString(36).slice(2)}`, acuerdos: paraPopup }])
+    // Se avisa sin importar en qué página esté el litigante, incluso si ya
+    // está dentro de ese mismo expediente -- la página tiene varias secciones
+    // (Notas, Historial de etapas, Acuerdos...) y nada garantiza que esté
+    // viendo justo la de Acuerdos cuando llega uno nuevo. Se autocierra solo,
+    // así que no estorba si de casualidad sí lo estaba viendo.
+    setPopups(prev => [...prev, { id: `popup-${Date.now()}-${Math.random().toString(36).slice(2)}`, acuerdos: nuevos }])
   }, [])
 
   useEffect(() => {
