@@ -1145,15 +1145,18 @@ public class ScraperAcuerdosService : BackgroundService
     //    después del guion final, que está vacío, y perdía el nombre real que
     //    queda justo antes).
     //
-    // Caso residual conocido, NO resuelto por este enfoque (documentado, no
-    // oculto — ver PartesTieneNombre_CasoResidual_AccionPagoDePesos_SigueSiendoFalsoPositivo):
-    // cuando el contenido después de un guion real (no terminador) es
-    // terminología genérica del tipo de acción que por casualidad tiene 2+
-    // palabras largas (ej. "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS." — un
-    // registro real donde ADISON aún no había publicado el nombre de las
-    // partes). Ni el conector ni el manejo de terminador detectan esto, porque
-    // el guion SÍ tiene contenido real después — solo que ese contenido no es un
-    // nombre. No se intenta resolver aquí (fuera del alcance de DJ-118).
+    // DJ-131 (hallazgo de DJ-130, 8-9 de octubre de 2026): caso que DJ-118 dejó
+    // documentado como residual sin resolver -- cuando el contenido después de
+    // un guion real (no terminador) es terminología genérica del tipo de
+    // acción que por casualidad tiene 2+ palabras largas (ej. "ORAL MERCANTIL
+    // - ACCIÓN PAGO DE PESOS." — un registro real donde ADISON aún no había
+    // publicado el nombre de las partes). Ni el conector ni el manejo de
+    // terminador detectan esto, porque el guion SÍ tiene contenido real
+    // después — solo que ese contenido no es un nombre. Se resuelve quitando
+    // las frases genéricas ya conocidas antes de contar palabras (ver
+    // FrasesGenericasConocidas y QuitarFrasesGenericasConocidas abajo) --
+    // sigue sin cubrir frases genéricas nuevas que no se hayan medido todavía
+    // (ver docs/investigacion-frases-genericas.md, DJ-131 Parte 2).
     internal static bool PartesTieneNombre(string partes)
     {
         if (string.IsNullOrWhiteSpace(partes)) return false;
@@ -1193,9 +1196,86 @@ public class ScraperAcuerdosService : BackgroundService
         return false;
     }
 
+    // DJ-131: frases genéricas que ADISON usa para describir el tipo de
+    // trámite -- el respaldo de "2+ palabras largas" de abajo las confundía
+    // con un nombre real porque coincidentalmente tienen la forma correcta
+    // sin serlo (caso real que lo delató, DJ-130: "ACCIÓN PAGO DE PESOS", 13
+    // acuerdos, 8 expedientes). Medidas contra los 4,600 acuerdos reales de
+    // AcuerdosScrapeados (9 de octubre de 2026): cada frase aquí aparece
+    // repetida en 3 o más expedientes distintos, con partes demandadas
+    // distintas -- un nombre real de persona casi nunca coincide así entre
+    // casos ajenos (confirmado con los mismos datos: nombres reales que se
+    // repiten lo hacen dentro de UN mismo expediente, nunca entre varios).
+    //
+    // Se excluyen a propósito nombres de banco o empresa que también se
+    // repiten legítimamente entre expedientes (ej. "BBVA MEXICO, S.A.", 12
+    // apariciones en 8 expedientes) -- esos sí son información real que vale
+    // la pena verificar (ver MencionaBancoOAlias), no ruido. Mismo criterio
+    // conservador que el alias de Bancomer ahí: solo frases respaldadas por
+    // evidencia real medida, nunca una lista inventada de antemano.
+    //
+    // No cubre frases genéricas futuras que no se hayan medido todavía -- ver
+    // docs/investigacion-frases-genericas.md (DJ-131 Parte 2) para una
+    // propuesta de detección automática de ese caso, sin implementar aún.
+    private static readonly string[] FrasesGenericasConocidas =
+    {
+        "JUICIO ORAL",
+        "DIVORCIO INCAUSADO",
+        "ACCION CAMBIARIA DIRECTA",
+        "JUICIO DE GARANTIA",
+        "ACCION PAGO DE PESOS",
+        "ORAL MERCANTIL",
+        "EJECUTIVO MERCANTIL",
+        "ORAL SOBRE CUESTIONES FAMILIARES",
+        "ORAL DE ALIMENTOS",
+        "SUCESORIO INTESTAMENTARIO",
+        "ORDINARIO CIVIL",
+        "DIVORCIO VOLUNTARIO",
+        "CUADERNO DE EXHORTO",
+        "ACCION CAUSAL",
+        "INDEMNIZACION CONSTITUCIONAL",
+        "ACCION ACREDITAR HECHOS PROPIEDAD",
+        "JUICIO DE AMPARO",
+        "PRESCRIPCION POSITIVA",
+        "ORDINARIO FAMILIAR",
+        "ESPECIAL HIPOTECARIO",
+        "DESIGNACION DE BENEFICIARIOS",
+        "PERDIDA DE LA PATRIA POTESTAD",
+        "ACCION PERSONAL Y REAL",
+        "DESPIDO INJUSTIFICADO",
+        "OTROS CIVIL",
+        "ORAL FAMILIAR",
+        "PROVIDENCIAS CAUTELARES Y MEDIDAS URGENTES FAMILIAR",
+        "JURISDICCION VOLUNTARIA FAMILIAR",
+        "NOTIFICACION AVISO DE RESCISION",
+        "SUCESORIO TESTAMENTARIO",
+        "ORDINARIO CIVIL (DIVORCIO INCAUSADO)",
+        "ADOPCION PLENA",
+    };
+
+    // DJ-131: quita las frases genéricas conocidas del texto (ya normalizado:
+    // sin acentos, en mayúsculas) ANTES de contar palabras -- así un nombre
+    // real que viniera junto a una de estas frases (ej. "ACCIÓN PAGO DE
+    // PESOS.- NOMBRE APELLIDO APELLIDO") sigue detectándose bien. Compara
+    // siempre la frase COMPLETA, con límites de palabra, nunca una palabra
+    // suelta de la frase -- para que una palabra común de la lista (ej.
+    // "PAGO") no borre pedazos de un nombre real que la contenga por
+    // coincidencia.
+    private static string QuitarFrasesGenericasConocidas(string textoNormalizado)
+    {
+        var resultado = textoNormalizado;
+        foreach (var frase in FrasesGenericasConocidas)
+        {
+            resultado = System.Text.RegularExpressions.Regex.Replace(
+                resultado, $@"\b{System.Text.RegularExpressions.Regex.Escape(frase)}\b", " ");
+        }
+        return resultado;
+    }
+
     private static bool TieneFragmentoDeNombre(string texto)
     {
-        var palabras = System.Text.RegularExpressions.Regex.Matches(texto, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
+        var sinFrasesGenericas = QuitarFrasesGenericasConocidas(NormalizarTexto(texto));
+        var palabras = System.Text.RegularExpressions.Regex.Matches(sinFrasesGenericas, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}");
         return palabras.Count >= 2;
     }
 

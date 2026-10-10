@@ -67,25 +67,19 @@ public class PartesCoincidenTests
     }
 
     [Fact]
-    public void PartesTieneNombre_CasoResidual_AccionPagoDePesos_SigueSiendoFalsoPositivo()
+    public void PartesTieneNombre_CasoResidual_AccionPagoDePesos_YaNoEsFalsoPositivo()
     {
-        // Caso residual DOCUMENTADO, no resuelto por DJ-118 (el criterio de
-        // aceptación pide no ocultarlo): registro real donde ADISON publicó el
-        // tipo de acción pero todavía no el nombre de las partes. El guion aquí
-        // SÍ tiene contenido real después ("ACCIÓN PAGO DE PESOS"), así que no es
-        // un terminador -- pero ese contenido es terminología genérica del tipo
-        // de trámite, no un nombre, y por casualidad tiene 2+ palabras largas.
-        // Ni el conector ni el manejo de terminador detectan este caso porque
-        // ninguno de los dos aplica aquí. Da el 31/32 (no 32/32) medido contra
-        // la muestra real.
+        // DJ-131 (resuelve el residual que DJ-118 dejó documentado, caso real
+        // de DJ-130): ADISON publicó el tipo de acción pero todavía no el
+        // nombre de las partes. El guion aquí SÍ tiene contenido real después
+        // ("ACCIÓN PAGO DE PESOS"), así que no es un terminador -- pero ese
+        // contenido es terminología genérica del tipo de trámite, no un
+        // nombre. Antes de DJ-131, el respaldo de "2+ palabras largas" lo
+        // confundía con un nombre; ahora FrasesGenericasConocidas lo reconoce
+        // y lo quita antes de contar palabras.
         var partes = "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.";
 
-        Assert.True(ScraperAcuerdosService.PartesTieneNombre(partes));
-        // PartesCoinciden sí rechaza correctamente cualquier ParteDemandada real
-        // contra este texto -- el residual solo afecta si SE INTENTA verificar,
-        // no si el resultado final es correcto (sigue clasificando Baja/oculto,
-        // nunca genera un falso match).
-        Assert.False(ScraperAcuerdosService.PartesCoinciden("Roberto Sánchez Mena", partes));
+        Assert.False(ScraperAcuerdosService.PartesTieneNombre(partes));
     }
 
     [Fact]
@@ -484,6 +478,106 @@ public class PartesCoincidenTests
             Assert.False(ScraperAcuerdosService.PartesCoinciden(NombresRealesDJ79[i], distractor),
                 $"Falso positivo: '{NombresRealesDJ79[i]}' vs '{distractor}'");
         }
+    }
+
+    // DJ-131: los 13 acuerdos reales de DJ-130 compartían, en realidad, solo 3
+    // cadenas distintas de "Partes" (las demás eran repeticiones exactas) --
+    // esta prueba cubre las 3, representando los 13 casos reales (expedientes
+    // 363/2026, 378/2026, 57/2026 x3, 239/2024, 477/2026, 474/2025, 347/2026
+    // x2, 413/2026 x2, 223/2026 -- ids 2686 a 6503, 4 de agosto a 8 de octubre
+    // de 2026). Los primeros dos ya no cuentan como nombre (12 de los 13); el
+    // tercero (acuerdo 4441, expediente sin banco capturado) sigue contando
+    // como nombre a propósito -- "BBVA MEXICO, S.A." no está en
+    // FrasesGenericasConocidas porque sí es información real que vale la pena
+    // verificar (ver MencionaBancoOAlias), no ruido -- queda pendiente de
+    // revisión manual, no de este fix.
+    [Theory]
+    [InlineData("ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.", false)]
+    [InlineData("ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.-", false)]
+    [InlineData("ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO, S.A.", true)]
+    public void PartesTieneNombre_DJ131_Los13CasosRealesDeDJ130(string partes, bool esperado)
+    {
+        Assert.Equal(esperado, ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_FraseGenericaSola_YaNoCuentaComoNombre()
+    {
+        Assert.False(ScraperAcuerdosService.PartesTieneNombre("ORAL MERCANTIL - ACCIÓN PAGO DE PESOS."));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_FraseGenericaSeparadaPorGuionDeNombreReal_SigueDetectandoElNombre()
+    {
+        // No es una regresión: el recorrido de guiones de atrás hacia adelante
+        // (DJ-118) ya aislaba el nombre real en su propio segmento, antes de
+        // que FrasesGenericasConocidas siquiera entre en juego -- esta prueba
+        // confirma que seguir agregando frases a la lista no rompe ese
+        // comportamiento ya existente.
+        var partes = "ACCIÓN PAGO DE PESOS.- JUAN CARLOS PEREZ LOPEZ";
+
+        Assert.True(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_FraseGenericaYMasTerminologiaGenericaEnElMismoSegmento_NoCuentaComoNombre()
+    {
+        // Aquí sí se ve la diferencia real del diseño de "quitar la frase, no
+        // rechazar todo el texto": sin guion de por medio entre la frase y el
+        // texto adicional, ambos caen en el mismo segmento. "(SIN EMPLAZAR)"
+        // es terminología real observada en los datos (10 apariciones, 7
+        // expedientes) -- antes de DJ-131, el conteo de palabras sobre el
+        // segmento completo ("ACCION", "PAGO", "PESOS", "EMPLAZAR") daba 4
+        // palabras largas y lo contaba como nombre por error. Al quitar la
+        // frase conocida primero, solo queda "(SIN EMPLAZAR)" -- "EMPLAZAR"
+        // es la única palabra de 4+ letras ahí, no alcanza las 2 que exige el
+        // respaldo.
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS (SIN EMPLAZAR)";
+
+        Assert.False(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Theory]
+    [InlineData("ORAL MERCANTIL - accion pago de pesos.")]
+    [InlineData("Oral Mercantil - Acción Pago De Pesos.")]
+    [InlineData("ORAL   MERCANTIL   -   ACCION   PAGO   DE   PESOS.")]
+    public void PartesTieneNombre_DJ131_VariacionDeAcentosMayusculasYEspacios_SigueSinContarComoNombre(string partes)
+    {
+        Assert.False(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_NombreRealQueContieneUnaPalabraDeLaLista_SigueDetectandoseBien()
+    {
+        // "PAGO" es parte de la frase "ACCIÓN PAGO DE PESOS", pero
+        // QuitarFrasesGenericasConocidas solo quita la frase COMPLETA, nunca
+        // palabras sueltas -- un apellido real que por coincidencia contenga
+        // "PAGO" (ej. "PAGOAGA") nunca debe verse afectado.
+        var partes = "DIVORCIO INCAUSADO.- MARIA PAGOAGA HERRERA VS JOSE LUIS TORRES";
+
+        Assert.True(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_TextoSinNingunaFraseDeLaLista_ComportamientoSinCambios()
+    {
+        var partes = "SUCESORIO INTESTAMENTARIO.- JESUS IGNACIO VILLA GRACIA";
+
+        Assert.True(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
+    public void PartesTieneNombre_DJ131_FraseGenericaNuevaNoIncluidaEnLaLista_SigueSinCubrirse()
+    {
+        // Documenta explícitamente el límite de este fix: una frase genérica
+        // que no se haya medido todavía (inventada aquí, con la misma forma
+        // "<ramo> - <frase>" que sí tienen los casos reales, pero sin estar en
+        // FrasesGenericasConocidas) sigue confundiéndose con un nombre -- este
+        // es exactamente el hueco que DJ-131 Parte 2 investiga (detección
+        // automática por repetición), no algo que este fix pretenda resolver.
+        var fraseGenericaNoListada = "ORAL MERCANTIL - PROCEDIMIENTO EJECUTIVO HIPOTECARIO ESPECIAL";
+
+        Assert.True(ScraperAcuerdosService.PartesTieneNombre(fraseGenericaNoListada));
     }
 
     [Fact]

@@ -2,9 +2,20 @@
 
 Documento vivo para mejoras de arquitectura identificadas durante el trabajo normal, que no ameritan resolverse en el momento pero tampoco hay que perder de vista. A diferencia de `mecanica-legal-sonora.md` (mecánicas del mundo legal que el software debe replicar), esto es puramente técnico — decisiones de ingeniería, no de negocio.
 
+## Índice (estado de un vistazo)
+
+| # | Sección | Estado |
+|---|---|---|
+| 1 | Campo "Juzgado" como catálogo cerrado | Implementada parcialmente — el dropdown fijo sí existe; las dos salvaguardas pedidas (fuente única de verdad, IdUnidad) se decidieron no implementar |
+| 2 | Alias de nombres de banco no escala a multi-tenant | Investigada y descartada para el alcance actual (DJ-125) — el patrón para el SaaS sigue sin implementar |
+| 3 | Número de orden del juzgado reutilizado entre trámites | Pendiente — solo observación, sin investigar a fondo |
+| 4 | Proceso de pull requests y ambientes | Sin decidir |
+
 ---
 
 ## 1. Campo "Juzgado" del expediente como catálogo cerrado, no texto libre
+
+**Estado: Implementada parcialmente — el dropdown de catálogo fijo sí existe (DJ-87, DJ-112, DJ-122, DJ-123; commits `5f881a7`, `35f461b`, `d432ad8`), pero las dos salvaguardas que pedía la propuesta original (fuente única de verdad, guardar IdUnidad) se decidieron explícitamente NO implementarlas — ver nota abajo.**
 
 **El problema:** `Expediente.Juzgado` es texto libre. Cada persona que captura un expediente puede escribir el nombre del juzgado con su propia redacción — con o sin "de lo", con typos ("Mecantil"), con o sin el sufijo "Hermosillo", etc. `JuzgadoCoincide` (en `ScraperAcuerdosService.cs`) depende de comparar ese texto libre contra patrones hardcodeados, así que cualquier variante de redacción no contemplada hace que el matching falle **en silencio** — el acuerdo simplemente nunca se guarda, sin error visible en ningún lado.
 
@@ -23,9 +34,13 @@ Dos puntos importantes para que la solución no reintroduzca el mismo problema e
 - No es retroactivo: los expedientes ya capturados con texto libre (incluyendo datos de prueba tipo "asaasa", "kk") seguirían necesitando `JuzgadoCoincide` tal como está hoy, a menos que también se haga una migración de datos.
 - Falta decidir si el dropdown también cubre "Sede" (ciudad/distrito) o solo el juzgado en sí.
 
+> **Nota de verificación (contra el código real, no contra memoria):** el dropdown de Sede + Juzgado dependiente existe y está en producción (`JuzgadoCatalogo`/`SedeCatalogo`, DJ-87/DJ-112, commit `5f881a7`), con filtro por Materia (DJ-122, commit `35f461b`) y navegación por teclado (DJ-123, commit `d432ad8`) — así que la pregunta de si "también cubre Sede" ya quedó resuelta: sí. Pero el campo `Expediente.Juzgado` **sigue siendo texto plano**, no una FK ni un `IdUnidad` — es una decisión documentada a propósito en el propio código: el comentario de `JuzgadoCatalogo.cs` dice literalmente que es *"una copia deliberada, no una lectura en vivo"* del diccionario del scraper, *"para no arriesgar la lógica de matching ya afinada en varios tickets"*. Es decir: las dos salvaguardas que pedía esta propuesta para que el dropdown no reintrodujera el problema un nivel arriba **se evaluaron y se decidió no tomarlas**, no que se les haya olvidado. Esto significa que el catálogo de UI y el diccionario del scraper son hoy dos listas separadas que alguien tiene que mantener sincronizadas a mano — el riesgo que la propuesta original quería evitar sigue latente, solo que ahora es un riesgo conocido y aceptado en vez de uno no contemplado. La migración retroactiva sí se hizo (`MigrarSedeYJuzgadoDesdeTextoLibreAsync`), aunque es best-effort (expedientes que no se pudieron mapear con confianza quedan con `Sede`/`Juzgado` en null en vez de forzar un valor incorrecto).
+
 ---
 
 ## 2. Alias de nombres de banco en el matching del scraper no escala a multi-tenant (DJ-125)
+
+**Estado: Investigada y descartada para el alcance actual (DJ-125, commit `f908a46`, 4 de octubre de 2026) — se midió con datos reales si hacía falta repetir el alias de Bancomer para otros bancos del portafolio y no se encontró evidencia que lo justificara. El patrón de solución para el SaaS (catálogo de alias editable / matching tolerante) sigue sin implementar — ver índice.**
 
 **El problema:** `MencionaBancoOAlias` (en `ScraperAcuerdosService.cs`) resuelve que ADISON nombre a un banco distinto a su razón social (ej. "Bancomer" en vez de "BBVA México") con un `if` puntual hardcodeado en código C#, validado caso por caso con datos reales antes de desplegarlo. Funciona para Acedo e Hijos hoy porque el despacho tiene pocos bancos y el equipo puede medir y revisar cada alias a mano.
 
@@ -46,9 +61,13 @@ Ambos patrones son compatibles entre sí (un catálogo de alias explícito + tol
 
 **Qué falta decidir / construir:** *(pendiente — no se ha decidido si/cuándo se aborda; depende de si el negocio avanza hacia multi-tenant)*
 
+> **Nota de verificación:** `MencionaBancoOAlias` hoy (commit `f908a46`) sigue teniendo exactamente un alias hardcodeado (Bancomer → BBVA México, confirmado con 13 de 48 menciones reales). El comentario en el propio código documenta que se investigó expandirlo a Scotiabank, Banco Nacional de México, HSBC, Banco Azteca y Santander, y en ningún caso se encontró el mismo patrón que justificó el de Bancomer (ADISON nombrando solo al banco, sin el demandado) — en los casos con datos suficientes, `PartesCoinciden` ya resuelve el match por el nombre del demandado sin necesitar alias. No hubo cambios de código en esa investigación, solo documentación — la propuesta de catálogo editable / matching tolerante para el SaaS sigue intacta, sin empezar.
+
 ---
 
 ## 3. El "número de expediente" que usa el scraper para encontrar coincidencias en realidad es el número de orden del juzgado, reutilizado entre trámites ajenos
+
+**Estado: Pendiente — solo observación documentada el 4 de octubre de 2026 (commit `f908a46`, junto con la investigación de DJ-125), sin investigación adicional desde entonces.**
 
 **El problema:** el matching de `ScraperAcuerdosService` busca coincidencias de `AcuerdosScrapeados` contra los expedientes del despacho por número + juzgado. Al investigar DJ-125 (alias de bancos) se encontró que ese número, en varios juzgados, no identifica un solo caso — es el **número de orden** correlativo que el juzgado asigna a todo lo que recibe (cuadernillos, exhortos, legajos, oficios), reutilizado entre trámites completamente ajenos entre sí.
 
@@ -63,4 +82,22 @@ Ambos patrones son compatibles entre sí (un catálogo de alias explícito + tol
 
 ---
 
-*Última actualización: 6 de octubre de 2026.*
+## 4. Proceso de pull requests y ambientes (por decidir)
+
+Contexto: en el proyecto de Acedo e Hijos, `develop` se despliega a producción y `main` recibe un PR grande cada cierto tiempo, sin revisión por historia ni pruebas automáticas en el PR. Esto permitió que pruebas en rojo pasaran sin notarse y que producción cambiara con cada push.
+
+Para el SaaS, definir desde el inicio:
+- Ramas cortas por historia, con la clave de Jira en el nombre, y un PR revisado por el otro desarrollador.
+- Pruebas automáticas (backend y frontend) en cada PR, como requisito para fusionar.
+- Protección de ramas: sin push directo a main (ni a develop si se conserva).
+- Ambientes: main como producción y develop desplegado a un servicio de pruebas aparte.
+
+Cuidados del ambiente de pruebas: el scraper y los correos no pueden avisar a usuarios reales (interruptor de correo, scraper en dry-run), usar datos de ejemplo en vez de datos reales de clientes, y considerar el costo del segundo servicio.
+
+Estado: sin decidir.
+
+> **Sub-nota — estado real de hoy:** no hay ningún workflow de CI activo en el repositorio — la carpeta `.github/workflows/` existe pero está vacía, sin un solo archivo dentro (verificado directamente en el repo). Las 345 pruebas de backend y las 84 de frontend existen y pasan, pero hoy solo se ejecutan manualmente, nunca como compuerta automática antes de fusionar o desplegar. No tuve acceso en esta sesión para confirmar por API si `develop` tiene reglas de protección de rama configuradas en GitHub o un pipeline en Railway — lo que sí se puede confirmar es el patrón observado durante el trabajo real de varias sesiones: cada `git push` a `develop` resulta en un redeploy a producción prácticamente inmediato, sin ningún paso de revisión o aprobación intermedio que se haya notado. Tampoco hay evidencia de un segundo ambiente de pruebas separado — todo el trabajo de esta sesión apuntó a una sola base de datos/API que el equipo trata como producción. Es decir: de los cuatro puntos de la lista de arriba, ninguno tiene evidencia de estar implementado — este documento es, hasta ahora, la única forma en que el tema quedó registrado. Vale la pena confirmar la configuración exacta de GitHub/Railway directamente (branch protection rules, environments) antes de dar esto por hecho al 100%.
+
+---
+
+*Última actualización: 8 de octubre de 2026.*
