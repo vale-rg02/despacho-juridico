@@ -1163,21 +1163,33 @@ public class ScraperAcuerdosService : BackgroundService
 
         if (SigueUnNombreDespuesDeUnConector(partes)) return true;
 
+        var candidato = ObtenerUltimoSegmentoConContenido(partes);
+        return candidato != null && TieneFragmentoDeNombre(candidato);
+    }
+
+    // DJ-133: extraído de PartesTieneNombre sin cambiar su comportamiento (mismos
+    // límites de recorrido, mismos caracteres de recorte) para que
+    // FrasesGenericasCandidatasService pueda reutilizar exactamente la misma
+    // definición de "candidato" -- ver docs/investigacion-frases-genericas.md.
+    // Recorre los segmentos separados por guion de atrás hacia adelante,
+    // descartando cualquiera vacío tras recortar (un guion terminador, no
+    // separador) hasta encontrar el primero con contenido real, o se queda sin
+    // ninguno.
+    internal static string? ObtenerUltimoSegmentoConContenido(string partes)
+    {
         var segmentos = partes.Split('-');
         for (var i = segmentos.Length - 1; i >= 1; i--)
         {
             var candidato = segmentos[i].Trim(' ', '.', '\t');
             if (candidato.Length == 0) continue; // guion terminador, no separador
 
-            return TieneFragmentoDeNombre(candidato);
+            return candidato;
         }
 
-        // Nunca hubo guion con contenido real después (o nunca hubo guion) y
-        // tampoco conector — no hay nada confiable que indique un nombre.
-        return false;
+        return null;
     }
 
-    private static bool SigueUnNombreDespuesDeUnConector(string partes)
+    internal static bool SigueUnNombreDespuesDeUnConector(string partes)
     {
         var normalizado = NormalizarTexto(partes);
         foreach (var conector in ConectoresDeNombre)
@@ -1217,7 +1229,7 @@ public class ScraperAcuerdosService : BackgroundService
     // No cubre frases genéricas futuras que no se hayan medido todavía -- ver
     // docs/investigacion-frases-genericas.md (DJ-131 Parte 2) para una
     // propuesta de detección automática de ese caso, sin implementar aún.
-    private static readonly string[] FrasesGenericasConocidas =
+    internal static readonly string[] FrasesGenericasConocidas =
     {
         "JUICIO ORAL",
         "DIVORCIO INCAUSADO",
@@ -1428,7 +1440,7 @@ public class ScraperAcuerdosService : BackgroundService
         return match.Success ? match.Groups[1].Value : parteDemandada;
     }
 
-    private static string NormalizarTexto(string texto)
+    internal static string NormalizarTexto(string texto)
     {
         var normalizado = texto.Trim().ToUpperInvariant();
         var sinAcentos = string.Concat(

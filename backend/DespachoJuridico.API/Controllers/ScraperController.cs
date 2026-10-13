@@ -20,6 +20,7 @@ public class ScraperController : ControllerBase
 {
     private readonly ScraperAcuerdosService _scraper;
     private readonly AppDbContext _context;
+    private readonly FrasesGenericasCandidatasService _frasesGenericas;
 
     // DJ-102: cooldown fijo entre usos del botón "Actualizar expedientes".
     private static readonly TimeSpan CooldownActualizacionManual = TimeSpan.FromMinutes(15);
@@ -30,10 +31,11 @@ public class ScraperController : ControllerBase
     // acercarse a esto.
     private static readonly TimeSpan UmbralProgresoObsoleto = TimeSpan.FromMinutes(10);
 
-    public ScraperController(ScraperAcuerdosService scraper, AppDbContext context)
+    public ScraperController(ScraperAcuerdosService scraper, AppDbContext context, FrasesGenericasCandidatasService frasesGenericas)
     {
         _scraper = scraper;
         _context = context;
+        _frasesGenericas = frasesGenericas;
     }
 
     private int ObtenerUsuarioId() =>
@@ -180,6 +182,24 @@ public class ScraperController : ControllerBase
     {
         var resultado = await _scraper.ReevaluarOcultosAsync(dryRun);
         return Ok(resultado);
+    }
+
+    // POST /api/scraper/frases-genericas/vista-previa
+    // POST /api/scraper/frases-genericas/vista-previa?dryRun=false — fuerza el envío real del correo ahora mismo
+    // POST /api/scraper/frases-genericas/vista-previa?umbral=4 — prueba otro umbral sin tocar la configuración
+    // DJ-133 (implementa el diseño de Parte 2 de DJ-131): calcula candidatos a
+    // frase genérica nueva -- NUNCA cambia Oculto ni Confianza de ningún
+    // acuerdo, solo lee. Por defecto dryRun=true: arma el reporte sin enviar
+    // correo, mismo patrón que reevaluar-ocultos.
+    [HttpPost("frases-genericas/vista-previa")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> VistaPreviaFrasesGenericas([FromQuery] bool dryRun = true, [FromQuery] int? umbral = null)
+    {
+        var reporte = await _frasesGenericas.GenerarReporteAsync(umbral, HttpContext.RequestAborted);
+        if (!dryRun)
+            await _frasesGenericas.EnviarSiHayCandidatosAsync(reporte);
+
+        return Ok(reporte);
     }
 
     // POST /api/scraper/actualizar-mis-expedientes

@@ -42,9 +42,21 @@ public class ActualizarMisExpedientesControllerTests
             new ConfigurationBuilder().Build());
     }
 
+    private static FrasesGenericasCandidatasService CrearFrasesGenericasService(string nombreBD)
+    {
+        var servicios = new ServiceCollection();
+        servicios.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(nombreBD));
+        var proveedor = servicios.BuildServiceProvider();
+
+        return new FrasesGenericasCandidatasService(
+            proveedor.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<FrasesGenericasCandidatasService>.Instance,
+            new ConfigurationBuilder().Build());
+    }
+
     private static ScraperController CrearControllerComoUsuario(AppDbContext context, string nombreBD, int usuarioId)
     {
-        var controller = new ScraperController(CrearScraperService(nombreBD), context);
+        var controller = new ScraperController(CrearScraperService(nombreBD), context, CrearFrasesGenericasService(nombreBD));
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {
