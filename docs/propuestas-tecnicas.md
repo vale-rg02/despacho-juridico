@@ -10,6 +10,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 2 | Alias de nombres de banco no escala a multi-tenant | Investigada y descartada para el alcance actual (DJ-125) — el patrón para el SaaS sigue sin implementar |
 | 3 | Número de orden del juzgado reutilizado entre trámites | Pendiente — solo observación, sin investigar a fondo |
 | 4 | Proceso de pull requests y ambientes | Sin decidir |
+| 5 | Identificación de nombres con apoyo externo (por decidir, para el SaaS) | Sin decidir |
 
 ---
 
@@ -100,4 +101,44 @@ Estado: sin decidir.
 
 ---
 
-*Última actualización: 8 de octubre de 2026.*
+## 5. Identificación de nombres con apoyo externo (por decidir, para el SaaS)
+
+**Estado: sin decidir.**
+
+Pregunta: ¿conviene usar código abierto o una API que identifique nombres en español para
+ayudar al scraper a distinguir nombres de jerga legal en el campo Partes de ADISON?
+
+Contexto: en Acedo e Hijos el problema real no fue reconocer nombres en general, sino que
+frases de trámite (por ejemplo "ACCIÓN PAGO DE PESOS") se tomaron por nombre. Se resolvió con
+una lista de frases genéricas medida contra datos reales (DJ-131) y con una detección por
+repetición (DJ-133). Para ese despacho no se justifica una herramienta externa.
+
+Por qué no es la solución principal hoy:
+- ADISON publica el texto en mayúsculas; los modelos de reconocimiento de nombres se apoyan
+  en la capitalización y pierden precisión.
+- El lenguaje jurídico se parece poco al de los corpus con que se entrenan esos modelos.
+- Un error del modelo (tomar un nombre real por jerga) ocultaría acuerdos sin una regla
+  clara que lo explique, y sería más difícil de auditar que una lista.
+- Enviar nombres de partes de casos reales a una API externa es un riesgo de
+  confidencialidad (datos de clientes de un despacho). Un modelo local evita esto, pero
+  exige otro entorno (por ejemplo Python u ONNX) junto a un backend .NET.
+
+Dónde sí puede aportar:
+- Un diccionario abierto de nombres y apellidos como señal adicional (no como decisión
+  única): determinista, sin servicios externos, auditable. Útil para las palabras sueltas
+  de DJ-134 ("GARANTIA" frente a un apellido real).
+- El SaaS: con otros despachos y regiones, las frases genéricas no estarán medidas de
+  antemano y una señal generalizable valdría más.
+
+Criterios para evaluar cualquier opción: funciona con texto en mayúsculas; corre sin enviar
+nombres a servicios externos; se integra con .NET; se mide contra los acuerdos reales
+(cuántos nombres reales rechaza, lo más grave, y cuántas frases genéricas deja pasar);
+licencia compatible con uso comercial (cuidado con las copyleft como GPL, y verificar la
+licencia y la cobertura de los conjuntos de datos).
+
+Opción propuesta: medir un diccionario de apellidos dentro de DJ-134 y retomar la
+investigación amplia al arrancar el SaaS.
+
+---
+
+*Última actualización: 13 de octubre de 2026.*
