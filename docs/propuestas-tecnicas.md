@@ -11,6 +11,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 3 | Número de orden del juzgado reutilizado entre trámites | Pendiente — solo observación, sin investigar a fondo |
 | 4 | Proceso de pull requests y ambientes | Sin decidir |
 | 5 | Identificación de nombres con apoyo externo (por decidir, para el SaaS) | Sin decidir |
+| 6 | Medir desde el inicio y definir cuándo se entrega (para el SaaS) | Sin decidir |
 
 ---
 
@@ -141,4 +142,30 @@ investigación amplia al arrancar el SaaS.
 
 ---
 
-*Última actualización: 13 de octubre de 2026.*
+## 6. Medir desde el inicio y definir cuándo se entrega (para el SaaS)
+
+**Estado: sin decidir.**
+
+Lección del cierre de Acedo e Hijos (octubre de 2026): el proyecto se alargó porque los errores
+del scraper solo se detectaban cuando el único usuario activo los notaba, y no había criterios
+de salida.
+
+Qué hacer desde el primer día del SaaS:
+- Registrar un embudo por corrida y por fuente (registros devueltos, coincidencias, guardados
+  visibles, ocultos, descartados con su razón), sin datos personales.
+- Un reporte diario de auditoría con cola de revisión priorizada (ocultos con coincidencia
+  exacta, ocultos parecidos, frases candidatas nuevas, anomalías).
+- Clasificar los errores en S1, S2 y S3 desde el principio y decidir qué se corrige antes de
+  entregar.
+- Fijar criterios de salida medibles por tiempo y volumen (días hábiles sin falsos negativos
+  confirmados, mínimo de casos reales revisados con tasa de error máxima, ausencia de
+  notificaciones erróneas) y una sola prórroga acotada.
+- Congelar el alcance antes de la ventana de observación: solo entra lo que causó un falso
+  negativo real o una notificación errónea y se arregla con un cambio pequeño.
+- Un ambiente de pruebas con gate de correo desde el principio (ver DJ-135).
+
+Referencias: DJ-138 (plan de cierre), DJ-139, DJ-140 y DJ-143.
+
+---
+
+*Última actualización: 14 de octubre de 2026.*
