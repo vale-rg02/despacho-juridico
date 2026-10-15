@@ -205,20 +205,14 @@ public class AcuerdosController : ControllerBase
 
         var actor = await _context.Usuarios.FindAsync(usuarioIdActual);
         var frontendBaseUrl = _config.GetValue<string>("Frontend:BaseUrl") ?? "https://app.acedoehijos.com";
-        var url = System.Net.WebUtility.HtmlEncode(ScraperAcuerdosService.ConstruirUrlAcuerdo(frontendBaseUrl, expediente.Id));
-        var asunto = $"Nuevo acuerdo registrado manualmente — Exp. {expediente.NumeroExpediente}";
-        var actorNombreEnc = System.Net.WebUtility.HtmlEncode(actor?.Nombre ?? "Un colaborador");
-        var numeroExpedienteEnc = System.Net.WebUtility.HtmlEncode(expediente.NumeroExpediente);
-        var sintesisEnc = System.Net.WebUtility.HtmlEncode(acuerdo.Sintesis);
 
-        var cuerpo = $@"
-<p>{actorNombreEnc} registró manualmente un acuerdo en el expediente <strong>{numeroExpedienteEnc}</strong> (no detectado por el scraper).</p>
-<p><strong>Fecha del acuerdo:</strong> {acuerdo.FechaAcuerdo:dd/MM/yyyy}</p>
-<p><strong>Síntesis:</strong> {sintesisEnc}</p>
-<p><a href=""{url}"">Ver el acuerdo</a></p>";
-
+        // DJ-129: el saludo lleva el nombre de cada destinatario, así que el
+        // cuerpo se arma por destinatario (antes era uno solo para todos).
         foreach (var (nombre, email) in destinatarios.Values)
+        {
+            var (asunto, cuerpo) = CorreoAcuerdoManual.Construir(nombre, actor?.Nombre, expediente, acuerdo, frontendBaseUrl);
             await _emailService.EnviarAsync(email, nombre, asunto, cuerpo);
+        }
     }
 
     // DELETE /api/acuerdos/{id} — solo registros manuales; los del scraper son intocables

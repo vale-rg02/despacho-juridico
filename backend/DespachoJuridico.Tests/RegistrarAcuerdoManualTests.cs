@@ -258,6 +258,30 @@ public class RegistrarAcuerdoManualTests
         Assert.Equal(colaborador.Email, fakeEmail.Enviados[0].Email);
     }
 
+    [Theory]
+    [InlineData(true, "exhorto")]
+    [InlineData(false, "acuerdo")]
+    public async Task CorreoDeAviso_DiceAcuerdoOExhortoSegunLoRegistrado_YSaludaPorNombre(bool esExhorto, string palabraEsperada)
+    {
+        // DJ-129
+        using var context = CrearContextoEnMemoria($"{nameof(CorreoDeAviso_DiceAcuerdoOExhortoSegunLoRegistrado_YSaludaPorNombre)}_{esExhorto}");
+        var (titular, colaborador, expediente) = await SembrarExpedienteAsync(context);
+        context.ExpedienteAccesos.Add(new ExpedienteAcceso { ExpedienteId = expediente.Id, UsuarioId = colaborador.Id });
+        await context.SaveChangesAsync();
+        var (controller, fakeEmail) = CrearControllerComoUsuario(context, titular.Id);
+
+        await controller.RegistrarManual(expediente.Id, new RegistrarAcuerdoManualRequest
+        {
+            Sintesis = "x", FechaAcuerdo = new DateOnly(2026, 9, 24), EsExhorto = esExhorto, TipoAsunto = esExhorto ? null : "Contestación"
+        });
+
+        var enviado = Assert.Single(fakeEmail.Enviados);
+        Assert.Contains($"Nuevo {palabraEsperada} registrado manualmente", enviado.Asunto);
+        Assert.Contains($"Ver {palabraEsperada} en el expediente", enviado.Cuerpo);
+        Assert.Contains($"Estimado(a) {colaborador.Nombre},", enviado.Cuerpo);
+        Assert.Contains("<strong>Mario Acedo</strong> registró manualmente", enviado.Cuerpo);
+    }
+
     [Fact]
     public async Task QuienRegistra_NuncaSeMandaElCorreoASiMismo()
     {
