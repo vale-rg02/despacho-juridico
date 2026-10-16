@@ -290,6 +290,15 @@ public class ScraperAcuerdosService : BackgroundService
 
         var resultado = new ResultadoScrapingResponse { Fecha = fecha, DryRun = dryRun };
 
+        // DJ-139: identidad de esta corrida para la bitácora de evaluación --
+        // une todas las filas (una por juzgado) de la misma llamada. Origen se
+        // deriva de parámetros que ya existían (no es un concepto nuevo) --
+        // ver Paso 1 de la investigación de DJ-139.
+        var corridaId = Guid.NewGuid();
+        var fechaHoraCorrida = DateTime.UtcNow;
+        var origenCorrida = expedienteIdsFiltro != null ? "Manual" : (!notificar ? "Backfill" : "Automatica");
+        resultado.CorridaId = corridaId;
+
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
@@ -305,15 +314,40 @@ public class ScraperAcuerdosService : BackgroundService
         resultado.ExpedientesConsultados = expedientes.Count;
         _logger.LogInformation("Expedientes activos consultados: {Count}", expedientes.Count);
 
+        // DJ-139: solo para clasificar descartes con precisión en la bitácora --
+        // nunca se usan para decidir un match real, solo para explicar por qué
+        // uno no avanzó. "todosActivos" solo difiere de "expedientes" cuando
+        // hay expedienteIdsFiltro (corrida manual DJ-102); si no hay filtro es
+        // la misma lista, sin costo de consulta extra.
+        var todosActivos = expedienteIdsFiltro != null
+            ? await context.Expedientes.Where(e => e.Estado != Models.Enums.EstadoExpediente.Cerrado).ToListAsync()
+            : expedientes;
+        var numerosExpedientesCerrados = await context.Expedientes
+            .Where(e => e.Estado == Models.Enums.EstadoExpediente.Cerrado)
+            .Select(e => e.NumeroExpediente)
+            .ToListAsync();
+
         foreach (var (idUnidad, nombreJuzgado) in Juzgados)
         {
             if (idsUnidad != null && !idsUnidad.Contains(idUnidad)) continue;
 
-            List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)> acuerdos;
+            var bitacora = new BitacoraEvaluacionScraper
+            {
+                CorridaId = corridaId,
+                FechaHoraCorrida = fechaHoraCorrida,
+                FechaConsultada = fecha,
+                IdUnidad = idUnidad,
+                NombreJuzgado = nombreJuzgado,
+                Origen = origenCorrida,
+                DryRun = dryRun
+            };
+            var descartesItemizados = new List<BitacoraDescarteItemizado>();
+
+            ResultadoScrapeoJuzgado resultadoScrapeo;
 
             try
             {
-                acuerdos = await ScrapearJuzgadoAsync(idUnidad, nombreJuzgado, fecha);
+                resultadoScrapeo = await ScrapearJuzgadoAsync(idUnidad, nombreJuzgado, fecha);
                 _fallosConsecutivosPorJuzgado[idUnidad] = 0;
             }
             catch (Exception ex)
@@ -331,12 +365,22 @@ public class ScraperAcuerdosService : BackgroundService
                         idUnidad, nombreJuzgado, fallos);
                 }
 
+                bitacora.ConsultaExitosa = false;
+                bitacora.MotivoFallo = ex.GetType().Name;
+                resultado.Embudo.Add(AEmbudoResponse(bitacora));
+                await GuardarBitacoraAsync(context, bitacora, descartesItemizados);
+
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 continue;
             }
 
-            foreach (var acuerdo in acuerdos)
+            bitacora.ConsultaExitosa = resultadoScrapeo.ConsultaExitosa;
+            bitacora.MotivoFallo = resultadoScrapeo.MotivoFallo;
+            bitacora.Devueltos = resultadoScrapeo.Acuerdos.Count;
+
+            foreach (var acuerdo in resultadoScrapeo.Acuerdos)
             {
+                AcuerdoScrapeado? nuevoAcuerdoActual = null;
                 try
                 {
                     // Buscar match(es) con expedientes del despacho. DJ-122: antes se usaba
@@ -370,7 +414,17 @@ public class ScraperAcuerdosService : BackgroundService
                             NormalizarNumero(e.NumeroExpediente) == NormalizarNumero(acuerdo.NumeroExpediente)).ToList();
                     }
 
-                    if (candidatos.Count == 0) continue;
+                    if (candidatos.Count == 0)
+                    {
+                        bitacora.Evaluaciones++;
+                        ClasificarDescarteSinCandidato(
+                            acuerdo.NumeroExpediente, idUnidad, nombreJuzgado, JuzgadosHermosillo.Contains(idUnidad),
+                            expedienteIdsFiltro, expedientes, todosActivos, numerosExpedientesCerrados,
+                            corridaId, fechaHoraCorrida, bitacora, descartesItemizados);
+                        continue;
+                    }
+
+                    bitacora.Evaluaciones += candidatos.Count;
 
                     foreach (var expediente in candidatos)
                     {
@@ -545,7 +599,13 @@ public class ScraperAcuerdosService : BackgroundService
 
                     if (dryRun)
                     {
-                        // Modo de prueba: no se escribe en AcuerdosScrapeados ni se envía correo.
+                        // DJ-139: clasifica para la bitácora igual que una corrida real,
+                        // solo que nunca escribe en AcuerdosScrapeados ni envía correo --
+                        // el embudo de un dry-run es exactamente el de lo que habría
+                        // pasado.
+                        if (oculto) bitacora.GuardadoOcultoBaja++;
+                        else if (confianza == "Media") bitacora.GuardadoVisibleMedia++;
+                        else bitacora.GuardadoVisibleAlta++;
                         continue;
                     }
 
@@ -555,7 +615,11 @@ public class ScraperAcuerdosService : BackgroundService
                         a.FechaAcuerdo == acuerdo.FechaAcuerdo &&
                         a.Sintesis == acuerdo.Sintesis);
 
-                    if (yaExiste) continue;
+                    if (yaExiste)
+                    {
+                        bitacora.YaExistia++;
+                        continue;
+                    }
 
                     // Guardar acuerdo
                     var nuevoAcuerdo = new AcuerdoScrapeado
@@ -579,6 +643,14 @@ public class ScraperAcuerdosService : BackgroundService
 
                     context.AcuerdosScrapeados.Add(nuevoAcuerdo);
                     await context.SaveChangesAsync();
+                    // DJ-139: ya se guardó -- si algo truena después de este punto
+                    // (ej. al notificar), el catch de abajo sabe que el acuerdo SÍ
+                    // quedó guardado, no se perdió nada.
+                    nuevoAcuerdoActual = nuevoAcuerdo;
+
+                    if (oculto) bitacora.GuardadoOcultoBaja++;
+                    else if (confianza == "Media") bitacora.GuardadoVisibleMedia++;
+                    else bitacora.GuardadoVisibleAlta++;
 
                     if (!oculto && notificar)
                     {
@@ -615,8 +687,36 @@ public class ScraperAcuerdosService : BackgroundService
                 {
                     _logger.LogError(ex, "Error procesando acuerdo del expediente {Numero} en juzgado {Juzgado}",
                         acuerdo.NumeroExpediente, nombreJuzgado);
+
+                    // DJ-139: si el acuerdo ya se había guardado (nuevoAcuerdoActual != null,
+                    // ej. falló solo la notificación), su categoría de Guardado* YA se contó
+                    // arriba -- no se vuelve a contar aquí como descarte, porque no se
+                    // descartó nada, solo falló un paso posterior. El registro itemizado
+                    // igual se guarda, para que quede visible en la auditoría sin romper
+                    // "cada registro en exactamente una categoría".
+                    if (nuevoAcuerdoActual == null)
+                        bitacora.DescartadoExcepcion++;
+
+                    descartesItemizados.Add(new BitacoraDescarteItemizado
+                    {
+                        CorridaId = corridaId,
+                        FechaHoraCorrida = fechaHoraCorrida,
+                        IdUnidad = idUnidad,
+                        NombreJuzgado = nombreJuzgado,
+                        NumeroExpediente = acuerdo.NumeroExpediente,
+                        Razon = "EXCEPCION",
+                        // Distingue si el acuerdo ya se había guardado cuando falló (ej. al
+                        // notificar) de si no se guardó nada -- sin cambiar qué pasa con el
+                        // acuerdo ni con la notificación (ver docs/propuestas-tecnicas.md #7,
+                        // fuera de alcance de esta historia).
+                        EtapaFalla = nuevoAcuerdoActual != null ? "notificacion" : "antes_de_guardar"
+                    });
                 }
             }
+
+            resultado.Embudo.Add(AEmbudoResponse(bitacora));
+            resultado.DescartesItemizados.AddRange(descartesItemizados.Select(ADescarteResponse));
+            await GuardarBitacoraAsync(context, bitacora, descartesItemizados);
 
             // Pausa entre juzgados para no sobrecargar el servidor
             await Task.Delay(TimeSpan.FromSeconds(2));
@@ -635,10 +735,204 @@ public class ScraperAcuerdosService : BackgroundService
             else
                 estado.UltimaCorridaCompletaEn = DateTime.UtcNow;
             await context.SaveChangesAsync();
+
+            await PurgarBitacoraAsync(context);
         }
 
         _logger.LogInformation("Scraping completado para {Fecha}", fecha);
         return resultado;
+    }
+
+    // DJ-139: por qué un acuerdo sin candidato no avanzó, más allá de "no hay
+    // expediente del despacho con ese número" (la inmensa mayoría, no se
+    // itemiza). Compara contra listas ya cargadas una sola vez por corrida --
+    // nunca decide un match real, solo explica un descarte que ya ocurrió.
+    internal static void ClasificarDescarteSinCandidato(
+        string numeroExpedienteAcuerdo, int idUnidad, string nombreJuzgado, bool esHermosillo,
+        IReadOnlySet<int>? expedienteIdsFiltro, List<Expediente> expedientesEnAlcance, List<Expediente> todosActivos,
+        List<string> numerosExpedientesCerrados, Guid corridaId, DateTime fechaHoraCorrida,
+        BitacoraEvaluacionScraper bitacora, List<BitacoraDescarteItemizado> descartesItemizados)
+    {
+        var numeroNormalizado = NormalizarNumero(numeroExpedienteAcuerdo);
+
+        void Itemizar(string razon) => descartesItemizados.Add(new BitacoraDescarteItemizado
+        {
+            CorridaId = corridaId,
+            FechaHoraCorrida = fechaHoraCorrida,
+            IdUnidad = idUnidad,
+            NombreJuzgado = nombreJuzgado,
+            NumeroExpediente = numeroExpedienteAcuerdo,
+            Razon = razon
+        });
+
+        // Solo aplica a Hermosillo -- foráneo nunca exige que el juzgado
+        // coincida (ver EjecutarScrapingAsync). Si el número ya coincide
+        // dentro del universo usado para este match, lo único que pudo haber
+        // fallado es JuzgadoCoincide.
+        if (esHermosillo && expedientesEnAlcance.Any(e => NormalizarNumero(e.NumeroExpediente) == numeroNormalizado))
+        {
+            bitacora.DescartadoNumeroJuzgadoNoCoincide++;
+            Itemizar("NUMERO_COINCIDE_JUZGADO_NO");
+            return;
+        }
+
+        // Solo tiene sentido cuando esta corrida tiene expedienteIdsFiltro
+        // (DJ-102) -- si coincide en el universo SIN filtro pero no en el de
+        // esta corrida, es porque el filtro lo excluyó.
+        if (expedienteIdsFiltro != null && todosActivos.Any(e => NormalizarNumero(e.NumeroExpediente) == numeroNormalizado))
+        {
+            bitacora.DescartadoFueraDeAlcanceFiltro++;
+            Itemizar("FUERA_DE_ALCANCE_FILTRO");
+            return;
+        }
+
+        if (numerosExpedientesCerrados.Any(n => NormalizarNumero(n) == numeroNormalizado))
+        {
+            bitacora.DescartadoExpedienteCerrado++;
+            Itemizar("EXPEDIENTE_CERRADO");
+            return;
+        }
+
+        bitacora.DescartadoSinCandidato++;
+    }
+
+    // DJ-139: escribe la fila agregada + sus descartes itemizados, o -- en
+    // dry-run -- no escribe nada, solo deja un resumen en el log. Cualquier
+    // fallo al escribir se captura aquí: nunca debe interrumpir ni retrasar
+    // el ciclo real del scraper.
+    private async Task GuardarBitacoraAsync(
+        AppDbContext context, BitacoraEvaluacionScraper bitacora, List<BitacoraDescarteItemizado> descartesItemizados)
+    {
+        if (bitacora.DryRun)
+        {
+            _logger.LogInformation(
+                "Embudo (dry-run) {Juzgado}: devueltos={Devueltos} evaluaciones={Evaluaciones} altaMedia={AltaAMedia} oculto={Oculto} yaExistia={YaExistia} sinCandidato={SinCandidato} otrosDescartes={OtrosDescartes}",
+                bitacora.NombreJuzgado, bitacora.Devueltos, bitacora.Evaluaciones,
+                bitacora.GuardadoVisibleAlta + bitacora.GuardadoVisibleMedia, bitacora.GuardadoOcultoBaja,
+                bitacora.YaExistia, bitacora.DescartadoSinCandidato,
+                bitacora.DescartadoNumeroJuzgadoNoCoincide + bitacora.DescartadoExpedienteCerrado +
+                    bitacora.DescartadoFueraDeAlcanceFiltro + bitacora.DescartadoExcepcion);
+            return;
+        }
+
+        try
+        {
+            context.BitacoraEvaluacionScraper.Add(bitacora);
+            if (descartesItemizados.Count > 0)
+                context.BitacoraDescarteItemizado.AddRange(descartesItemizados);
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo escribir la bitácora de evaluación para el juzgado {Juzgado} -- el ciclo continúa normal", bitacora.NombreJuzgado);
+        }
+    }
+
+    // DJ-139: purga configurable, dentro del mismo ciclo que ya actualiza
+    // EstadoScraper (solo en la corrida completa, no en cada corrida manual) --
+    // sin tabla ni job nuevo. Cualquier fallo se registra y no interrumpe nada,
+    // igual que GuardarBitacoraAsync.
+    private async Task PurgarBitacoraAsync(AppDbContext context)
+    {
+        try
+        {
+            var retencionConteosDias = _config.GetValue<int>("BitacoraScraper:RetencionConteosDias", 180);
+            var retencionDescartesDias = _config.GetValue<int>("BitacoraScraper:RetencionDescartesDias", 60);
+            var limiteConteos = DateTime.UtcNow.AddDays(-retencionConteosDias);
+            var limiteDescartes = DateTime.UtcNow.AddDays(-retencionDescartesDias);
+
+            var borradosConteos = await context.BitacoraEvaluacionScraper
+                .Where(b => b.FechaHoraCorrida < limiteConteos)
+                .ExecuteDeleteAsync();
+            var borradosDescartes = await context.BitacoraDescarteItemizado
+                .Where(d => d.FechaHoraCorrida < limiteDescartes)
+                .ExecuteDeleteAsync();
+
+            if (borradosConteos > 0 || borradosDescartes > 0)
+                _logger.LogInformation(
+                    "Purga de bitácora del scraper: {Conteos} filas agregadas, {Descartes} descartes itemizados",
+                    borradosConteos, borradosDescartes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error purgando la bitácora del scraper -- no afecta al ciclo");
+        }
+    }
+
+    private static EmbudoJuzgadoResponse AEmbudoResponse(BitacoraEvaluacionScraper b) => new()
+    {
+        IdUnidad = b.IdUnidad,
+        NombreJuzgado = b.NombreJuzgado,
+        Origen = b.Origen,
+        DryRun = b.DryRun,
+        ConsultaExitosa = b.ConsultaExitosa,
+        MotivoFallo = b.MotivoFallo,
+        Devueltos = b.Devueltos,
+        Evaluaciones = b.Evaluaciones,
+        GuardadoVisibleAlta = b.GuardadoVisibleAlta,
+        GuardadoVisibleMedia = b.GuardadoVisibleMedia,
+        GuardadoOcultoBaja = b.GuardadoOcultoBaja,
+        YaExistia = b.YaExistia,
+        DescartadoSinCandidato = b.DescartadoSinCandidato,
+        DescartadoNumeroJuzgadoNoCoincide = b.DescartadoNumeroJuzgadoNoCoincide,
+        DescartadoExpedienteCerrado = b.DescartadoExpedienteCerrado,
+        DescartadoFueraDeAlcanceFiltro = b.DescartadoFueraDeAlcanceFiltro,
+        DescartadoExcepcion = b.DescartadoExcepcion
+    };
+
+    private static DescarteItemizadoResponse ADescarteResponse(BitacoraDescarteItemizado d) => new()
+    {
+        NumeroExpediente = d.NumeroExpediente,
+        NombreJuzgado = d.NombreJuzgado,
+        Razon = d.Razon,
+        EtapaFalla = d.EtapaFalla
+    };
+
+    // DJ-139: lectura por día para DJ-140 -- por juzgado y total. Mismo formato
+    // (EmbudoJuzgadoResponse) que ya usa el embudo en vivo de EjecutarScrapingAsync,
+    // para que sea un solo contrato de lectura.
+    public async Task<ResumenBitacoraDiaResponse> ObtenerResumenDiaAsync(DateOnly fecha)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var filas = await context.BitacoraEvaluacionScraper
+            .Where(b => b.FechaConsultada == fecha)
+            .OrderBy(b => b.FechaHoraCorrida)
+            .ThenBy(b => b.NombreJuzgado)
+            .ToListAsync();
+
+        var porJuzgado = filas.Select(AEmbudoResponse).ToList();
+
+        // DJ-139: BitacoraDescarteItemizado no guarda FechaConsultada directo
+        // -- se liga por CorridaId a las filas agregadas del mismo día.
+        var corridaIdsDelDia = filas.Select(f => f.CorridaId).Distinct().ToList();
+        var descartes = await context.BitacoraDescarteItemizado
+            .Where(d => corridaIdsDelDia.Contains(d.CorridaId))
+            .OrderBy(d => d.FechaHoraCorrida)
+            .ToListAsync();
+
+        return new ResumenBitacoraDiaResponse
+        {
+            Fecha = fecha,
+            PorJuzgado = porJuzgado,
+            DescartesItemizados = descartes.Select(ADescarteResponse).ToList(),
+            Total = new EmbudoJuzgadoResponse
+            {
+                Devueltos = filas.Sum(f => f.Devueltos),
+                Evaluaciones = filas.Sum(f => f.Evaluaciones),
+                GuardadoVisibleAlta = filas.Sum(f => f.GuardadoVisibleAlta),
+                GuardadoVisibleMedia = filas.Sum(f => f.GuardadoVisibleMedia),
+                GuardadoOcultoBaja = filas.Sum(f => f.GuardadoOcultoBaja),
+                YaExistia = filas.Sum(f => f.YaExistia),
+                DescartadoSinCandidato = filas.Sum(f => f.DescartadoSinCandidato),
+                DescartadoNumeroJuzgadoNoCoincide = filas.Sum(f => f.DescartadoNumeroJuzgadoNoCoincide),
+                DescartadoExpedienteCerrado = filas.Sum(f => f.DescartadoExpedienteCerrado),
+                DescartadoFueraDeAlcanceFiltro = filas.Sum(f => f.DescartadoFueraDeAlcanceFiltro),
+                DescartadoExcepcion = filas.Sum(f => f.DescartadoExcepcion),
+                ConsultaExitosa = filas.All(f => f.ConsultaExitosa)
+            }
+        };
     }
 
     // DJ-102: "Actualizar expedientes" del litigante -- corre el scraper acotado a
@@ -840,7 +1134,10 @@ public class ScraperAcuerdosService : BackgroundService
         return resultado;
     }
 
-    private async Task<List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)>> ScrapearJuzgadoAsync(
+    // DJ-139: internal virtual únicamente para poder sustituirlo en pruebas (una
+    // subclase de prueba lo sobreescribe para no pegarle a la red real) -- en
+    // producción nadie lo sobreescribe, comportamiento idéntico a antes.
+    internal virtual async Task<ResultadoScrapeoJuzgado> ScrapearJuzgadoAsync(
         int idUnidad, string nombreJuzgado, DateOnly fecha)
     {
         var resultado = new List<(string, string, string, DateOnly, string?)>();
@@ -879,15 +1176,21 @@ public class ScraperAcuerdosService : BackgroundService
             "ADISON {IdUnidad}: HTTP {StatusCode} en {LatenciaMs}ms [{Paso}]",
             idUnidad, (int)response.StatusCode, cronometro.ElapsedMilliseconds, etiquetaExperimento);
 
-        if (!response.IsSuccessStatusCode) return resultado;
+        // DJ-139: un HTTP no-2xx hoy se trata como "sin acuerdos" para el matching
+        // (sin cambio) -- pero la bitácora necesita poder distinguirlo de un día
+        // genuinamente vacío, así que se reporta el motivo al llamador.
+        if (!response.IsSuccessStatusCode)
+            return new ResultadoScrapeoJuzgado(resultado, false, $"HTTP_{(int)response.StatusCode}");
 
         var json = await response.Content.ReadAsStringAsync();
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        if (!root.TryGetProperty("Resultado", out var resultadoArray)) return resultado;
-        if (resultadoArray.ValueKind != JsonValueKind.Array) return resultado;
+        if (!root.TryGetProperty("Resultado", out var resultadoArray))
+            return new ResultadoScrapeoJuzgado(resultado, false, "RESPUESTA_SIN_RESULTADO");
+        if (resultadoArray.ValueKind != JsonValueKind.Array)
+            return new ResultadoScrapeoJuzgado(resultado, false, "RESULTADO_NO_ES_ARRAY");
 
 
         foreach (var item in resultadoArray.EnumerateArray())
@@ -907,8 +1210,16 @@ public class ScraperAcuerdosService : BackgroundService
         }
 
             _logger.LogInformation("Juzgado {IdUnidad}: {Count} acuerdos encontrados", idUnidad, resultado.Count);
-        return resultado;
+        return new ResultadoScrapeoJuzgado(resultado, true, null);
     }
+
+    // DJ-139: wrapper mínimo sobre la lista de acuerdos -- comunica si la
+    // consulta en sí fue exitosa, sin cambiar qué acuerdos se procesan (una
+    // consulta fallida siempre regresa una lista vacía, igual que hoy).
+    internal record ResultadoScrapeoJuzgado(
+        List<(string NumeroExpediente, string Partes, string Sintesis, DateOnly FechaAcuerdo, string? TipoAsunto)> Acuerdos,
+        bool ConsultaExitosa,
+        string? MotivoFallo);
 
     private async Task EnviarNotificacionAsync(IEmailService emailService, Expediente expediente, AcuerdoScrapeado acuerdo)
     {

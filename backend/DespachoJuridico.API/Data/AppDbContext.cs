@@ -30,6 +30,8 @@ public class AppDbContext : DbContext
     public DbSet<EstadoScraper> EstadosScraper => Set<EstadoScraper>();
     public DbSet<NotaEtapa> NotasEtapa => Set<NotaEtapa>();
     public DbSet<AcuerdoVistoPorUsuario> AcuerdoVistoPorUsuarios => Set<AcuerdoVistoPorUsuario>();
+    public DbSet<BitacoraEvaluacionScraper> BitacoraEvaluacionScraper => Set<BitacoraEvaluacionScraper>();
+    public DbSet<BitacoraDescarteItemizado> BitacoraDescarteItemizado => Set<BitacoraDescarteItemizado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

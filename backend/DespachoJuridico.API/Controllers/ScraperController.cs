@@ -191,6 +191,21 @@ public class ScraperController : ControllerBase
     // frase genérica nueva -- NUNCA cambia Oculto ni Confianza de ningún
     // acuerdo, solo lee. Por defecto dryRun=true: arma el reporte sin enviar
     // correo, mismo patrón que reevaluar-ocultos.
+    // GET /api/scraper/bitacora-dia?fecha=2026-10-14
+    // DJ-139: embudo del día -- por juzgado y total. Contrato de lectura para
+    // DJ-140 (reporte diario de auditoría). Solo lectura, sin frontend, sin
+    // tocar /registros.
+    [HttpGet("bitacora-dia")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> BitacoraDia([FromQuery] DateOnly? fecha = null)
+    {
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var fechaConsulta = fecha ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
+
+        var resumen = await _scraper.ObtenerResumenDiaAsync(fechaConsulta);
+        return Ok(resumen);
+    }
+
     [HttpPost("frases-genericas/vista-previa")]
     [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> VistaPreviaFrasesGenericas([FromQuery] bool dryRun = true, [FromQuery] int? umbral = null)

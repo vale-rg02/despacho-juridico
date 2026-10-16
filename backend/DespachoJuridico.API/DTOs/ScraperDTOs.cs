@@ -25,6 +25,62 @@ public class ResultadoScrapingResponse
     // juzgado coinciden, sin verificación de Partes) evaluados pero sin guardar
     // ni notificar — para poder revisar el resultado antes de que se guarde.
     public List<MatchHermosilloEvaluado> MatchesHermosilloEvaluados { get; set; } = new();
+
+    // DJ-139: embudo de esta corrida, siempre lleno (dry-run o real) -- mismo
+    // formato que ObtenerResumenDiaAsync, para revisarlo sin esperar a que se
+    // guarde en la bitácora.
+    public Guid CorridaId { get; set; }
+    public List<EmbudoJuzgadoResponse> Embudo { get; set; } = new();
+
+    // DJ-139: los descartes "interesantes" de esta corrida (nunca el masivo
+    // sin candidato) -- siempre lleno, dry-run o real, para poder revisarlos
+    // sin esperar a que se escriban en la bitácora. Nunca contiene Partes ni
+    // nombres.
+    public List<DescarteItemizadoResponse> DescartesItemizados { get; set; } = new();
+}
+
+// DJ-139: un descarte "interesante" -- solo número de expediente, juzgado y
+// razón, nunca Partes ni nombres.
+public class DescarteItemizadoResponse
+{
+    public string NumeroExpediente { get; set; } = string.Empty;
+    public string NombreJuzgado { get; set; } = string.Empty;
+    public string Razon { get; set; } = string.Empty;
+    public string? EtapaFalla { get; set; }
+}
+
+// DJ-139: el embudo de un juzgado en una corrida -- nunca contiene Partes ni
+// nombres de partes, solo conteos y el motivo de un fallo de consulta.
+public class EmbudoJuzgadoResponse
+{
+    public int IdUnidad { get; set; }
+    public string NombreJuzgado { get; set; } = string.Empty;
+    public string Origen { get; set; } = string.Empty;
+    public bool DryRun { get; set; }
+    public bool ConsultaExitosa { get; set; }
+    public string? MotivoFallo { get; set; }
+    public int Devueltos { get; set; }
+    public int Evaluaciones { get; set; }
+    public int GuardadoVisibleAlta { get; set; }
+    public int GuardadoVisibleMedia { get; set; }
+    public int GuardadoOcultoBaja { get; set; }
+    public int YaExistia { get; set; }
+    public int DescartadoSinCandidato { get; set; }
+    public int DescartadoNumeroJuzgadoNoCoincide { get; set; }
+    public int DescartadoExpedienteCerrado { get; set; }
+    public int DescartadoFueraDeAlcanceFiltro { get; set; }
+    public int DescartadoExcepcion { get; set; }
+}
+
+// DJ-139: resumen de un día completo -- por juzgado y total. Es el contrato de
+// lectura que DJ-140 consume (vía ObtenerResumenDiaAsync o
+// GET /api/scraper/bitacora-dia).
+public class ResumenBitacoraDiaResponse
+{
+    public DateOnly Fecha { get; set; }
+    public List<EmbudoJuzgadoResponse> PorJuzgado { get; set; } = new();
+    public List<DescarteItemizadoResponse> DescartesItemizados { get; set; } = new();
+    public EmbudoJuzgadoResponse Total { get; set; } = new();
 }
 
 public class MatchForaneoEvaluado

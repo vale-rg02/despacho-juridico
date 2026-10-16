@@ -179,6 +179,118 @@ namespace DespachoJuridico.API.Migrations
                     b.ToTable("BitacoraCambios");
                 });
 
+            modelBuilder.Entity("DespachoJuridico.API.Models.BitacoraDescarteItemizado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("CorridaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EtapaFalla")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("FechaHoraCorrida")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IdUnidad")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NombreJuzgado")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NumeroExpediente")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Razon")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BitacoraDescarteItemizado");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.BitacoraEvaluacionScraper", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("ConsultaExitosa")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("CorridaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DescartadoExcepcion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DescartadoExpedienteCerrado")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DescartadoFueraDeAlcanceFiltro")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DescartadoNumeroJuzgadoNoCoincide")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DescartadoSinCandidato")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Devueltos")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("DryRun")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Evaluaciones")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("FechaConsultada")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("FechaHoraCorrida")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GuardadoOcultoBaja")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GuardadoVisibleAlta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GuardadoVisibleMedia")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IdUnidad")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MotivoFallo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NombreJuzgado")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("YaExistia")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BitacoraEvaluacionScraper");
+                });
+
             modelBuilder.Entity("DespachoJuridico.API.Models.Cita", b =>
                 {
                     b.Property<int>("Id")
