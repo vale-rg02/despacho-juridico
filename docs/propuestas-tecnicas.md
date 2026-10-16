@@ -12,6 +12,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 4 | Proceso de pull requests y ambientes | Sin decidir |
 | 5 | Identificación de nombres con apoyo externo (por decidir, para el SaaS) | Sin decidir |
 | 6 | Medir desde el inicio y definir cuándo se entrega (para el SaaS) | Sin decidir |
+| 7 | Dos huecos de resiliencia encontrados durante DJ-139 (scraper) | Pendiente — solo observación, sin investigar a fondo |
 
 ---
 
@@ -168,4 +169,28 @@ Referencias: DJ-138 (plan de cierre), DJ-139, DJ-140 y DJ-143.
 
 ---
 
-*Última actualización: 14 de octubre de 2026.*
+## 7. Dos huecos de resiliencia encontrados durante DJ-139 (scraper)
+
+**Estado: pendiente — solo observación, sin investigar a fondo.**
+
+Encontrados al diseñar la bitácora de evaluación de DJ-139 (embudo por corrida del scraper).
+Ninguno de los dos se arregló ahí porque arreglarlos cambia comportamiento real, no solo
+observación — quedan documentados para decidir después si se abren como historias propias.
+
+**1. El contador de fallos consecutivos no cuenta las respuestas HTTP fallidas (solo
+excepciones).** `ScraperAcuerdosService._fallosConsecutivosPorJuzgado` solo se incrementa
+cuando `ScrapearJuzgadoAsync` lanza una excepción real (timeout, DNS). Una respuesta HTTP no-2xx
+(403, 500, etc.) hoy se trata como "el juzgado no tuvo acuerdos ese día" — nunca incrementa el
+contador, así que un juzgado que responda sistemáticamente con error **nunca** dispara la
+alerta crítica de "3 fallos consecutivos", sin importar cuántos días lleve fallando.
+
+**2. Un fallo de Resend al notificar deja el acuerdo guardado pero `NotificacionEnviada` en
+`false` para siempre, sin ningún reintento.** En `EjecutarScrapingAsync`, si
+`EnviarNotificacionAsync` lanza (ver DJ-135: `EmailService.EnviarAsync` lanza una excepción si
+Resend falla), el acuerdo ya se guardó (`SaveChangesAsync` ya se ejecutó antes de la línea que
+notifica) pero la línea que marca `NotificacionEnviada = true` nunca se alcanza — el acuerdo
+queda guardado y visible, pero sin notificación, sin que nada lo reintente ni lo señale.
+
+---
+
+*Última actualización: 15 de octubre de 2026.*
