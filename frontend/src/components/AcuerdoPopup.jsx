@@ -17,7 +17,7 @@ function FilaAcuerdoAgrupado({ acuerdo, onClick }) {
           {acuerdo.numeroExpediente}
         </span>
         {acuerdo.confianza === 'Media' && (
-          <span className="text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+          <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
             confirma
           </span>
         )}
@@ -79,7 +79,7 @@ function PopupCard({ popup, onIrAlAcuerdo, onCerrar }) {
             {esMedia ? (
               <HelpCircle size={12} className="text-amber-800" />
             ) : esGrupo ? (
-              <span className="text-[10px] font-bold text-accent-light" style={{ fontFamily: "'DM Mono', monospace" }}>
+              <span className="text-[11px] font-bold text-accent-light" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {popup.acuerdos.length}
               </span>
             ) : (
@@ -126,7 +126,7 @@ function PopupCard({ popup, onIrAlAcuerdo, onCerrar }) {
               </span>
               {esMedia && (
                 <span
-                  className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5"
+                  className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-semibold rounded-full px-1.5 py-0.5"
                   title="El juzgado y número coinciden, pero el texto no nombra al demandado por su nombre — confírmalo si es tu caso"
                 >
                   <HelpCircle size={9} />

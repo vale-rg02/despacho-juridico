@@ -753,7 +753,7 @@ function DetalleExpediente() {
               <Scale size={13} className="text-accent-strong" />
               Acuerdos del Poder Judicial
               {acuerdosNuevosIds.size > 0 && (
-                <span className="bg-accent-strong text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                <span className="bg-accent-strong text-accent-foreground text-[11px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
                   {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
                 </span>
               )}
@@ -893,7 +893,7 @@ function DetalleExpediente() {
                         <Gavel size={12} className="text-accent-strong" />
                         {acuerdo.nombreJuzgado}
                         {acuerdo.esExhorto && (
-                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             <Send size={9} />
                             Exhorto
                             {acuerdo.registradoManualmente && (
@@ -902,7 +902,7 @@ function DetalleExpediente() {
                           </span>
                         )}
                         {!acuerdo.esExhorto && acuerdo.registradoManualmente && (
-                          <span className="flex items-center gap-1 bg-secondary text-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-secondary text-foreground text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             {acuerdo.tipoAsunto || 'Acuerdo'}
                             <span className="italic font-normal">(manual)</span>
                           </span>
@@ -918,7 +918,7 @@ function DetalleExpediente() {
                         )}
                         {acuerdo.confianza === 'Media' && (
                           <span
-                            className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5"
+                            className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-semibold rounded-full px-1.5 py-0.5"
                             title="El juzgado y número coinciden, pero el texto no nombra al demandado por su nombre — confírmalo si es tu caso"
                           >
                             <HelpCircle size={9} />
@@ -944,7 +944,7 @@ function DetalleExpediente() {
                           Descartar
                         </button>
                         {acuerdosNuevosIds.has(acuerdo.id) && (
-                          <span className="flex items-center gap-1 bg-accent/10 text-accent-strong text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-accent/10 text-accent-strong text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                             Nuevo
                           </span>

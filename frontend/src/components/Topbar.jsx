@@ -215,11 +215,13 @@ function Topbar({ breadcrumb }) {
             <button
               onClick={() => setBellOpen(o => !o)}
               className="relative p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
-              aria-label="Ver notificaciones"
+              aria-label={(alertas.length + acuerdosNuevos.length) > 0 ? `Ver notificaciones (${alertas.length + acuerdosNuevos.length} pendientes)` : 'Ver notificaciones'}
+              aria-expanded={bellOpen}
+              aria-haspopup="true"
             >
               <Bell size={17} />
               {(alertas.length + acuerdosNuevos.length) > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                <span aria-hidden="true" className="absolute top-1 right-1 w-4 h-4 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                   {(alertas.length + acuerdosNuevos.length) > 9 ? '9+' : alertas.length + acuerdosNuevos.length}
                 </span>
               )}
@@ -362,7 +364,7 @@ function Topbar({ breadcrumb }) {
             </div>
             <div className="hidden sm:block leading-tight text-left">
               <p className="text-xs font-medium text-primary-foreground">{usuario?.nombre ?? 'Usuario'}</p>
-              <p className="text-[10px] text-primary-foreground/45">
+              <p className="text-xs text-primary-foreground/45">
                 {usuario?.id === 1 ? 'Socio Principal' : usuario?.rol ?? ''}
               </p>
             </div>

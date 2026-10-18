@@ -144,3 +144,57 @@
     line-height: 1.5;
   }
 }
+/* ---------------------------------------------------------------------------
+   Objetivos táctiles (revisión UX/UI). Fuera de @layer a propósito: debe ganarle
+   a las utilidades de Tailwind (text-sm, py-1.5...) que de otro modo los encogen.
+
+   - WCAG 2.5.8 (AA): ningún control con menos de 24px de alto, en cualquier
+     dispositivo.
+   - HIG (44pt) / WCAG 2.5.5: en pantallas táctiles, el ÁREA de toque de botones
+     y enlaces llega a 44px sin cambiar su tamaño visual (pseudo-elemento
+     transparente), y los campos crecen a 44px de alto con 16px de letra (con
+     menos de 16px, iOS Safari hace zoom al enfocar el campo).
+   --------------------------------------------------------------------------- */
+button,
+[role="button"],
+[role="combobox"] {
+  min-height: 24px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [role="combobox"] {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* El pseudo-elemento se ancla al propio control: los que ya están
+     posicionados (absolute/fixed/sticky) no se tocan. */
+  button:not(.absolute):not(.fixed):not(.sticky),
+  [role="button"]:not(.absolute):not(.fixed):not(.sticky),
+  a[href]:not(.absolute):not(.fixed):not(.sticky):not(.sr-only) {
+    position: relative;
+  }
+
+  :is(button, [role="button"], a[href]):not(.sr-only):not(.fc-button)::after {
+    content: "";
+    position: absolute;
+    top: min(0px, calc((100% - 44px) / 2));
+    bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
+  }
+}
