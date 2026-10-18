@@ -23,7 +23,7 @@ public class ScraperAcuerdosService : BackgroundService
     // que la otra termine, nunca corren en paralelo.
     private readonly SemaphoreSlim _scrapingLock = new(1, 1);
 
-    private static readonly Dictionary<int, string> Juzgados = new()
+    internal static readonly Dictionary<int, string> Juzgados = new()
     {
         // ── HERMOSILLO ─────────────────────────────────────────────────────
         { 152, "1ro Civil Hermosillo" },
@@ -1791,6 +1791,15 @@ public class ScraperAcuerdosService : BackgroundService
         // Penal, Adolescentes, Ejecución de Sanciones y Laboral: mismo criterio que
         // arriba — la materia de un expediente es fija, así que estos patrones nunca
         // deberían cruzarse con Civil/Mercantil/Familiar ni entre ellos mismos.
+        // DJ-140: "tribunal unitario" va ANTES que "oral penal"/"penal oral" a
+        // propósito -- el nombre real completo del juzgado ("Tribunal Unitario
+        // Regional Adolescentes/Penal Oral Hermosillo") contiene literalmente
+        // "penal oral", así que si el patrón de abajo se evaluara primero, le
+        // ganaba el paso y "tribunal unitario" nunca se alcanzaba (encontrado
+        // por TodosLosJuzgadosDeHermosillo_CoincidenConsigoMismos: ni el
+        // juzgado 178 coincidía consigo mismo con el orden anterior).
+        if (exp.Contains("tribunal unitario") || exp.Contains("regional adolescentes"))
+            return scr.Contains("tribunal unitario regional");
         if (exp.Contains("oral penal") || exp.Contains("penal oral"))
             return scr.Contains("oral penal");
         if (exp.Contains("1ro penal") || exp.Contains("primero penal"))
@@ -1801,10 +1810,18 @@ public class ScraperAcuerdosService : BackgroundService
             return scr.Contains("3ro penal") && !scr.Contains("oral");
         if (exp.Contains("5to penal") || exp.Contains("quinto penal"))
             return scr.Contains("5to penal") && !scr.Contains("oral");
-        if (exp.Contains("tribunal unitario") || exp.Contains("regional adolescentes"))
-            return scr.Contains("tribunal unitario regional");
         if (exp.Contains("adolescentes"))
             return scr.Contains("adolescentes") && !scr.Contains("tribunal unitario");
+        // DJ-140: faltaba desde la misma auditoría de agosto 2026 que agregó
+        // Penal/Laboral/Adolescentes/Ejecución -- sin este patrón, ningún
+        // acuerdo del Juzgado Especializado de Violencia de Género podía
+        // coincidir jamás, sin importar qué tan bien estuviera capturado el
+        // expediente (siempre caía en el "return false" del final, y de ahí
+        // a NUMERO_COINCIDE_JUZGADO_NO si el número coincidía -- encontrado
+        // al auditar los 29 juzgados de JuzgadosHermosillo contra los
+        // patrones de aquí abajo, ninguno de los otros 28 tenía este hueco).
+        if (exp.Contains("violencia de género") || exp.Contains("violencia de genero"))
+            return scr.Contains("violencia de género") || scr.Contains("violencia de genero");
         if (exp.Contains("ejecución de sanciones") || exp.Contains("ejecucion de sanciones"))
             return scr.Contains("ejecución de sanciones") || scr.Contains("ejecucion de sanciones");
         if (exp.Contains("1er tribunal laboral") || exp.Contains("primer tribunal laboral"))
