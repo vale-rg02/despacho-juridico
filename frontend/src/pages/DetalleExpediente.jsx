@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
@@ -18,6 +18,7 @@ import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumer
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 import EtiquetaSeccion from '../components/EtiquetaSeccion'
 import EstadoVacio from '../components/EstadoVacio'
+import MenuDesplegable from '../components/MenuDesplegable'
 import ModalConfirmacion from '../components/ModalConfirmacion'
 import { useTituloPagina } from '../hooks/useTituloPagina'
 
@@ -43,160 +44,110 @@ const prioridadConfig = {
 }
 
 function DropdownEstado({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
   const cfg = estadoConfig[valor] ?? estadoConfig.Abierto
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[120px]">
-          {Object.entries(estadoConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(estadoANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'opacity-100 font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
-              {etiqueta}
-            </button>
-          ))}
-        </div>
+    <MenuDesplegable
+      etiqueta="Cambiar estado del expediente"
+      botonClassName="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+          {valor}
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[150px]"
+      items={Object.entries(estadoConfig).map(([etiqueta, c]) => ({
+        clave: etiqueta,
+        seleccionado: valor === etiqueta,
+        onSelect: () => onChange(estadoANumero(etiqueta)),
+        contenido: (
+          <>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
+            {etiqueta}
+          </>
+        ),
+      }))}
+    />
   )
 }
 
 function DropdownPrioridad({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
   const cfg = prioridadConfig[valor] ?? prioridadConfig.Normal
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 ${cfg.color} ${cfg.border}`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span>{cfg.symbol}</span>
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[130px]">
-          {Object.entries(prioridadConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(prioridadANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span>{c.symbol}</span>
-              {etiqueta}
-            </button>
-          ))}
-        </div>
+    <MenuDesplegable
+      etiqueta="Cambiar prioridad del expediente"
+      botonClassName={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted ${cfg.color} ${cfg.border}`}
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <span aria-hidden="true">{cfg.symbol}</span>
+          {valor}
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[160px]"
+      items={Object.entries(prioridadConfig).map(([etiqueta, c]) => ({
+        clave: etiqueta,
+        seleccionado: valor === etiqueta,
+        onSelect: () => onChange(prioridadANumero(etiqueta)),
+        contenido: (
+          <>
+            <span aria-hidden="true" className={c.color}>{c.symbol}</span>
+            {etiqueta}
+          </>
+        ),
+      }))}
+    />
   )
 }
 
 function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
-  const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   async function handleSeleccionar(usuarioId) {
     setError('')
     setGuardando(true)
     try {
       await onAgregar(usuarioId)
-      setAbierto(false)
+      return true
     } catch (err) {
       setError(err.response?.data?.mensaje ?? 'No se pudo agregar al colaborador')
+      return false // el menú se queda abierto para que el error se vea
     } finally {
       setGuardando(false)
     }
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <UserPlus size={12} />
-        Agregar colaborador
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] max-h-64 overflow-y-auto">
-          {error && (
-            <p className="px-3 py-2 text-xs text-red-600 border-b border-border">{error}</p>
-          )}
-          {usuariosDisponibles.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>
-          ) : (
-            usuariosDisponibles.map(u => (
-              <button
-                key={u.id}
-                disabled={guardando}
-                onClick={() => handleSeleccionar(u.id)}
-                className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-              >
-                {u.nombre}
-              </button>
-            ))
-          )}
-        </div>
+    <MenuDesplegable
+      etiqueta="Agregar colaborador al expediente"
+      alinear="right"
+      botonClassName="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <UserPlus size={12} aria-hidden="true" />
+          Agregar colaborador
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[220px]"
+      encabezado={error && (
+        <p role="alert" className="px-3 py-2 text-xs text-destructive border-b border-border">{error}</p>
+      )}
+      vacio={<p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>}
+      items={usuariosDisponibles.map(u => ({
+        clave: u.id,
+        disabled: guardando,
+        onSelect: () => handleSeleccionar(u.id),
+        contenido: u.nombre,
+      }))}
+    />
   )
 }
 

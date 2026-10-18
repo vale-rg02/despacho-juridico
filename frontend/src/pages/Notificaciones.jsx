@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock, XCircle, CheckCircle, FileText, Filter, ChevronDown } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import EstadoVacio from '../components/EstadoVacio'
+import MenuDesplegable from '../components/MenuDesplegable'
 import { getUsuario } from '../services/auth'
 import { getPanelNotificaciones, getUsuariosDisponibles, marcarAtendida } from '../services/notificaciones'
 import { getAcuerdosNoVistos } from '../services/acuerdos'
@@ -123,7 +124,6 @@ function Notificaciones() {
   const [acuerdosNuevos, setAcuerdosNuevos] = useState([])
   const [usuarios, setUsuarios] = useState([])
   const [filtroUsuarioId, setFiltroUsuarioId] = useState(0)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -222,48 +222,29 @@ function Notificaciones() {
           </h1>
 
           {esSocioPrincipal && (
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
-              >
-                <Filter size={12} className="text-muted-foreground" />
-                <span className="max-w-[180px] truncate">{nombreFiltro}</span>
-                <ChevronDown size={12} className={`text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
-                  <button
-                    onClick={() => { setFiltroUsuarioId(0); setDropdownOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                  >
-                    Todos los usuarios
-                  </button>
-                  <button
-                    onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                  >
-                    Mis notificaciones
-                  </button>
-                  <div className="border-t border-border" />
-                  {usuarios.filter(u => u.id !== usuario?.id).map(u => (
-                    <button
-                      key={u.id}
-                      onClick={() => { setFiltroUsuarioId(u.id); setDropdownOpen(false) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                    >
-                      {u.nombre}
-                    </button>
-                  ))}
-                </div>
+            <MenuDesplegable
+              etiqueta="Filtrar notificaciones por usuario"
+              alinear="right"
+              panelClassName="w-56"
+              botonClassName="flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+              boton={({ abierto }) => (
+                <>
+                  <Filter size={12} aria-hidden="true" className="text-muted-foreground" />
+                  <span className="max-w-[180px] truncate">{nombreFiltro}</span>
+                  <ChevronDown size={12} aria-hidden="true" className={`text-muted-foreground transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                </>
               )}
-            </div>
+              items={[
+                { clave: 'todos', contenido: 'Todos los usuarios', seleccionado: filtroUsuarioId === 0, onSelect: () => setFiltroUsuarioId(0) },
+                { clave: 'mias', contenido: 'Mis notificaciones', seleccionado: filtroUsuarioId === usuario?.id, onSelect: () => setFiltroUsuarioId(usuario?.id) },
+                { separador: true },
+                ...usuarios.filter(u => u.id !== usuario?.id).map(u => ({
+                  clave: u.id, contenido: u.nombre, seleccionado: filtroUsuarioId === u.id, onSelect: () => setFiltroUsuarioId(u.id),
+                })),
+              ]}
+            />
           )}
         </div>
-
-        {dropdownOpen && (
-          <div className="fixed inset-0 z-20" onClick={() => setDropdownOpen(false)} />
-        )}
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">

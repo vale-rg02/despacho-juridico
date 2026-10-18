@@ -33,3 +33,7 @@ export function normalizarParaBusqueda(texto) {
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
 }
+
+// Panel de los menús de botón (MenuDesplegable): flota bajo el botón, a
+// diferencia de PANEL (que ocupa el ancho de su campo).
+export const PANEL_MENU = "absolute top-full mt-1 z-50 bg-card border border-border rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto"

@@ -11,6 +11,7 @@ import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 import BotonActualizarExpedientes from '../components/BotonActualizarExpedientes'
 import Select from '../components/Select'
+import MenuDesplegable from '../components/MenuDesplegable'
 import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const estadoConfig = {
@@ -246,7 +247,6 @@ function Expedientes() {
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroUsuarioId, setFiltroUsuarioId] = useState(esSocioPrincipal ? 0 : (usuario?.id ?? null))
-  const [dropdownUsuarioOpen, setDropdownUsuarioOpen] = useState(false)
   const [sortKey, setSortKey] = useState('numeroExpediente')
   const [sortDir, setSortDir] = useState('asc')
   const [cargando, setCargando] = useState(true)
@@ -418,42 +418,28 @@ function Expedientes() {
           </div>
 
           {/* Filtro de usuario — todos/mis expedientes/un compañero específico */}
-          <div className="w-full sm:w-auto relative">
-            <button
-              onClick={() => setDropdownUsuarioOpen(o => !o)}
-              className="w-full sm:w-auto flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
-            >
-              <Filter size={12} className="text-muted-foreground shrink-0" />
-              <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
-              <ChevronDown size={12} className={`text-muted-foreground transition-transform shrink-0 ml-auto sm:ml-0 ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {dropdownUsuarioOpen && (
-              <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
-                <button
-                  onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                >
-                  Todos los usuarios
-                </button>
-                <button
-                  onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                >
-                  Mis expedientes
-                </button>
-                <div className="border-t border-border" />
-                {usuarios.filter(u => u.id !== usuario?.id).map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
-                  >
-                    {u.nombre}
-                  </button>
-                ))}
-              </div>
+          <MenuDesplegable
+            className="w-full sm:w-auto"
+            etiqueta="Filtrar expedientes por usuario"
+            alinear="right"
+            panelClassName="w-56"
+            botonClassName="w-full sm:w-auto flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+            boton={({ abierto }) => (
+              <>
+                <Filter size={12} aria-hidden="true" className="text-muted-foreground shrink-0" />
+                <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
+                <ChevronDown size={12} aria-hidden="true" className={`text-muted-foreground transition-transform shrink-0 ml-auto sm:ml-0 ${abierto ? 'rotate-180' : ''}`} />
+              </>
             )}
-          </div>
+            items={[
+              { clave: 'todos', contenido: 'Todos los usuarios', seleccionado: filtroUsuarioId === 0, onSelect: () => setFiltroUsuarioId(0) },
+              { clave: 'mios', contenido: 'Mis expedientes', seleccionado: filtroUsuarioId === usuario?.id, onSelect: () => setFiltroUsuarioId(usuario?.id) },
+              { separador: true },
+              ...usuarios.filter(u => u.id !== usuario?.id).map(u => ({
+                clave: u.id, contenido: u.nombre, seleccionado: filtroUsuarioId === u.id, onSelect: () => setFiltroUsuarioId(u.id),
+              })),
+            ]}
+          />
 
           <BotonActualizarExpedientes />
 
@@ -466,9 +452,6 @@ function Expedientes() {
         </div>
       </div>
 
-      {dropdownUsuarioOpen && (
-        <div className="fixed inset-0 z-20" onClick={() => setDropdownUsuarioOpen(false)} />
-      )}
 
       <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         <h1 className="sr-only">Expedientes</h1>
