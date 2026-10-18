@@ -1,7 +1,7 @@
 // Encabezado de modal con chip de ícono a color + regla de acento —
 // 'accent' (dorado) para modales de etapas, 'primary' (azul marino) para citas
 const TONOS = {
-  accent: { bg: 'bg-accent/10', text: 'text-accent', regla: 'border-accent/30' },
+  accent: { bg: 'bg-accent/10', text: 'text-accent-strong', regla: 'border-accent/30' },
   primary: { bg: 'bg-primary/10', text: 'text-primary', regla: 'border-primary/30' },
 }
 

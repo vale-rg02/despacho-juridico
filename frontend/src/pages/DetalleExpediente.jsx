@@ -209,7 +209,7 @@ function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
     return (
       <button
         onClick={() => setEditando(true)}
-        className="text-xs text-accent hover:underline font-medium flex items-center gap-1"
+        className="text-xs text-accent-strong hover:underline font-medium flex items-center gap-1"
       >
         <MapPin size={11} />
         + Agregar destino
@@ -236,12 +236,12 @@ function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
         onChange={e => setValor(e.target.value)}
         placeholder="Ej. Guadalajara, Jalisco"
         autoFocus
-        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded transition"
       />
       <button
         onClick={handleGuardar}
         disabled={!valor.trim() || guardando}
-        className="text-xs text-accent hover:underline font-medium disabled:opacity-50"
+        className="text-xs text-accent-strong hover:underline font-medium disabled:opacity-50"
       >
         {guardando ? 'Guardando...' : 'Guardar'}
       </button>
@@ -521,7 +521,7 @@ function DetalleExpediente() {
           <p className="text-muted-foreground mb-4">{error}</p>
           <button
             onClick={() => navigate('/expedientes')}
-            className="text-accent hover:underline text-sm"
+            className="text-accent-strong hover:underline text-sm"
           >
             ← Volver a expedientes
           </button>
@@ -541,7 +541,7 @@ function DetalleExpediente() {
   const esPropio = expediente.usuarioAsignadoId === usuario?.id || expediente.esColaborador
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div className="min-h-screen bg-background">
@@ -581,7 +581,7 @@ function DetalleExpediente() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <FileText size={14} className="text-accent" />
+              <FileText size={14} className="text-accent-strong" />
               <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {expediente.numeroExpediente}
               </span>
@@ -617,7 +617,7 @@ function DetalleExpediente() {
             {/* Botón Editar */}
             <button
               onClick={() => navigate(`/expedientes/${id}/editar`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent-strong hover:bg-accent-strong hover:text-accent-foreground transition-colors"
             >
               <Pencil size={11} />
               Editar
@@ -678,7 +678,7 @@ function DetalleExpediente() {
           {/* Notas */}
           <div className="mt-3 bg-card border border-border rounded-lg p-5">
             <div className="flex items-center gap-2 mb-3">
-              <StickyNote size={14} className="text-accent" />
+              <StickyNote size={14} className="text-accent-strong" />
               <span
                 className="text-xs font-medium uppercase tracking-widest text-foreground"
                 style={{ fontFamily: "'DM Mono', monospace" }}
@@ -699,7 +699,7 @@ function DetalleExpediente() {
             {!mostrarFormEtapa && (
               <button
                 onClick={() => setMostrarFormEtapa(true)}
-                className="text-xs text-accent hover:underline font-medium"
+                className="text-xs text-accent-strong hover:underline font-medium"
               >
                 + Registrar etapa
               </button>
@@ -750,10 +750,10 @@ function DetalleExpediente() {
               className="text-xs font-medium uppercase tracking-widest text-foreground flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <Scale size={13} className="text-accent" />
+              <Scale size={13} className="text-accent-strong" />
               Acuerdos del Poder Judicial
               {acuerdosNuevosIds.size > 0 && (
-                <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                <span className="bg-accent-strong text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
                   {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
                 </span>
               )}
@@ -767,7 +767,7 @@ function DetalleExpediente() {
             {!mostrarFormAcuerdo && esPropio && (
               <button
                 onClick={() => setMostrarFormAcuerdo(true)}
-                className="text-xs text-accent hover:underline font-medium"
+                className="text-xs text-accent-strong hover:underline font-medium"
               >
                 + Registrar acuerdo manualmente
               </button>
@@ -866,7 +866,7 @@ function DetalleExpediente() {
                 <button
                   onClick={handleGuardarAcuerdoManual}
                   disabled={!formAcuerdo.sintesis || !formAcuerdo.fechaAcuerdo || (!formAcuerdo.esExhorto && !formAcuerdo.tipoAsunto)}
-                  className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                  className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
                 >
                   {formAcuerdo.esExhorto ? 'Guardar exhorto' : 'Guardar acuerdo'}
                 </button>
@@ -890,7 +890,7 @@ function DetalleExpediente() {
                   <div key={acuerdo.id} className="bg-card border border-border rounded-lg p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                        <Gavel size={12} className="text-accent" />
+                        <Gavel size={12} className="text-accent-strong" />
                         {acuerdo.nombreJuzgado}
                         {acuerdo.esExhorto && (
                           <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
@@ -928,7 +928,7 @@ function DetalleExpediente() {
                         {acuerdo.confianza === 'Media' && (
                           <button
                             onClick={() => handleConfirmarAcuerdo(acuerdo.id)}
-                            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition font-medium"
+                            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-accent text-accent-strong hover:bg-accent-strong hover:text-white transition font-medium"
                             title="Confirmar que este acuerdo sí corresponde a tu expediente"
                           >
                             <Check size={11} />
@@ -944,7 +944,7 @@ function DetalleExpediente() {
                           Descartar
                         </button>
                         {acuerdosNuevosIds.has(acuerdo.id) && (
-                          <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-accent/10 text-accent-strong text-[10px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                             Nuevo
                           </span>
@@ -963,7 +963,7 @@ function DetalleExpediente() {
                       <div className="mt-3 pt-3 border-t border-border">
                         {acuerdo.ciudadDestino ? (
                           <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <MapPin size={11} className="text-accent" />
+                            <MapPin size={11} className="text-accent-strong" />
                             Destino: <span className="text-foreground font-medium">{acuerdo.ciudadDestino}</span>
                           </p>
                         ) : (
@@ -984,7 +984,7 @@ function DetalleExpediente() {
               className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <ClipboardList size={13} className="text-accent" />
+              <ClipboardList size={13} className="text-accent-strong" />
               Bitácora de cambios
             </h2>
             <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -1014,7 +1014,7 @@ function DetalleExpediente() {
                       <tr key={item.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="flex items-center gap-1.5 text-foreground font-medium text-xs capitalize">
-                            <Clock size={11} className="text-accent" />
+                            <Clock size={11} className="text-accent-strong" />
                             {item.accion.replace('_', ' ')}
                           </span>
                         </td>

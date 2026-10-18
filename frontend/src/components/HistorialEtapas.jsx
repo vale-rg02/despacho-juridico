@@ -177,7 +177,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                       frente al resto de la fila (fecha/tipo, en gris neutro). */}
                   <div className="bg-accent/10 border-l-2 border-l-accent rounded px-2.5 py-1.5">
                     <p className="text-sm text-foreground">{ultima.texto}</p>
-                    <p className="text-xs text-accent mt-0.5 font-medium">
+                    <p className="text-xs text-accent-strong mt-0.5 font-medium">
                       {ultima.creadoPorNombre} — {formatearFechaConHora(ultima.creadoEn)}
                     </p>
                   </div>
@@ -219,7 +219,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                   rows={2}
                   autoFocus
                   placeholder="Escribe la nota..."
-                  className="w-full bg-input-background text-foreground text-sm px-2.5 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition resize-none"
+                  className="w-full bg-input-background text-foreground text-sm px-2.5 py-1.5 rounded transition resize-none"
                 />
                 <div className="flex justify-end gap-2 mt-1.5">
                   <button
@@ -233,7 +233,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                     type="button"
                     onClick={() => handleGuardarNota(etapa.id)}
                     disabled={!textoNota.trim() || guardandoNota}
-                    className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded-md font-medium hover:opacity-90 transition disabled:opacity-50"
+                    className="text-xs bg-accent-strong text-accent-foreground px-3 py-1 rounded-md font-medium hover:opacity-90 transition disabled:opacity-50"
                   >
                     {guardandoNota ? 'Guardando...' : 'Guardar nota'}
                   </button>
@@ -245,7 +245,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
               {activa ? (
                 <button
                   onClick={() => onCompletar(etapa.id)}
-                  className="text-xs px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition font-medium"
+                  className="text-xs px-3 py-1 rounded-md border border-accent text-accent-strong hover:bg-accent-strong hover:text-white transition font-medium"
                 >
                   Marcar como completada
                 </button>

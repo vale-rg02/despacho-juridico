@@ -38,8 +38,8 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
   function SortIcon({ col }) {
     if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
     return sortDir === 'asc'
-      ? <ArrowUp size={13} className="ml-1 inline text-accent" />
-      : <ArrowDown size={13} className="ml-1 inline text-accent" />
+      ? <ArrowUp size={13} className="ml-1 inline text-accent-strong" />
+      : <ArrowDown size={13} className="ml-1 inline text-accent-strong" />
   }
 
   if (cargando) {
@@ -111,7 +111,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
                       title="Acuerdos nuevos sin ver"
                     />
                   )}
-                  <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
+                  <span className="text-accent-strong font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
                     {exp.numeroExpediente}
                   </span>
                 </span>
@@ -155,7 +155,7 @@ function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, 
         <div className="flex items-center gap-3">
           <ChevronRight
             size={16}
-            className={`text-accent transition-transform ${abierto ? 'rotate-90' : ''}`}
+            className={`text-accent-strong transition-transform ${abierto ? 'rotate-90' : ''}`}
           />
           <span className="text-sm font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
             {titulo}
@@ -228,7 +228,7 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
           <button
             onClick={handleAgregar}
             disabled={!usuarioId || guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Agregando...' : 'Agregar'}
           </button>
@@ -404,7 +404,7 @@ function Expedientes() {
               aria-label="Buscar expedientes por número o parte demandada"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded transition"
             />
             {busqueda && (
               <button
@@ -431,13 +431,13 @@ function Expedientes() {
               <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
                 <button
                   onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                 >
                   Todos los usuarios
                 </button>
                 <button
                   onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                 >
                   Mis expedientes
                 </button>
@@ -446,7 +446,7 @@ function Expedientes() {
                   <button
                     key={u.id}
                     onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                   >
                     {u.nombre}
                   </button>
@@ -459,7 +459,7 @@ function Expedientes() {
 
           <button
             onClick={() => navigate('/expedientes/nuevo')}
-            className="w-full sm:w-auto sm:ml-auto bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition whitespace-nowrap"
+            className="w-full sm:w-auto sm:ml-auto bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition whitespace-nowrap"
           >
             + Nuevo expediente
           </button>
@@ -498,7 +498,7 @@ function Expedientes() {
               </button>
               <button
                 onClick={() => setMostrarModalColaborador(true)}
-                className="flex items-center gap-1.5 bg-accent text-accent-foreground px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
+                className="flex items-center gap-1.5 bg-accent-strong text-accent-foreground px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
               >
                 <UserPlus size={12} />
                 Agregar colaborador

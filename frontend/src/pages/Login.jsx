@@ -44,7 +44,7 @@ function Login() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-3">
-            <Scale size={20} className="text-accent" />
+            <Scale size={20} className="text-accent-strong" />
           </div>
           <h1
             className="text-2xl text-foreground"
@@ -72,7 +72,7 @@ function Login() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm px-3 py-2 rounded transition"
               placeholder="correo@despacho.com"
             />
           </div>
@@ -85,7 +85,7 @@ function Login() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+              className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
             />
           </div>
 

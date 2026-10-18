@@ -7,7 +7,7 @@
 // pl-3 + pr-9 (no px-3 + pr-9): dos utilidades de Tailwind sobre la misma
 // propiedad las resuelve el orden de la hoja generada, no el del código. El
 // pr-9 deja espacio para la flecha (14px a right-3) sin que el texto la pise.
-export const CAJA_CON_FLECHA = "w-full bg-input-background text-foreground text-sm pl-3 pr-9 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+export const CAJA_CON_FLECHA = "w-full bg-input-background text-foreground text-sm pl-3 pr-9 py-2 rounded transition"
 
 // Opción vacía estándar de los formularios (permite dejar el campo sin elegir).
 export const SIN_SELECCION = { valor: '', etiqueta: '— Selecciona —' }

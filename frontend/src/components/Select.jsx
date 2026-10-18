@@ -182,7 +182,7 @@ function Select({
               className={`${claseOpcion({ activa: i === activo, seleccionada: i === seleccionado })} cursor-pointer`}
             >
               <span className={item.valor === '' ? 'text-muted-foreground' : ''}>{item.etiqueta}</span>
-              {i === seleccionado && <Check size={14} aria-hidden="true" className="text-accent shrink-0" />}
+              {i === seleccionado && <Check size={14} aria-hidden="true" className="text-accent-strong shrink-0" />}
             </div>
           ))}
         </div>

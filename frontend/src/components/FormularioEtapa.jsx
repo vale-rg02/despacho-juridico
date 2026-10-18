@@ -88,7 +88,7 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
   const inputClass = `w-full ${inputBase}`
 
   return (
@@ -193,7 +193,7 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         <button
           type="submit"
           disabled={guardando}
-          className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+          className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
         >
           {guardando ? 'Guardando...' : 'Registrar etapa'}
         </button>

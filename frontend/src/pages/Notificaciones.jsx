@@ -28,7 +28,7 @@ function CardUrgente({ exp, onClick }) {
       className="text-left bg-card border border-border rounded-lg p-4 transition hover:border-accent/40 hover:shadow-md hover:-translate-y-0.5"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-xs font-medium text-accent" style={{ fontFamily: "'DM Mono', monospace" }}>
+        <span className="text-xs font-medium text-accent-strong" style={{ fontFamily: "'DM Mono', monospace" }}>
           {exp.numeroExpediente}
         </span>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700">Urgente</span>
@@ -49,7 +49,7 @@ function FilaEtapa({ item, tipo, onNavegar, onAtender }) {
         <div className="flex items-center gap-2 mb-0.5">
           <button
             onClick={() => onNavegar(item.expedienteId)}
-            className="text-xs font-medium text-accent hover:underline"
+            className="text-xs font-medium text-accent-strong hover:underline"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
             {item.numeroExpediente}
@@ -94,7 +94,7 @@ function FilaAcuerdo({ acuerdo, onNavegar }) {
         <div className="flex items-center gap-2 mb-0.5">
           <button
             onClick={() => onNavegar(acuerdo.expedienteId)}
-            className="text-xs font-medium text-accent hover:underline"
+            className="text-xs font-medium text-accent-strong hover:underline"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
             {acuerdo.numeroExpediente}
@@ -235,13 +235,13 @@ function Notificaciones() {
                 <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
                   <button
                     onClick={() => { setFiltroUsuarioId(0); setDropdownOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                   >
                     Todos los usuarios
                   </button>
                   <button
                     onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                   >
                     Mis notificaciones
                   </button>
@@ -250,7 +250,7 @@ function Notificaciones() {
                     <button
                       key={u.id}
                       onClick={() => { setFiltroUsuarioId(u.id); setDropdownOpen(false) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent-strong' : 'text-foreground'}`}
                     >
                       {u.nombre}
                     </button>
@@ -285,7 +285,7 @@ function Notificaciones() {
                     onClick={() => setSeccionActiva(s.key)}
                     className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm transition whitespace-nowrap ${
                       seccionActiva === s.key
-                        ? 'bg-accent/10 text-accent font-medium'
+                        ? 'bg-accent/10 text-accent-strong font-medium'
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                   >

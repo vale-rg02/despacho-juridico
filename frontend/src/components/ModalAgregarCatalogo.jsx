@@ -48,7 +48,7 @@ function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
           value={nombre}
           onChange={e => setNombre(e.target.value)}
           autoFocus
-          className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+          className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
         />
         {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
 
@@ -64,7 +64,7 @@ function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
             type="button"
             onClick={handleGuardar}
             disabled={guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>

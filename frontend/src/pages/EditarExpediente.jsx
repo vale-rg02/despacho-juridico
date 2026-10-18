@@ -14,7 +14,7 @@ import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJu
 import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
 
 function EditarExpediente() {
   useTituloPagina('Editar expediente')
@@ -245,7 +245,7 @@ function EditarExpediente() {
       <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate(`/expedientes/${id}`)}
-          className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
+          className="text-sm text-accent-strong hover:underline mb-6 flex items-center gap-1.5"
         >
           <ArrowLeft size={14} />
           Volver al expediente
@@ -387,7 +387,7 @@ function EditarExpediente() {
             <button
               type="submit"
               disabled={guardando}
-              className="bg-accent text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              className="bg-accent-strong text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>

@@ -228,7 +228,7 @@ function Topbar({ breadcrumb }) {
             {bellOpen && (
               <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                  <Bell size={14} className="text-accent" />
+                  <Bell size={14} className="text-accent-strong" />
                   <span
                     className="text-xs font-medium uppercase tracking-widest text-foreground"
                     style={{ fontFamily: "'DM Mono', monospace" }}
@@ -249,7 +249,7 @@ function Topbar({ breadcrumb }) {
                         <div className="px-4 py-2 bg-secondary/30 border-b border-border flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
-                            <AlertTriangle size={12} className="text-accent" />
+                            <AlertTriangle size={12} className="text-accent-strong" />
                             Vencimientos próximos
                           </span>
                           <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -267,7 +267,7 @@ function Topbar({ breadcrumb }) {
                               <>
                                 {esSocioPrincipal && (
                                   <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
-                                    <span className="text-xs font-medium text-accent"
+                                    <span className="text-xs font-medium text-accent-strong"
                                       style={{ fontFamily: "'DM Mono', monospace" }}>
                                       Mis expedientes
                                     </span>
@@ -282,7 +282,7 @@ function Topbar({ breadcrumb }) {
                             {esSocioPrincipal && alertasAjenas.length > 0 && (
                               <>
                                 <div className="px-4 py-1.5 bg-accent/5 border-b border-border border-t">
-                                  <span className="text-xs font-medium text-accent"
+                                  <span className="text-xs font-medium text-accent-strong"
                                     style={{ fontFamily: "'DM Mono', monospace" }}>
                                     Otros litigantes
                                   </span>
@@ -290,7 +290,7 @@ function Topbar({ breadcrumb }) {
                                 {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
                                   <div key={nombre}>
                                     <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
-                                      <span className="text-xs font-medium text-accent"
+                                      <span className="text-xs font-medium text-accent-strong"
                                         style={{ fontFamily: "'DM Mono', monospace" }}>
                                         {nombre}
                                       </span>
@@ -311,7 +311,7 @@ function Topbar({ breadcrumb }) {
                         <div className="px-4 py-2 bg-secondary/30 border-b border-border">
                           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
-                            <FileText size={12} className="text-accent" />
+                            <FileText size={12} className="text-accent-strong" />
                             Acuerdos nuevos
                           </span>
                         </div>
@@ -339,7 +339,7 @@ function Topbar({ breadcrumb }) {
                 <div className="px-4 py-2.5 border-t border-border">
                   <button
                     onClick={() => { setBellOpen(false); navigate('/notificaciones') }}
-                    className="w-full text-xs text-accent hover:underline text-center font-medium"
+                    className="w-full text-xs text-accent-strong hover:underline text-center font-medium"
                   >
                     Ver todas las notificaciones →
                   </button>
@@ -356,7 +356,7 @@ function Topbar({ breadcrumb }) {
             className="flex items-center gap-2.5 px-2 py-1 rounded hover:bg-white/10 transition"
           >
             <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center shrink-0">
-              <span className="text-accent text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
+              <span className="text-accent-light text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {iniciales(usuario?.nombre)}
               </span>
             </div>

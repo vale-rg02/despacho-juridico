@@ -79,7 +79,7 @@ function PopupCard({ popup, onIrAlAcuerdo, onCerrar }) {
             {esMedia ? (
               <HelpCircle size={12} className="text-amber-800" />
             ) : esGrupo ? (
-              <span className="text-[10px] font-bold text-accent" style={{ fontFamily: "'DM Mono', monospace" }}>
+              <span className="text-[10px] font-bold text-accent-light" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {popup.acuerdos.length}
               </span>
             ) : (
@@ -145,7 +145,7 @@ function PopupCard({ popup, onIrAlAcuerdo, onCerrar }) {
             <button
               type="button"
               onClick={() => onIrAlAcuerdo(unico)}
-              className={`flex-1 text-xs font-medium py-2 rounded-md text-white transition hover:opacity-90 ${esMedia ? 'bg-amber-600' : 'bg-accent'}`}
+              className={`flex-1 text-xs font-medium py-2 rounded-md text-white transition hover:opacity-90 ${esMedia ? 'bg-amber-600' : 'bg-accent-strong'}`}
             >
               {esMedia ? 'Ver y confirmar' : 'Ver acuerdo'}
             </button>

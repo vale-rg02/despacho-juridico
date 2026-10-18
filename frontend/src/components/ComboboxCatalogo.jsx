@@ -198,7 +198,7 @@ function ComboboxCatalogo({
               tabIndex={-1}
               onMouseEnter={() => setActivo(items.length - 1)}
               onClick={() => { cerrar(); onAgregarNuevo() }}
-              className={`w-full text-left px-3 py-2 text-sm text-accent font-medium transition border-t border-border ${items.length - 1 === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
+              className={`w-full text-left px-3 py-2 text-sm text-accent-strong font-medium transition border-t border-border ${items.length - 1 === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
             >
               {textoAgregarNuevo}
             </button>

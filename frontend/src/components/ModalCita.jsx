@@ -76,7 +76,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   }
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div
@@ -181,7 +181,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
             <button
               type="submit"
               disabled={guardando}
-              className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Crear cita'}
             </button>

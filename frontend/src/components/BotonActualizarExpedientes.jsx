@@ -96,7 +96,7 @@ function BotonActualizarExpedientes() {
         disabled={deshabilitado}
         className="flex items-center gap-1.5 bg-input-background hover:bg-secondary disabled:opacity-60 disabled:cursor-not-allowed text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
       >
-        <RefreshCw size={12} className={enProgreso ? 'animate-spin text-accent' : 'text-muted-foreground'} />
+        <RefreshCw size={12} className={enProgreso ? 'animate-spin text-accent-strong' : 'text-muted-foreground'} />
         {texto}
       </button>
       {estado && (

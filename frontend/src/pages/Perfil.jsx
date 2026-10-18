@@ -190,7 +190,7 @@ function Perfil() {
   const btnSeccion = (id, Icon, label) => (
     <button
       onClick={() => setSeccion(id)}
-      className={`shrink-0 whitespace-nowrap md:w-full md:whitespace-normal flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+      className={`shrink-0 whitespace-nowrap md:w-full md:whitespace-normal flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent-strong font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
     >
       <Icon size={14} />
       {label}
@@ -251,22 +251,22 @@ function Perfil() {
                 <div>
                   <label htmlFor="perfil-contrasena-actual" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
                   <input id="perfil-contrasena-actual" type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 <div>
                   <label htmlFor="perfil-nueva-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
                   <input id="perfil-nueva-contrasena" type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 <div>
                   <label htmlFor="perfil-confirmar-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Confirmar contraseña</label>
                   <input id="perfil-confirmar-contrasena" type="password" value={confirmarPassword} onChange={e => setConfirmarPassword(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 {errorPassword && <p className="text-red-500 text-xs">{errorPassword}</p>}
                 {msgPassword && <p className="text-emerald-600 text-xs">{msgPassword}</p>}
                 <button onClick={handleCambiarPassword} disabled={cargandoPassword}
-                  className="bg-accent text-white text-sm px-4 py-2 rounded-md hover:bg-accent/90 transition disabled:opacity-50">
+                  className="bg-accent-strong text-white text-sm px-4 py-2 rounded-md hover:bg-accent-strong/90 transition disabled:opacity-50">
                   {cargandoPassword ? 'Guardando...' : 'Guardar contraseña'}
                 </button>
               </div>
@@ -281,7 +281,7 @@ function Perfil() {
                 <div className="flex gap-2">
                   {['dia', 'semana', 'mes'].map(p => (
                     <button key={p} onClick={() => setPeriodo(p)}
-                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize whitespace-nowrap ${periodo === p ? 'bg-accent text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize whitespace-nowrap ${periodo === p ? 'bg-accent-strong text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                       {p === 'dia' ? 'Hoy' : p === 'semana' ? 'Esta semana' : 'Este mes'}
                     </button>
                   ))}
@@ -334,7 +334,7 @@ function Perfil() {
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
                 {puedeVerAdmin && (
                   <button onClick={abrirCrear}
-                    className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition whitespace-nowrap">
+                    className="flex items-center gap-1.5 text-xs bg-accent-strong text-white px-3 py-2 rounded-md hover:bg-accent-strong/90 transition whitespace-nowrap">
                     <Plus size={13} /> Nuevo usuario
                   </button>
                 )}
@@ -408,18 +408,18 @@ function Perfil() {
                       <div>
                         <label htmlFor="perfil-nombre" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nombre</label>
                         <input id="perfil-nombre" value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                       </div>
                       <div>
                         <label htmlFor="perfil-correo" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Correo</label>
                         <input id="perfil-correo" value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                       </div>
                       {modalUsuario === 'crear' && (
                         <div>
                           <label htmlFor="perfil-contrasena-inicial" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña inicial</label>
                           <input id="perfil-contrasena-inicial" type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))}
-                            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                         </div>
                       )}
                       <div>
@@ -448,7 +448,7 @@ function Perfil() {
                         Cancelar
                       </button>
                       <button onClick={handleGuardarUsuario} disabled={guardandoUsuario}
-                        className="bg-accent text-white text-sm px-4 py-2 rounded-md hover:bg-accent/90 transition disabled:opacity-50">
+                        className="bg-accent-strong text-white text-sm px-4 py-2 rounded-md hover:bg-accent-strong/90 transition disabled:opacity-50">
                         {guardandoUsuario ? 'Guardando...' : 'Guardar'}
                       </button>
                     </div>
@@ -466,7 +466,7 @@ function Perfil() {
                 <h3 className="text-sm font-medium text-foreground">Exportar expedientes</h3>
                 <p className="text-xs text-muted-foreground">Descarga un archivo Excel con todos los expedientes registrados en el sistema.</p>
                 <button onClick={handleDescargarExcel}
-                  className="flex items-center gap-2 text-sm bg-accent text-white px-4 py-2 rounded-md hover:bg-accent/90 transition">
+                  className="flex items-center gap-2 text-sm bg-accent-strong text-white px-4 py-2 rounded-md hover:bg-accent-strong/90 transition">
                   <Download size={14} />
                   Descargar Excel
                 </button>

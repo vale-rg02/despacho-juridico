@@ -76,7 +76,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
@@ -163,7 +163,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
               const sugerida = calcularFechaLimite(fechaInicio, etapaSeleccionada.terminoDias, etapaSeleccionada.esDiasHabiles)
               if (sugerida) setFechaLimite(sugerida)
             }}
-            className="text-xs text-accent hover:underline"
+            className="text-xs text-accent-strong hover:underline"
           >
             Recalcular fecha límite sugerida
           </button>
@@ -180,7 +180,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
           <button
             type="submit"
             disabled={guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>

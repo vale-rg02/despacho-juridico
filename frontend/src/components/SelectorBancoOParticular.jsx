@@ -2,7 +2,7 @@ import { useId } from 'react'
 import ComboboxCatalogo from './ComboboxCatalogo'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
 
 // La parte actora de un expediente puede ser un banco del catálogo (caso más
 // común, pestaña activa por default) o, en un "asunto particular", una
@@ -27,7 +27,7 @@ function SelectorBancoOParticular({
   function tabClass(activo) {
     return `flex-1 text-xs px-3 py-1.5 rounded-md border font-medium transition ${
       activo
-        ? 'border-accent bg-accent/10 text-accent'
+        ? 'border-accent bg-accent/10 text-accent-strong'
         : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
     }`
   }
