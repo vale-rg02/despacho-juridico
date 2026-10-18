@@ -126,7 +126,6 @@ function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
   return (
     <MenuDesplegable
       etiqueta="Agregar colaborador al expediente"
-      alinear="right"
       botonClassName="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
       botonStyle={{ fontFamily: "'DM Mono', monospace" }}
       boton={({ abierto }) => (
@@ -136,7 +135,7 @@ function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
           <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
         </>
       )}
-      panelClassName="min-w-[220px]"
+      panelClassName="min-w-[220px] max-w-[calc(100vw-1.5rem)] sm:left-auto sm:right-0"
       encabezado={error && (
         <p role="alert" className="px-3 py-2 text-xs text-destructive border-b border-border">{error}</p>
       )}
@@ -514,7 +513,7 @@ function DetalleExpediente() {
         }
       />
 
-      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 space-y-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-8">
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -546,7 +545,7 @@ function DetalleExpediente() {
             <p className="text-sm text-muted-foreground mt-1">{expediente.materia ?? '—'}</p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
 
             <DropdownEstado
               valor={expediente.estado}
