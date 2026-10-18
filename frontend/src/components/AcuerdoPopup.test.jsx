@@ -185,7 +185,8 @@ describe('AcuerdoPopup + campana (sincronización)', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(12_000) })
     expect(screen.queryByText('Nuevo acuerdo')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByLabelText('Ver notificaciones'))
+    // El nombre accesible de la campana incluye el conteo de pendientes (revisión UX/UI paso 4)
+    fireEvent.click(screen.getByLabelText('Ver notificaciones (1 pendientes)'))
     fireEvent.click(screen.getByText('5/2026'))
 
     expect(navegarMock).toHaveBeenCalledWith('/expedientes/99#acuerdos')

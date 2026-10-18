@@ -47,7 +47,7 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
   }
 
   const labelClass = "text-xs text-muted-foreground uppercase tracking-widest block mb-1"
-  const inputClass = "w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50"
+  const inputClass = "w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setModalEtapa(null)}>
@@ -61,8 +61,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
 
         <div className="space-y-3">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Nueva fecha límite</label>
-            <input
+            <label htmlFor="etapa-cal-nueva-fecha-limite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Nueva fecha límite</label>
+            <input id="etapa-cal-nueva-fecha-limite"
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
@@ -72,8 +72,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
             />
           </div>
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora (opcional)</label>
-            <input
+            <label htmlFor="etapa-cal-hora-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora (opcional)</label>
+            <input id="etapa-cal-hora-opcional"
               type="time"
               value={hora}
               onChange={e => setHora(e.target.value)}
@@ -89,7 +89,7 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
               setModalEtapa(null)
               onVerExpediente(modalEtapa.expedienteId)
             }}
-            className="text-xs text-accent hover:underline"
+            className="text-xs text-accent-strong hover:underline"
           >
             Ver expediente →
           </button>
@@ -103,7 +103,7 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
             <button
               onClick={handleGuardar}
               disabled={guardando || !fecha}
-              className="bg-accent text-accent-foreground text-sm px-4 py-1.5 rounded-md hover:opacity-90 transition disabled:opacity-50"
+              className="bg-accent-strong text-accent-foreground text-sm px-4 py-1.5 rounded-md hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar'}
             </button>

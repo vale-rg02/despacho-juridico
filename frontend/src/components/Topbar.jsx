@@ -165,6 +165,12 @@ function Topbar({ breadcrumb }) {
 
   return (
     <header className="bg-primary border-b border-white/10 sticky top-0 z-40">
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-2 focus:z-50 focus:bg-card focus:text-foreground focus:px-3 focus:py-2 focus:rounded focus:text-sm focus:shadow-lg"
+      >
+        Saltar al contenido
+      </a>
       <div className="max-w-screen-xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-2 sm:gap-4">
         {/* Logo */}
         <div
@@ -193,7 +199,7 @@ function Topbar({ breadcrumb }) {
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-1 sm:gap-3">
+        <nav aria-label="Principal" className="ml-auto flex items-center gap-1 sm:gap-3">
           {/* Calendario */}
           <button
             onClick={() => navigate('/calendario')}
@@ -209,11 +215,13 @@ function Topbar({ breadcrumb }) {
             <button
               onClick={() => setBellOpen(o => !o)}
               className="relative p-2 rounded-md text-primary-foreground/60 hover:text-primary-foreground hover:bg-white/10 transition"
-              aria-label="Ver notificaciones"
+              aria-label={(alertas.length + acuerdosNuevos.length) > 0 ? `Ver notificaciones (${alertas.length + acuerdosNuevos.length} pendientes)` : 'Ver notificaciones'}
+              aria-expanded={bellOpen}
+              aria-haspopup="true"
             >
               <Bell size={17} />
               {(alertas.length + acuerdosNuevos.length) > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                <span aria-hidden="true" className="absolute top-1 right-1 w-4 h-4 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                   {(alertas.length + acuerdosNuevos.length) > 9 ? '9+' : alertas.length + acuerdosNuevos.length}
                 </span>
               )}
@@ -222,7 +230,7 @@ function Topbar({ breadcrumb }) {
             {bellOpen && (
               <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-[360px] bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                  <Bell size={14} className="text-accent" />
+                  <Bell size={14} className="text-accent-strong" />
                   <span
                     className="text-xs font-medium uppercase tracking-widest text-foreground"
                     style={{ fontFamily: "'DM Mono', monospace" }}
@@ -243,7 +251,7 @@ function Topbar({ breadcrumb }) {
                         <div className="px-4 py-2 bg-secondary/30 border-b border-border flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
-                            <AlertTriangle size={12} className="text-accent" />
+                            <AlertTriangle size={12} className="text-accent-strong" />
                             Vencimientos próximos
                           </span>
                           <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -261,7 +269,7 @@ function Topbar({ breadcrumb }) {
                               <>
                                 {esSocioPrincipal && (
                                   <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
-                                    <span className="text-xs font-medium text-accent"
+                                    <span className="text-xs font-medium text-accent-strong"
                                       style={{ fontFamily: "'DM Mono', monospace" }}>
                                       Mis expedientes
                                     </span>
@@ -276,7 +284,7 @@ function Topbar({ breadcrumb }) {
                             {esSocioPrincipal && alertasAjenas.length > 0 && (
                               <>
                                 <div className="px-4 py-1.5 bg-accent/5 border-b border-border border-t">
-                                  <span className="text-xs font-medium text-accent"
+                                  <span className="text-xs font-medium text-accent-strong"
                                     style={{ fontFamily: "'DM Mono', monospace" }}>
                                     Otros litigantes
                                   </span>
@@ -284,7 +292,7 @@ function Topbar({ breadcrumb }) {
                                 {Object.entries(gruposAjenos).map(([nombre, alertasUsuario]) => (
                                   <div key={nombre}>
                                     <div className="px-4 py-1.5 bg-accent/5 border-b border-border">
-                                      <span className="text-xs font-medium text-accent"
+                                      <span className="text-xs font-medium text-accent-strong"
                                         style={{ fontFamily: "'DM Mono', monospace" }}>
                                         {nombre}
                                       </span>
@@ -305,7 +313,7 @@ function Topbar({ breadcrumb }) {
                         <div className="px-4 py-2 bg-secondary/30 border-b border-border">
                           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-widest"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
-                            <FileText size={12} className="text-accent" />
+                            <FileText size={12} className="text-accent-strong" />
                             Acuerdos nuevos
                           </span>
                         </div>
@@ -333,7 +341,7 @@ function Topbar({ breadcrumb }) {
                 <div className="px-4 py-2.5 border-t border-border">
                   <button
                     onClick={() => { setBellOpen(false); navigate('/notificaciones') }}
-                    className="w-full text-xs text-accent hover:underline text-center font-medium"
+                    className="w-full text-xs text-accent-strong hover:underline text-center font-medium"
                   >
                     Ver todas las notificaciones →
                   </button>
@@ -350,13 +358,13 @@ function Topbar({ breadcrumb }) {
             className="flex items-center gap-2.5 px-2 py-1 rounded hover:bg-white/10 transition"
           >
             <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center shrink-0">
-              <span className="text-accent text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
+              <span className="text-accent-light text-xs font-semibold" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {iniciales(usuario?.nombre)}
               </span>
             </div>
             <div className="hidden sm:block leading-tight text-left">
               <p className="text-xs font-medium text-primary-foreground">{usuario?.nombre ?? 'Usuario'}</p>
-              <p className="text-[10px] text-primary-foreground/45">
+              <p className="text-xs text-primary-foreground/45">
                 {usuario?.id === 1 ? 'Socio Principal' : usuario?.rol ?? ''}
               </p>
             </div>
@@ -371,7 +379,7 @@ function Topbar({ breadcrumb }) {
             <LogOut size={14} />
             <span className="hidden sm:inline">Salir</span>
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   )

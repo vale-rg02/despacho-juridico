@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, FileText, Gavel, BookOpen, StickyNote, Clock,
@@ -18,7 +18,9 @@ import { formatearFecha, formatearFechaCorta, ESTADOS, PRIORIDADES, estadoANumer
 import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, eliminarExpediente } from '../services/expedientes'
 import EtiquetaSeccion from '../components/EtiquetaSeccion'
 import EstadoVacio from '../components/EstadoVacio'
+import MenuDesplegable from '../components/MenuDesplegable'
 import ModalConfirmacion from '../components/ModalConfirmacion'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const estadoConfig = {
   Abierto: {
@@ -42,160 +44,109 @@ const prioridadConfig = {
 }
 
 function DropdownEstado({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
   const cfg = estadoConfig[valor] ?? estadoConfig.Abierto
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[120px]">
-          {Object.entries(estadoConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(estadoANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'opacity-100 font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
-              {etiqueta}
-            </button>
-          ))}
-        </div>
+    <MenuDesplegable
+      etiqueta="Cambiar estado del expediente"
+      botonClassName="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+          {valor}
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[150px]"
+      items={Object.entries(estadoConfig).map(([etiqueta, c]) => ({
+        clave: etiqueta,
+        seleccionado: valor === etiqueta,
+        onSelect: () => onChange(estadoANumero(etiqueta)),
+        contenido: (
+          <>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
+            {etiqueta}
+          </>
+        ),
+      }))}
+    />
   )
 }
 
 function DropdownPrioridad({ valor, onChange }) {
-  const [abierto, setAbierto] = useState(false)
-  const ref = useRef(null)
   const cfg = prioridadConfig[valor] ?? prioridadConfig.Normal
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 ${cfg.color} ${cfg.border}`}
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <span>{cfg.symbol}</span>
-        {valor}
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[130px]">
-          {Object.entries(prioridadConfig).map(([etiqueta, c]) => (
-            <button
-              key={etiqueta}
-              onClick={() => {
-                onChange(prioridadANumero(etiqueta))
-                setAbierto(false)
-              }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${c.optionBg} ${c.optionText} ${valor === etiqueta ? 'font-semibold' : 'opacity-80'}`}
-              style={{ fontFamily: "'DM Mono', monospace" }}
-            >
-              <span>{c.symbol}</span>
-              {etiqueta}
-            </button>
-          ))}
-        </div>
+    <MenuDesplegable
+      etiqueta="Cambiar prioridad del expediente"
+      botonClassName={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-secondary transition-colors hover:bg-muted ${cfg.color} ${cfg.border}`}
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <span aria-hidden="true">{cfg.symbol}</span>
+          {valor}
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[160px]"
+      items={Object.entries(prioridadConfig).map(([etiqueta, c]) => ({
+        clave: etiqueta,
+        seleccionado: valor === etiqueta,
+        onSelect: () => onChange(prioridadANumero(etiqueta)),
+        contenido: (
+          <>
+            <span aria-hidden="true" className={c.color}>{c.symbol}</span>
+            {etiqueta}
+          </>
+        ),
+      }))}
+    />
   )
 }
 
 function DropdownAgregarColaborador({ usuariosDisponibles, onAgregar }) {
-  const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   async function handleSeleccionar(usuarioId) {
     setError('')
     setGuardando(true)
     try {
       await onAgregar(usuarioId)
-      setAbierto(false)
+      return true
     } catch (err) {
       setError(err.response?.data?.mensaje ?? 'No se pudo agregar al colaborador')
+      return false // el menú se queda abierto para que el error se vea
     } finally {
       setGuardando(false)
     }
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setAbierto(v => !v)}
-        className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
-        style={{ fontFamily: "'DM Mono', monospace" }}
-      >
-        <UserPlus size={12} />
-        Agregar colaborador
-        <ChevronDown size={10} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
-      </button>
-
-      {abierto && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-md overflow-hidden min-w-[200px] max-h-64 overflow-y-auto">
-          {error && (
-            <p className="px-3 py-2 text-xs text-red-600 border-b border-border">{error}</p>
-          )}
-          {usuariosDisponibles.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>
-          ) : (
-            usuariosDisponibles.map(u => (
-              <button
-                key={u.id}
-                disabled={guardando}
-                onClick={() => handleSeleccionar(u.id)}
-                className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-              >
-                {u.nombre}
-              </button>
-            ))
-          )}
-        </div>
+    <MenuDesplegable
+      etiqueta="Agregar colaborador al expediente"
+      botonClassName="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full text-xs font-medium border border-border bg-secondary text-foreground transition-colors hover:bg-muted"
+      botonStyle={{ fontFamily: "'DM Mono', monospace" }}
+      boton={({ abierto }) => (
+        <>
+          <UserPlus size={12} aria-hidden="true" />
+          Agregar colaborador
+          <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </>
       )}
-    </div>
+      panelClassName="min-w-[220px] max-w-[calc(100vw-1.5rem)] sm:left-auto sm:right-0"
+      encabezado={error && (
+        <p role="alert" className="px-3 py-2 text-xs text-destructive border-b border-border">{error}</p>
+      )}
+      vacio={<p className="px-3 py-2 text-xs text-muted-foreground">No hay usuarios disponibles</p>}
+      items={usuariosDisponibles.map(u => ({
+        clave: u.id,
+        disabled: guardando,
+        onSelect: () => handleSeleccionar(u.id),
+        contenido: u.nombre,
+      }))}
+    />
   )
 }
 
@@ -208,7 +159,7 @@ function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
     return (
       <button
         onClick={() => setEditando(true)}
-        className="text-xs text-accent hover:underline font-medium flex items-center gap-1"
+        className="text-xs text-accent-strong hover:underline font-medium flex items-center gap-1"
       >
         <MapPin size={11} />
         + Agregar destino
@@ -235,12 +186,12 @@ function CapturarDestinoExhorto({ acuerdoId, onGuardar }) {
         onChange={e => setValor(e.target.value)}
         placeholder="Ej. Guadalajara, Jalisco"
         autoFocus
-        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+        className="flex-1 bg-input-background text-foreground text-xs px-2.5 py-1 rounded transition"
       />
       <button
         onClick={handleGuardar}
         disabled={!valor.trim() || guardando}
-        className="text-xs text-accent hover:underline font-medium disabled:opacity-50"
+        className="text-xs text-accent-strong hover:underline font-medium disabled:opacity-50"
       >
         {guardando ? 'Guardando...' : 'Guardar'}
       </button>
@@ -261,6 +212,7 @@ function DetalleExpediente() {
   const usuario = getUsuario()
 
   const [expediente, setExpediente] = useState(null)
+  useTituloPagina(expediente ? `Exp. ${expediente.numeroExpediente}` : 'Expediente')
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
   const [acuerdos, setAcuerdos] = useState([])
@@ -519,7 +471,7 @@ function DetalleExpediente() {
           <p className="text-muted-foreground mb-4">{error}</p>
           <button
             onClick={() => navigate('/expedientes')}
-            className="text-accent hover:underline text-sm"
+            className="text-accent-strong hover:underline text-sm"
           >
             ← Volver a expedientes
           </button>
@@ -539,7 +491,7 @@ function DetalleExpediente() {
   const esPropio = expediente.usuarioAsignadoId === usuario?.id || expediente.esColaborador
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div className="min-h-screen bg-background">
@@ -561,7 +513,7 @@ function DetalleExpediente() {
         }
       />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-8">
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -579,7 +531,7 @@ function DetalleExpediente() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <FileText size={14} className="text-accent" />
+              <FileText size={14} className="text-accent-strong" />
               <span className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
                 {expediente.numeroExpediente}
               </span>
@@ -593,7 +545,7 @@ function DetalleExpediente() {
             <p className="text-sm text-muted-foreground mt-1">{expediente.materia ?? '—'}</p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
 
             <DropdownEstado
               valor={expediente.estado}
@@ -615,7 +567,7 @@ function DetalleExpediente() {
             {/* Botón Editar */}
             <button
               onClick={() => navigate(`/expedientes/${id}/editar`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent text-accent-strong hover:bg-accent-strong hover:text-accent-foreground transition-colors"
             >
               <Pencil size={11} />
               Editar
@@ -676,7 +628,7 @@ function DetalleExpediente() {
           {/* Notas */}
           <div className="mt-3 bg-card border border-border rounded-lg p-5">
             <div className="flex items-center gap-2 mb-3">
-              <StickyNote size={14} className="text-accent" />
+              <StickyNote size={14} className="text-accent-strong" />
               <span
                 className="text-xs font-medium uppercase tracking-widest text-foreground"
                 style={{ fontFamily: "'DM Mono', monospace" }}
@@ -697,7 +649,7 @@ function DetalleExpediente() {
             {!mostrarFormEtapa && (
               <button
                 onClick={() => setMostrarFormEtapa(true)}
-                className="text-xs text-accent hover:underline font-medium"
+                className="text-xs text-accent-strong hover:underline font-medium"
               >
                 + Registrar etapa
               </button>
@@ -748,10 +700,10 @@ function DetalleExpediente() {
               className="text-xs font-medium uppercase tracking-widest text-foreground flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <Scale size={13} className="text-accent" />
+              <Scale size={13} className="text-accent-strong" />
               Acuerdos del Poder Judicial
               {acuerdosNuevosIds.size > 0 && (
-                <span className="bg-accent text-accent-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
+                <span className="bg-accent-strong text-accent-foreground text-[11px] font-semibold rounded-full px-1.5 py-0.5 normal-case tracking-normal">
                   {acuerdosNuevosIds.size} nuevo{acuerdosNuevosIds.size !== 1 ? 's' : ''}
                 </span>
               )}
@@ -765,7 +717,7 @@ function DetalleExpediente() {
             {!mostrarFormAcuerdo && esPropio && (
               <button
                 onClick={() => setMostrarFormAcuerdo(true)}
-                className="text-xs text-accent hover:underline font-medium"
+                className="text-xs text-accent-strong hover:underline font-medium"
               >
                 + Registrar acuerdo manualmente
               </button>
@@ -775,8 +727,8 @@ function DetalleExpediente() {
           {mostrarFormAcuerdo && (
             <div className="bg-secondary/40 border border-border rounded-lg p-4 mb-3">
               <div className="mb-3">
-                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</label>
-                <div className="flex gap-4 text-sm">
+                <span id="detalle-tipo-registro-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</span>
+                <div role="radiogroup" aria-labelledby="detalle-tipo-registro-label" className="flex gap-4 text-sm">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -797,8 +749,8 @@ function DetalleExpediente() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
-                  <input
+                  <label htmlFor="detalle-fecha-del-acuerdo" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
+                  <input id="detalle-fecha-del-acuerdo"
                     type="date"
                     value={formAcuerdo.fechaAcuerdo}
                     onChange={e => setFormAcuerdo(f => ({ ...f, fechaAcuerdo: e.target.value }))}
@@ -807,8 +759,8 @@ function DetalleExpediente() {
                 </div>
                 {formAcuerdo.esExhorto ? (
                   <div>
-                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
-                    <input
+                    <label htmlFor="detalle-juzgado-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                    <input id="detalle-juzgado-opcional"
                       type="text"
                       value={formAcuerdo.nombreJuzgado}
                       onChange={e => setFormAcuerdo(f => ({ ...f, nombreJuzgado: e.target.value }))}
@@ -818,8 +770,8 @@ function DetalleExpediente() {
                   </div>
                 ) : (
                   <div>
-                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de trámite *</label>
-                    <input
+                    <label htmlFor="detalle-tipo-de-tramite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de trámite *</label>
+                    <input id="detalle-tipo-de-tramite"
                       type="text"
                       value={formAcuerdo.tipoAsunto}
                       onChange={e => setFormAcuerdo(f => ({ ...f, tipoAsunto: e.target.value }))}
@@ -831,8 +783,8 @@ function DetalleExpediente() {
               </div>
               {formAcuerdo.esExhorto && (
                 <div className="mb-3">
-                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
-                  <input
+                  <label htmlFor="detalle-ciudad-estado-destino-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
+                  <input id="detalle-ciudad-estado-destino-opcional"
                     type="text"
                     value={formAcuerdo.ciudadDestino}
                     onChange={e => setFormAcuerdo(f => ({ ...f, ciudadDestino: e.target.value }))}
@@ -842,8 +794,8 @@ function DetalleExpediente() {
                 </div>
               )}
               <div className="mb-3">
-                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
-                <textarea
+                <label htmlFor="detalle-sintesis" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
+                <textarea id="detalle-sintesis"
                   value={formAcuerdo.sintesis}
                   onChange={e => setFormAcuerdo(f => ({ ...f, sintesis: e.target.value }))}
                   rows={3}
@@ -864,7 +816,7 @@ function DetalleExpediente() {
                 <button
                   onClick={handleGuardarAcuerdoManual}
                   disabled={!formAcuerdo.sintesis || !formAcuerdo.fechaAcuerdo || (!formAcuerdo.esExhorto && !formAcuerdo.tipoAsunto)}
-                  className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                  className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
                 >
                   {formAcuerdo.esExhorto ? 'Guardar exhorto' : 'Guardar acuerdo'}
                 </button>
@@ -888,10 +840,10 @@ function DetalleExpediente() {
                   <div key={acuerdo.id} className="bg-card border border-border rounded-lg p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                        <Gavel size={12} className="text-accent" />
+                        <Gavel size={12} className="text-accent-strong" />
                         {acuerdo.nombreJuzgado}
                         {acuerdo.esExhorto && (
-                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-amber-100 text-amber-800 text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             <Send size={9} />
                             Exhorto
                             {acuerdo.registradoManualmente && (
@@ -900,7 +852,7 @@ function DetalleExpediente() {
                           </span>
                         )}
                         {!acuerdo.esExhorto && acuerdo.registradoManualmente && (
-                          <span className="flex items-center gap-1 bg-secondary text-foreground text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-secondary text-foreground text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             {acuerdo.tipoAsunto || 'Acuerdo'}
                             <span className="italic font-normal">(manual)</span>
                           </span>
@@ -916,7 +868,7 @@ function DetalleExpediente() {
                         )}
                         {acuerdo.confianza === 'Media' && (
                           <span
-                            className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold rounded-full px-1.5 py-0.5"
+                            className="flex items-center gap-1 bg-amber-50 text-amber-800 text-[11px] font-semibold rounded-full px-1.5 py-0.5"
                             title="El juzgado y número coinciden, pero el texto no nombra al demandado por su nombre — confírmalo si es tu caso"
                           >
                             <HelpCircle size={9} />
@@ -926,7 +878,7 @@ function DetalleExpediente() {
                         {acuerdo.confianza === 'Media' && (
                           <button
                             onClick={() => handleConfirmarAcuerdo(acuerdo.id)}
-                            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition font-medium"
+                            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md border border-accent text-accent-strong hover:bg-accent-strong hover:text-white transition font-medium"
                             title="Confirmar que este acuerdo sí corresponde a tu expediente"
                           >
                             <Check size={11} />
@@ -942,7 +894,7 @@ function DetalleExpediente() {
                           Descartar
                         </button>
                         {acuerdosNuevosIds.has(acuerdo.id) && (
-                          <span className="flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-semibold rounded-full px-1.5 py-0.5">
+                          <span className="flex items-center gap-1 bg-accent/10 text-accent-strong text-[11px] font-semibold rounded-full px-1.5 py-0.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                             Nuevo
                           </span>
@@ -961,7 +913,7 @@ function DetalleExpediente() {
                       <div className="mt-3 pt-3 border-t border-border">
                         {acuerdo.ciudadDestino ? (
                           <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <MapPin size={11} className="text-accent" />
+                            <MapPin size={11} className="text-accent-strong" />
                             Destino: <span className="text-foreground font-medium">{acuerdo.ciudadDestino}</span>
                           </p>
                         ) : (
@@ -982,7 +934,7 @@ function DetalleExpediente() {
               className="text-xs font-medium uppercase tracking-widest text-foreground mb-3 flex items-center gap-2"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              <ClipboardList size={13} className="text-accent" />
+              <ClipboardList size={13} className="text-accent-strong" />
               Bitácora de cambios
             </h2>
             <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -1012,7 +964,7 @@ function DetalleExpediente() {
                       <tr key={item.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-secondary/20'}`}>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="flex items-center gap-1.5 text-foreground font-medium text-xs capitalize">
-                            <Clock size={11} className="text-accent" />
+                            <Clock size={11} className="text-accent-strong" />
                             {item.accion.replace('_', ' ')}
                           </span>
                         </td>

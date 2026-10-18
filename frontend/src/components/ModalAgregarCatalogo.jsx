@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 // DJ-112/DJ-87: modal simple para que un admin agregue una Sede o un Juzgado
 // nuevo al catálogo -- mismo look que ModalConfirmacion.jsx.
 function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
+  const inputId = useId()
   const [nombre, setNombre] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -38,15 +39,16 @@ function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
           {titulo}
         </h3>
 
-        <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+        <label htmlFor={inputId} className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
           {label}
         </label>
         <input
+          id={inputId}
           type="text"
           value={nombre}
           onChange={e => setNombre(e.target.value)}
           autoFocus
-          className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+          className="w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
         />
         {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
 
@@ -62,7 +64,7 @@ function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
             type="button"
             onClick={handleGuardar}
             disabled={guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>

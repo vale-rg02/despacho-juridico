@@ -18,6 +18,13 @@
   --muted: #e8e4db;
   --muted-foreground: #6b6459;
   --accent: #9a7c3c;
+  /* Revisión UX/UI: el dorado de marca (#9a7c3c) da solo 3.6:1 sobre crema y
+     3.95:1 sobre blanco -- por debajo del 4.5:1 de WCAG AA para texto normal.
+     --accent se queda para lo decorativo (bordes, íconos, tintes, puntos);
+     --accent-strong para texto y botones con texto (5.2:1 / 4.8:1) y
+     --accent-light para texto sobre el navy de la barra (5.1:1). */
+  --accent-strong: #856829;
+  --accent-light: #b8975a;
   --accent-foreground: #ffffff;
   --destructive: #b53030;
   --destructive-foreground: #ffffff;
@@ -45,6 +52,8 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-light: var(--accent-light);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
@@ -66,6 +75,27 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Foco de teclado visible y uniforme (WCAG 2.4.7 / 1.4.11, 3:1 mínimo):
+     antes cada campo traía su propio anillo de 1px al 50% (~1.7:1) y los
+     botones usaban el del navegador teñido por la regla `*` de arriba. */
+  :focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  [role="combobox"]:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* Sobre el navy de la barra y el encabezado del popup el dorado oscuro casi
+     no se distingue -- se usa el claro. */
+  header :focus-visible,
+  .bg-primary :focus-visible {
+    outline-color: var(--accent-light);
   }
 
   html {
@@ -112,5 +142,59 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+/* ---------------------------------------------------------------------------
+   Objetivos táctiles (revisión UX/UI). Fuera de @layer a propósito: debe ganarle
+   a las utilidades de Tailwind (text-sm, py-1.5...) que de otro modo los encogen.
+
+   - WCAG 2.5.8 (AA): ningún control con menos de 24px de alto, en cualquier
+     dispositivo.
+   - HIG (44pt) / WCAG 2.5.5: en pantallas táctiles, el ÁREA de toque de botones
+     y enlaces llega a 44px sin cambiar su tamaño visual (pseudo-elemento
+     transparente), y los campos crecen a 44px de alto con 16px de letra (con
+     menos de 16px, iOS Safari hace zoom al enfocar el campo).
+   --------------------------------------------------------------------------- */
+button,
+[role="button"],
+[role="combobox"] {
+  min-height: 24px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [role="combobox"] {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* El pseudo-elemento se ancla al propio control: los que ya están
+     posicionados (absolute/fixed/sticky) no se tocan. */
+  button:not(.absolute):not(.fixed):not(.sticky),
+  [role="button"]:not(.absolute):not(.fixed):not(.sticky),
+  a[href]:not(.absolute):not(.fixed):not(.sticky):not(.sr-only) {
+    position: relative;
+  }
+
+  :is(button, [role="button"], a[href]):not(.sr-only):not(.fc-button)::after {
+    content: "";
+    position: absolute;
+    top: min(0px, calc((100% - 44px) / 2));
+    bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
   }
 }

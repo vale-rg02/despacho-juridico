@@ -1,21 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+import { CAJA_CON_FLECHA, FLECHA, PANEL, claseOpcion, normalizarParaBusqueda } from './desplegable'
 
-const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-
-// Insensible a mayúsculas Y a acentos, mismo criterio que unaccent() del
-// backend (DJ-110, AplicarFiltroBusqueda en ExpedientesController) -- solo
-// para COMPARAR durante la búsqueda; el valor mostrado/guardado siempre es el
-// texto original de `opciones`, con sus acentos correctos (ej. "Álamos").
-// ̀-ͯ es el bloque Unicode de marcas diacríticas combinantes (lo que
-// normalize('NFD') separa de la letra base, ej. "Á" -> "A" + acento combinante).
-function normalizarParaBusqueda(texto) {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-}
 
 // DJ-112/DJ-87: combobox genérico con autocompletado, reusado para Sede,
 // Juzgado y Banco. Solo acepta un valor que exista en `opciones` (nombres) --
@@ -44,7 +31,9 @@ function ComboboxCatalogo({
   disabled = false,
   onAgregarNuevo,
   textoAgregarNuevo = '+ Agregar nueva',
+  'aria-label': ariaLabel,
 }) {
+  const inputId = useId()
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState(value || '')
   // Solo true después de que el usuario escribe algo desde que se abrió --
@@ -155,14 +144,16 @@ function ComboboxCatalogo({
   return (
     <div ref={contenedorRef} className="relative">
       {label && (
-        <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+        <label htmlFor={inputId} className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
           {label}
         </label>
       )}
       <div className="relative">
         <input
+          id={inputId}
           type="text"
           role="combobox"
+          aria-label={label ? undefined : ariaLabel}
           aria-expanded={abierto}
           aria-autocomplete="list"
           value={texto}
@@ -172,18 +163,17 @@ function ComboboxCatalogo({
           onBlur={handleBlur}
           placeholder={placeholder}
           disabled={disabled}
-          className={inputBase}
-          style={{ paddingRight: '2.25rem' }}
+          className={CAJA_CON_FLECHA}
           autoComplete="off"
         />
         <ChevronDown
           size={14}
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          className={`${FLECHA} ${abierto ? 'rotate-180' : ''}`}
         />
       </div>
       {abierto && !disabled && (
-        <div role="listbox" tabIndex={-1} className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-card border border-border rounded-md shadow-lg">
+        <div role="listbox" tabIndex={-1} className={PANEL}>
           {filtradas.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</p>
           )}
@@ -197,7 +187,7 @@ function ComboboxCatalogo({
               aria-selected={i === activo}
               onMouseEnter={() => setActivo(i)}
               onClick={() => seleccionar(opcion)}
-              className={`w-full text-left px-3 py-2 text-sm transition ${i === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
+              className={claseOpcion({ activa: i === activo, seleccionada: false })}
             >
               {opcion}
             </button>
@@ -208,7 +198,7 @@ function ComboboxCatalogo({
               tabIndex={-1}
               onMouseEnter={() => setActivo(items.length - 1)}
               onClick={() => { cerrar(); onAgregarNuevo() }}
-              className={`w-full text-left px-3 py-2 text-sm text-accent font-medium transition border-t border-border ${items.length - 1 === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
+              className={`w-full text-left px-3 py-2 text-sm text-accent-strong font-medium transition border-t border-border ${items.length - 1 === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
             >
               {textoAgregarNuevo}
             </button>

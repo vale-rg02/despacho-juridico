@@ -6,10 +6,10 @@
   --fc-today-bg-color: rgba(154, 124, 60, 0.08);
   --fc-button-bg-color: var(--primary);
   --fc-button-border-color: var(--primary);
-  --fc-button-hover-bg-color: var(--accent);
-  --fc-button-hover-border-color: var(--accent);
-  --fc-button-active-bg-color: var(--accent);
-  --fc-button-active-border-color: var(--accent);
+  --fc-button-hover-bg-color: var(--accent-strong);
+  --fc-button-hover-border-color: var(--accent-strong);
+  --fc-button-active-bg-color: var(--accent-strong);
+  --fc-button-active-border-color: var(--accent-strong);
   --fc-button-text-color: var(--primary-foreground);
   font-family: 'Inter', sans-serif;
 }
@@ -79,7 +79,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-strong);
   color: var(--accent-foreground);
   font-size: 12px;
   font-weight: 600;

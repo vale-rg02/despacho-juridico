@@ -4,12 +4,14 @@ import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
+import { SIN_SELECCION } from '../components/desplegable'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
-import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const PRIORIDADES = [
   { valor: 0, etiqueta: 'Normal' },
@@ -18,9 +20,10 @@ const PRIORIDADES = [
 ]
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
 
 function NuevoExpediente() {
+  useTituloPagina('Nuevo expediente')
   const navigate = useNavigate()
 
   const [bancos, setBancos] = useState([])
@@ -103,7 +106,10 @@ function NuevoExpediente() {
   }, [form.sede, form.materia, sedes])
 
   function handleChange(e) {
-    const { name, value } = e.target
+    cambiarCampo(e.target.name, e.target.value)
+  }
+
+  function cambiarCampo(name, value) {
     setForm(prev => {
       if (name === 'materia') {
         // Si el tipo de juicio ya elegido no aplica a la nueva materia, se limpia
@@ -194,10 +200,10 @@ function NuevoExpediente() {
     <div className="min-h-screen bg-background">
       <Topbar />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate('/expedientes')}
-          className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
+          className="text-sm text-accent-strong hover:underline mb-6 flex items-center gap-1.5"
         >
           <ArrowLeft size={14} />
           Volver a expedientes
@@ -217,10 +223,10 @@ function NuevoExpediente() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="nuevo-exp-numero-de-expediente" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Número de expediente *
               </label>
-              <input
+              <input id="nuevo-exp-numero-de-expediente"
                 type="text"
                 name="numeroExpediente"
                 value={form.numeroExpediente}
@@ -234,10 +240,10 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="nuevo-exp-parte-demandada" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Parte demandada *
               </label>
-              <input
+              <input id="nuevo-exp-parte-demandada"
                 type="text"
                 name="parteDemandada"
                 value={form.parteDemandada}
@@ -264,18 +270,13 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <SelectConFlecha
-                name="materia"
+              <label id="nuevo-exp-materia-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
+              <Select
                 value={form.materia}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {MATERIAS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('materia', valor)}
+                opciones={OPCIONES_MATERIA}
+                aria-labelledby="nuevo-exp-materia-label"
+              />
             </div>
 
             <div>
@@ -306,53 +307,39 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
-              <SelectConFlecha
-                name="tipoJuicio"
+              <label id="nuevo-exp-tipo-de-juicio-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
+              <Select
                 value={form.tipoJuicio}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {tiposJuicioDisponibles(form.materia).map(t => (
-                  <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('tipoJuicio', valor)}
+                opciones={[SIN_SELECCION, ...tiposJuicioDisponibles(form.materia).map(t => ({ valor: t.valor, etiqueta: t.etiqueta }))]}
+                aria-labelledby="nuevo-exp-tipo-de-juicio-label"
+              />
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
-              <SelectConFlecha
-                name="prioridad"
+              <label id="nuevo-exp-prioridad-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
+              <Select
                 value={form.prioridad}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                {PRIORIDADES.map(p => (
-                  <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('prioridad', valor)}
+                opciones={PRIORIDADES}
+                aria-labelledby="nuevo-exp-prioridad-label"
+              />
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
-              <SelectConFlecha
-                name="usuarioAsignadoId"
+              <label id="nuevo-exp-asignado-a-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
+              <Select
                 value={form.usuarioAsignadoId}
-                onChange={handleChange}
+                onChange={valor => cambiarCampo('usuarioAsignadoId', valor)}
+                opciones={[{ valor: '', etiqueta: '— Sin asignar —' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
                 disabled={cargandoCatalogos}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Sin asignar —</option>
-                {usuarios.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </SelectConFlecha>
+                aria-labelledby="nuevo-exp-asignado-a-label"
+              />
             </div>
 
             <div className="md:col-span-2">
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
-              <textarea
+              <label htmlFor="nuevo-exp-notas" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
+              <textarea id="nuevo-exp-notas"
                 name="notas"
                 value={form.notas}
                 onChange={handleChange}
@@ -374,7 +361,7 @@ function NuevoExpediente() {
             <button
               type="submit"
               disabled={guardando}
-              className="bg-accent text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              className="bg-accent-strong text-accent-foreground px-5 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar expediente'}
             </button>

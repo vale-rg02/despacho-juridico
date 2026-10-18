@@ -10,7 +10,9 @@ import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 import BotonActualizarExpedientes from '../components/BotonActualizarExpedientes'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
+import MenuDesplegable from '../components/MenuDesplegable'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
@@ -37,8 +39,8 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
   function SortIcon({ col }) {
     if (sortKey !== col) return <ArrowUpDown size={13} className="opacity-30 ml-1 inline" />
     return sortDir === 'asc'
-      ? <ArrowUp size={13} className="ml-1 inline text-accent" />
-      : <ArrowDown size={13} className="ml-1 inline text-accent" />
+      ? <ArrowUp size={13} className="ml-1 inline text-accent-strong" />
+      : <ArrowDown size={13} className="ml-1 inline text-accent-strong" />
   }
 
   if (cargando) {
@@ -67,6 +69,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
             <th className="px-4 py-3 w-8">
               <input
                 type="checkbox"
+                aria-label="Seleccionar todos los expedientes"
                 checked={todosSeleccionados}
                 onChange={() => onToggleSeleccionarTodos(expedientes.map(e => e.id))}
                 className="accent-accent cursor-pointer"
@@ -95,6 +98,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
               <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                 <input
                   type="checkbox"
+                  aria-label={`Seleccionar expediente ${exp.numeroExpediente}`}
                   checked={seleccionados.has(exp.id)}
                   onChange={() => onToggleSeleccion(exp.id)}
                   className="accent-accent cursor-pointer"
@@ -108,7 +112,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
                       title="Acuerdos nuevos sin ver"
                     />
                   )}
-                  <span className="text-accent font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
+                  <span className="text-accent-strong font-medium group-hover:underline" style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.8rem' }}>
                     {exp.numeroExpediente}
                   </span>
                 </span>
@@ -152,7 +156,7 @@ function BloqueExpandible({ titulo, expedientes, cargando, onRowClick, sortKey, 
         <div className="flex items-center gap-3">
           <ChevronRight
             size={16}
-            className={`text-accent transition-transform ${abierto ? 'rotate-90' : ''}`}
+            className={`text-accent-strong transition-transform ${abierto ? 'rotate-90' : ''}`}
           />
           <span className="text-sm font-medium text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
             {titulo}
@@ -208,17 +212,13 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
         <p className="text-xs text-muted-foreground mb-4">
           Se agregará a {expedienteIds.length} expediente{expedienteIds.length !== 1 ? 's' : ''} seleccionado{expedienteIds.length !== 1 ? 's' : ''}.
         </p>
-        <SelectConFlecha
+        <Select
           value={usuarioId}
-          onChange={e => setUsuarioId(e.target.value)}
-          className="w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-          wrapperClassName="mb-4"
-        >
-          <option value="">Selecciona un usuario…</option>
-          {usuarios.map(u => (
-            <option key={u.id} value={u.id}>{u.nombre}</option>
-          ))}
-        </SelectConFlecha>
+          onChange={setUsuarioId}
+          opciones={[{ valor: '', etiqueta: 'Selecciona un usuario…' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
+          className="mb-4"
+          aria-label="Usuario"
+        />
         <div className="flex justify-end gap-2">
           <button
             onClick={onCerrar}
@@ -229,7 +229,7 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
           <button
             onClick={handleAgregar}
             disabled={!usuarioId || guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Agregando...' : 'Agregar'}
           </button>
@@ -240,13 +240,13 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
 }
 
 function Expedientes() {
+  useTituloPagina('Expedientes')
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === 1
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroUsuarioId, setFiltroUsuarioId] = useState(esSocioPrincipal ? 0 : (usuario?.id ?? null))
-  const [dropdownUsuarioOpen, setDropdownUsuarioOpen] = useState(false)
   const [sortKey, setSortKey] = useState('numeroExpediente')
   const [sortDir, setSortDir] = useState('asc')
   const [cargando, setCargando] = useState(true)
@@ -401,9 +401,10 @@ function Expedientes() {
             <input
               type="text"
               placeholder="Buscar por número o parte demandada…"
+              aria-label="Buscar expedientes por número o parte demandada"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+              className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded transition"
             />
             {busqueda && (
               <button
@@ -417,59 +418,43 @@ function Expedientes() {
           </div>
 
           {/* Filtro de usuario — todos/mis expedientes/un compañero específico */}
-          <div className="w-full sm:w-auto relative">
-            <button
-              onClick={() => setDropdownUsuarioOpen(o => !o)}
-              className="w-full sm:w-auto flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
-            >
-              <Filter size={12} className="text-muted-foreground shrink-0" />
-              <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
-              <ChevronDown size={12} className={`text-muted-foreground transition-transform shrink-0 ml-auto sm:ml-0 ${dropdownUsuarioOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {dropdownUsuarioOpen && (
-              <div className="absolute right-0 mt-1.5 w-56 bg-card border border-border rounded shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
-                <button
-                  onClick={() => { setFiltroUsuarioId(0); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === 0 ? 'font-medium text-accent' : 'text-foreground'}`}
-                >
-                  Todos los usuarios
-                </button>
-                <button
-                  onClick={() => { setFiltroUsuarioId(usuario?.id); setDropdownUsuarioOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === usuario?.id ? 'font-medium text-accent' : 'text-foreground'}`}
-                >
-                  Mis expedientes
-                </button>
-                <div className="border-t border-border" />
-                {usuarios.filter(u => u.id !== usuario?.id).map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => { setFiltroUsuarioId(u.id); setDropdownUsuarioOpen(false) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition ${filtroUsuarioId === u.id ? 'font-medium text-accent' : 'text-foreground'}`}
-                  >
-                    {u.nombre}
-                  </button>
-                ))}
-              </div>
+          <MenuDesplegable
+            className="w-full sm:w-auto"
+            etiqueta="Filtrar expedientes por usuario"
+            alinear="right"
+            panelClassName="w-56"
+            botonClassName="w-full sm:w-auto flex items-center gap-2 bg-input-background hover:bg-secondary text-foreground text-sm px-3 py-1.5 rounded transition border border-border"
+            boton={({ abierto }) => (
+              <>
+                <Filter size={12} aria-hidden="true" className="text-muted-foreground shrink-0" />
+                <span className="max-w-[180px] truncate">{nombreFiltroUsuario}</span>
+                <ChevronDown size={12} aria-hidden="true" className={`text-muted-foreground transition-transform shrink-0 ml-auto sm:ml-0 ${abierto ? 'rotate-180' : ''}`} />
+              </>
             )}
-          </div>
+            items={[
+              { clave: 'todos', contenido: 'Todos los usuarios', seleccionado: filtroUsuarioId === 0, onSelect: () => setFiltroUsuarioId(0) },
+              { clave: 'mios', contenido: 'Mis expedientes', seleccionado: filtroUsuarioId === usuario?.id, onSelect: () => setFiltroUsuarioId(usuario?.id) },
+              { separador: true },
+              ...usuarios.filter(u => u.id !== usuario?.id).map(u => ({
+                clave: u.id, contenido: u.nombre, seleccionado: filtroUsuarioId === u.id, onSelect: () => setFiltroUsuarioId(u.id),
+              })),
+            ]}
+          />
 
           <BotonActualizarExpedientes />
 
           <button
             onClick={() => navigate('/expedientes/nuevo')}
-            className="w-full sm:w-auto sm:ml-auto bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition whitespace-nowrap"
+            className="w-full sm:w-auto sm:ml-auto bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition whitespace-nowrap"
           >
             + Nuevo expediente
           </button>
         </div>
       </div>
 
-      {dropdownUsuarioOpen && (
-        <div className="fixed inset-0 z-20" onClick={() => setDropdownUsuarioOpen(false)} />
-      )}
 
-      <main className="max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+        <h1 className="sr-only">Expedientes</h1>
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}
@@ -496,7 +481,7 @@ function Expedientes() {
               </button>
               <button
                 onClick={() => setMostrarModalColaborador(true)}
-                className="flex items-center gap-1.5 bg-accent text-accent-foreground px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
+                className="flex items-center gap-1.5 bg-accent-strong text-accent-foreground px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
               >
                 <UserPlus size={12} />
                 Agregar colaborador

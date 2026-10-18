@@ -7,9 +7,10 @@
 // de una hoja — nunca el de un padre como "Remate" — porque es lo único que
 // HistorialEtapa puede guardar.
 import { useEffect, useState } from 'react'
-import SelectConFlecha from './SelectConFlecha'
+import Select from './Select'
+import { SIN_SELECCION } from './desplegable'
 
-function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, className }) {
+function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, className, labelId }) {
   const [principalId, setPrincipalId] = useState('')
   const [subetapaId, setSubetapaId] = useState('')
 
@@ -57,35 +58,26 @@ function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, classNa
     onCambiar(nuevoId)
   }
 
-  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-
   return (
     <div className={className}>
-      <SelectConFlecha
+      <Select
         value={principalId}
-        onChange={e => handlePrincipalChange(e.target.value)}
+        onChange={handlePrincipalChange}
+        opciones={[SIN_SELECCION, ...etapasPrincipales.map(e => ({ valor: e.id, etiqueta: e.nombre }))]}
         disabled={disabled}
-        className={`w-full cursor-pointer ${inputBase}`}
-      >
-        <option value="">— Selecciona —</option>
-        {etapasPrincipales.map(e => (
-          <option key={e.id} value={e.id}>{e.nombre}</option>
-        ))}
-      </SelectConFlecha>
+        aria-label={labelId ? undefined : 'Etapa'}
+        aria-labelledby={labelId}
+      />
 
       {tieneSubmenu && (
-        <SelectConFlecha
+        <Select
           value={subetapaId}
-          onChange={e => handleSubetapaChange(e.target.value)}
+          onChange={handleSubetapaChange}
+          opciones={[{ valor: '', etiqueta: '— Selecciona una opción —' }, ...subetapas.map(e => ({ valor: e.id, etiqueta: e.nombre }))]}
           disabled={disabled}
-          wrapperClassName="mt-2"
-          className={`w-full cursor-pointer ${inputBase}`}
-        >
-          <option value="">— Selecciona una opción —</option>
-          {subetapas.map(e => (
-            <option key={e.id} value={e.id}>{e.nombre}</option>
-          ))}
-        </SelectConFlecha>
+          className="mt-2"
+          aria-label="Subetapa"
+        />
       )}
     </div>
   )

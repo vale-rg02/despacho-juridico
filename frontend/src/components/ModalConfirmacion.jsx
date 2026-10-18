@@ -44,7 +44,7 @@ function ModalConfirmacion({
             className={
               peligroso
                 ? 'bg-destructive text-destructive-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition'
-                : 'bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition'
+                : 'bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition'
             }
           >
             {confirmLabel}

@@ -76,7 +76,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
   const etapaSeleccionada = catalogo.find(e => e.id === Number(etapaCatalogoId))
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputBase = "bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={onCerrar}>
@@ -94,8 +94,8 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
         )}
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <SelectorEtapaCatalogo
+          <label id="editar-etapa-etapa-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
+          <SelectorEtapaCatalogo labelId="editar-etapa-etapa-label"
             catalogo={catalogo}
             valorId={etapaCatalogoId}
             onCambiar={setEtapaCatalogoId}
@@ -112,9 +112,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
         <div className="space-y-4">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
+            <label htmlFor="editar-etapa-fecha-de-inicio" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
             <div className="flex gap-2">
-              <input
+              <input id="editar-etapa-fecha-de-inicio"
                 type="date"
                 value={fechaInicio}
                 onChange={e => setFechaInicio(e.target.value)}
@@ -134,9 +134,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
           </div>
 
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
+            <label htmlFor="editar-etapa-fecha-limite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
             <div className="flex gap-2">
-              <input
+              <input id="editar-etapa-fecha-limite"
                 type="date"
                 value={fechaLimite}
                 onChange={e => setFechaLimite(e.target.value)}
@@ -163,7 +163,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
               const sugerida = calcularFechaLimite(fechaInicio, etapaSeleccionada.terminoDias, etapaSeleccionada.esDiasHabiles)
               if (sugerida) setFechaLimite(sugerida)
             }}
-            className="text-xs text-accent hover:underline"
+            className="text-xs text-accent-strong hover:underline"
           >
             Recalcular fecha límite sugerida
           </button>
@@ -180,7 +180,7 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
           <button
             type="submit"
             disabled={guardando}
-            className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>

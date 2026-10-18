@@ -3,7 +3,7 @@ import { Calendar } from 'lucide-react'
 import { crearCita, editarCita, eliminarCita } from '../services/citas'
 import ModalHeader from './ModalHeader'
 import ModalConfirmacion from './ModalConfirmacion'
-import SelectConFlecha from './SelectConFlecha'
+import Select from './Select'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 function fechaHoraALocal(fechaHoraISO) {
@@ -76,7 +76,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
   }
 
   const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
-  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
+  const inputClass = "w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded transition"
 
   return (
     <div
@@ -101,8 +101,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         )}
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Título *</label>
-          <input
+          <label htmlFor="cita-titulo" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Título *</label>
+          <input id="cita-titulo"
             type="text"
             value={titulo}
             onChange={e => setTitulo(e.target.value)}
@@ -112,23 +112,22 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         </div>
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Expediente</label>
-          <SelectConFlecha
+          <label id="cita-expediente-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Expediente</label>
+          <Select
             value={expedienteId}
-            onChange={e => setExpedienteId(e.target.value)}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">Sin expediente</option>
-            {expedientesActivos.map(exp => (
-              <option key={exp.id} value={exp.id}>{exp.numeroExpediente} — {exp.parteDemandada}</option>
-            ))}
-          </SelectConFlecha>
+            onChange={setExpedienteId}
+            opciones={[
+              { valor: '', etiqueta: 'Sin expediente' },
+              ...expedientesActivos.map(exp => ({ valor: exp.id, etiqueta: `${exp.numeroExpediente} — ${exp.parteDemandada}` })),
+            ]}
+            aria-labelledby="cita-expediente-label"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha *</label>
-            <input
+            <label htmlFor="cita-fecha" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha *</label>
+            <input id="cita-fecha"
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
@@ -138,8 +137,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
             />
           </div>
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora *</label>
-            <input
+            <label htmlFor="cita-hora" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora *</label>
+            <input id="cita-hora"
               type="time"
               value={hora}
               onChange={e => setHora(e.target.value)}
@@ -149,8 +148,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         </div>
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Descripción</label>
-          <textarea
+          <label htmlFor="cita-descripcion" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Descripción</label>
+          <textarea id="cita-descripcion"
             value={descripcion}
             onChange={e => setDescripcion(e.target.value)}
             placeholder="Detalles adicionales (opcional)"
@@ -182,7 +181,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
             <button
               type="submit"
               disabled={guardando}
-              className="bg-accent text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              className="bg-accent-strong text-accent-foreground px-4 py-1.5 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Crear cita'}
             </button>

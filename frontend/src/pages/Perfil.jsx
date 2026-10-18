@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Lock, ShieldCheck, Users, Download, Pencil, Plus, X, Check } from 'lucide-react'
 import Topbar from '../components/Topbar'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const SOCIO_PRINCIPAL_ID = 1
 
@@ -28,6 +29,7 @@ function nivelAccesoANumero(nivelAcceso) {
 }
 
 function Perfil() {
+  useTituloPagina('Perfil')
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === SOCIO_PRINCIPAL_ID
@@ -188,7 +190,7 @@ function Perfil() {
   const btnSeccion = (id, Icon, label) => (
     <button
       onClick={() => setSeccion(id)}
-      className={`shrink-0 whitespace-nowrap md:w-full md:whitespace-normal flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+      className={`shrink-0 whitespace-nowrap md:w-full md:whitespace-normal flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition ${seccion === id ? 'bg-accent/10 text-accent-strong font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
     >
       <Icon size={14} />
       {label}
@@ -217,7 +219,8 @@ function Perfil() {
         </aside>
 
         {/* Contenido */}
-        <main className="flex-1 min-w-0">
+        <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 min-w-0">
+          <h1 className="sr-only">Perfil</h1>
 
           {/* Mi información */}
           {seccion === 'info' && (
@@ -246,24 +249,24 @@ function Perfil() {
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Cambiar contraseña</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
-                  <input type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                  <label htmlFor="perfil-contrasena-actual" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
+                  <input id="perfil-contrasena-actual" type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
-                  <input type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                  <label htmlFor="perfil-nueva-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
+                  <input id="perfil-nueva-contrasena" type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Confirmar contraseña</label>
-                  <input type="password" value={confirmarPassword} onChange={e => setConfirmarPassword(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                  <label htmlFor="perfil-confirmar-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Confirmar contraseña</label>
+                  <input id="perfil-confirmar-contrasena" type="password" value={confirmarPassword} onChange={e => setConfirmarPassword(e.target.value)}
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                 </div>
                 {errorPassword && <p className="text-red-500 text-xs">{errorPassword}</p>}
                 {msgPassword && <p className="text-emerald-600 text-xs">{msgPassword}</p>}
                 <button onClick={handleCambiarPassword} disabled={cargandoPassword}
-                  className="bg-accent text-white text-sm px-4 py-2 rounded-md hover:bg-accent/90 transition disabled:opacity-50">
+                  className="bg-accent-strong text-white text-sm px-4 py-2 rounded-md hover:bg-accent-strong/90 transition disabled:opacity-50">
                   {cargandoPassword ? 'Guardando...' : 'Guardar contraseña'}
                 </button>
               </div>
@@ -278,7 +281,7 @@ function Perfil() {
                 <div className="flex gap-2">
                   {['dia', 'semana', 'mes'].map(p => (
                     <button key={p} onClick={() => setPeriodo(p)}
-                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize whitespace-nowrap ${periodo === p ? 'bg-accent text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-md transition capitalize whitespace-nowrap ${periodo === p ? 'bg-accent-strong text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                       {p === 'dia' ? 'Hoy' : p === 'semana' ? 'Esta semana' : 'Este mes'}
                     </button>
                   ))}
@@ -331,7 +334,7 @@ function Perfil() {
                 <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Gestión de usuarios</h2>
                 {puedeVerAdmin && (
                   <button onClick={abrirCrear}
-                    className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-2 rounded-md hover:bg-accent/90 transition whitespace-nowrap">
+                    className="flex items-center gap-1.5 text-xs bg-accent-strong text-white px-3 py-2 rounded-md hover:bg-accent-strong/90 transition whitespace-nowrap">
                     <Plus size={13} /> Nuevo usuario
                   </button>
                 )}
@@ -403,38 +406,39 @@ function Perfil() {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nombre</label>
-                        <input value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                        <label htmlFor="perfil-nombre" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nombre</label>
+                        <input id="perfil-nombre" value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))}
+                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Correo</label>
-                        <input value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                        <label htmlFor="perfil-correo" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Correo</label>
+                        <input id="perfil-correo" value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))}
+                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                       </div>
                       {modalUsuario === 'crear' && (
                         <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña inicial</label>
-                          <input type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))}
-                            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
+                          <label htmlFor="perfil-contrasena-inicial" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña inicial</label>
+                          <input id="perfil-contrasena-inicial" type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))}
+                            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
                         </div>
                       )}
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Rol</label>
-                        <SelectConFlecha value={formUsuario.rol} onChange={e => setFormUsuario(f => ({ ...f, rol: e.target.value }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50">
-                          <option value="Litigante">Litigante</option>
-                          <option value="Socio">Socio</option>
-                        </SelectConFlecha>
+                        <label id="perfil-rol-label" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Rol</label>
+                        <Select
+                          value={formUsuario.rol}
+                          onChange={valor => setFormUsuario(f => ({ ...f, rol: valor }))}
+                          opciones={['Litigante', 'Socio']}
+                          aria-labelledby="perfil-rol-label"
+                        />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
-                        <SelectConFlecha value={formUsuario.nivelAcceso} onChange={e => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(e.target.value) }))}
-                          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50">
-                          {NIVEL_ACCESO_OPCIONES.map(op => (
-                            <option key={op.valor} value={op.valor}>{op.etiqueta}</option>
-                          ))}
-                        </SelectConFlecha>
+                        <label id="perfil-nivel-de-permisos-label" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
+                        <Select
+                          value={formUsuario.nivelAcceso}
+                          onChange={valor => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(valor) }))}
+                          opciones={NIVEL_ACCESO_OPCIONES}
+                          aria-labelledby="perfil-nivel-de-permisos-label"
+                        />
                       </div>
                       {errorUsuario && <p className="text-red-500 text-xs">{errorUsuario}</p>}
                     </div>
@@ -444,7 +448,7 @@ function Perfil() {
                         Cancelar
                       </button>
                       <button onClick={handleGuardarUsuario} disabled={guardandoUsuario}
-                        className="bg-accent text-white text-sm px-4 py-2 rounded-md hover:bg-accent/90 transition disabled:opacity-50">
+                        className="bg-accent-strong text-white text-sm px-4 py-2 rounded-md hover:bg-accent-strong/90 transition disabled:opacity-50">
                         {guardandoUsuario ? 'Guardando...' : 'Guardar'}
                       </button>
                     </div>
@@ -462,7 +466,7 @@ function Perfil() {
                 <h3 className="text-sm font-medium text-foreground">Exportar expedientes</h3>
                 <p className="text-xs text-muted-foreground">Descarga un archivo Excel con todos los expedientes registrados en el sistema.</p>
                 <button onClick={handleDescargarExcel}
-                  className="flex items-center gap-2 text-sm bg-accent text-white px-4 py-2 rounded-md hover:bg-accent/90 transition">
+                  className="flex items-center gap-2 text-sm bg-accent-strong text-white px-4 py-2 rounded-md hover:bg-accent-strong/90 transition">
                   <Download size={14} />
                   Descargar Excel
                 </button>
