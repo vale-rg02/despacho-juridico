@@ -5,11 +5,12 @@ import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
+import { SIN_SELECCION } from '../components/desplegable'
 import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
-import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
@@ -307,17 +308,12 @@ function EditarExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <SelectConFlecha
-                name="materia"
+              <Select
                 value={form.materia}
-                onChange={e => handleMateriaChange(e.target.value)}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {MATERIAS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={handleMateriaChange}
+                opciones={OPCIONES_MATERIA}
+                aria-label="Materia"
+              />
             </div>
 
             <div>
@@ -348,32 +344,22 @@ function EditarExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
-              <SelectConFlecha
-                name="tipoJuicio"
+              <Select
                 value={form.tipoJuicio}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {tiposJuicioDisponibles(form.materia).map(t => (
-                  <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => setForm(prev => ({ ...prev, tipoJuicio: valor }))}
+                opciones={[SIN_SELECCION, ...tiposJuicioDisponibles(form.materia).map(t => ({ valor: t.valor, etiqueta: t.etiqueta }))]}
+                aria-label="Tipo de juicio"
+              />
             </div>
 
             <div className="md:col-span-2">
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
-              <SelectConFlecha
-                name="usuarioAsignadoId"
+              <Select
                 value={form.usuarioAsignadoId}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Sin asignar —</option>
-                {usuarios.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => setForm(prev => ({ ...prev, usuarioAsignadoId: valor }))}
+                opciones={[{ valor: '', etiqueta: '— Sin asignar —' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
+                aria-label="Asignado a"
+              />
             </div>
 
             <div className="md:col-span-2">

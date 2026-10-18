@@ -3,7 +3,7 @@ import { Calendar } from 'lucide-react'
 import { crearCita, editarCita, eliminarCita } from '../services/citas'
 import ModalHeader from './ModalHeader'
 import ModalConfirmacion from './ModalConfirmacion'
-import SelectConFlecha from './SelectConFlecha'
+import Select from './Select'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 function fechaHoraALocal(fechaHoraISO) {
@@ -113,16 +113,15 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
 
         <div>
           <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Expediente</label>
-          <SelectConFlecha
+          <Select
             value={expedienteId}
-            onChange={e => setExpedienteId(e.target.value)}
-            className={`${inputClass} cursor-pointer`}
-          >
-            <option value="">Sin expediente</option>
-            {expedientesActivos.map(exp => (
-              <option key={exp.id} value={exp.id}>{exp.numeroExpediente} — {exp.parteDemandada}</option>
-            ))}
-          </SelectConFlecha>
+            onChange={setExpedienteId}
+            opciones={[
+              { valor: '', etiqueta: 'Sin expediente' },
+              ...expedientesActivos.map(exp => ({ valor: exp.id, etiqueta: `${exp.numeroExpediente} — ${exp.parteDemandada}` })),
+            ]}
+            aria-label="Expediente"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

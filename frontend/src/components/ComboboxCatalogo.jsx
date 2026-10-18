@@ -1,21 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+import { CAJA_CON_FLECHA, FLECHA, PANEL, claseOpcion, normalizarParaBusqueda } from './desplegable'
 
-const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-
-// Insensible a mayúsculas Y a acentos, mismo criterio que unaccent() del
-// backend (DJ-110, AplicarFiltroBusqueda en ExpedientesController) -- solo
-// para COMPARAR durante la búsqueda; el valor mostrado/guardado siempre es el
-// texto original de `opciones`, con sus acentos correctos (ej. "Álamos").
-// ̀-ͯ es el bloque Unicode de marcas diacríticas combinantes (lo que
-// normalize('NFD') separa de la letra base, ej. "Á" -> "A" + acento combinante).
-function normalizarParaBusqueda(texto) {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-}
 
 // DJ-112/DJ-87: combobox genérico con autocompletado, reusado para Sede,
 // Juzgado y Banco. Solo acepta un valor que exista en `opciones` (nombres) --
@@ -172,18 +159,17 @@ function ComboboxCatalogo({
           onBlur={handleBlur}
           placeholder={placeholder}
           disabled={disabled}
-          className={inputBase}
-          style={{ paddingRight: '2.25rem' }}
+          className={CAJA_CON_FLECHA}
           autoComplete="off"
         />
         <ChevronDown
           size={14}
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          className={`${FLECHA} ${abierto ? 'rotate-180' : ''}`}
         />
       </div>
       {abierto && !disabled && (
-        <div role="listbox" tabIndex={-1} className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-card border border-border rounded-md shadow-lg">
+        <div role="listbox" tabIndex={-1} className={PANEL}>
           {filtradas.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</p>
           )}
@@ -197,7 +183,7 @@ function ComboboxCatalogo({
               aria-selected={i === activo}
               onMouseEnter={() => setActivo(i)}
               onClick={() => seleccionar(opcion)}
-              className={`w-full text-left px-3 py-2 text-sm transition ${i === activo ? 'bg-accent/10' : 'hover:bg-accent/10'}`}
+              className={claseOpcion({ activa: i === activo, seleccionada: false })}
             >
               {opcion}
             </button>

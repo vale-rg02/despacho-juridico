@@ -4,12 +4,13 @@ import { ArrowLeft } from 'lucide-react'
 import Topbar from '../components/Topbar'
 import ComboboxCatalogo from '../components/ComboboxCatalogo'
 import SelectorBancoOParticular from '../components/SelectorBancoOParticular'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
+import { SIN_SELECCION } from '../components/desplegable'
 import ModalAgregarCatalogo from '../components/ModalAgregarCatalogo'
 import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
-import { MATERIAS, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
 
 const PRIORIDADES = [
   { valor: 0, etiqueta: 'Normal' },
@@ -103,7 +104,10 @@ function NuevoExpediente() {
   }, [form.sede, form.materia, sedes])
 
   function handleChange(e) {
-    const { name, value } = e.target
+    cambiarCampo(e.target.name, e.target.value)
+  }
+
+  function cambiarCampo(name, value) {
     setForm(prev => {
       if (name === 'materia') {
         // Si el tipo de juicio ya elegido no aplica a la nueva materia, se limpia
@@ -265,17 +269,12 @@ function NuevoExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
-              <SelectConFlecha
-                name="materia"
+              <Select
                 value={form.materia}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {MATERIAS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('materia', valor)}
+                opciones={OPCIONES_MATERIA}
+                aria-label="Materia"
+              />
             </div>
 
             <div>
@@ -307,47 +306,33 @@ function NuevoExpediente() {
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
-              <SelectConFlecha
-                name="tipoJuicio"
+              <Select
                 value={form.tipoJuicio}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Selecciona —</option>
-                {tiposJuicioDisponibles(form.materia).map(t => (
-                  <option key={t.valor} value={t.valor}>{t.etiqueta}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('tipoJuicio', valor)}
+                opciones={[SIN_SELECCION, ...tiposJuicioDisponibles(form.materia).map(t => ({ valor: t.valor, etiqueta: t.etiqueta }))]}
+                aria-label="Tipo de juicio"
+              />
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
-              <SelectConFlecha
-                name="prioridad"
+              <Select
                 value={form.prioridad}
-                onChange={handleChange}
-                className={`${inputBase} cursor-pointer`}
-              >
-                {PRIORIDADES.map(p => (
-                  <option key={p.valor} value={p.valor}>{p.etiqueta}</option>
-                ))}
-              </SelectConFlecha>
+                onChange={valor => cambiarCampo('prioridad', valor)}
+                opciones={PRIORIDADES}
+                aria-label="Prioridad"
+              />
             </div>
 
             <div>
               <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
-              <SelectConFlecha
-                name="usuarioAsignadoId"
+              <Select
                 value={form.usuarioAsignadoId}
-                onChange={handleChange}
+                onChange={valor => cambiarCampo('usuarioAsignadoId', valor)}
+                opciones={[{ valor: '', etiqueta: '— Sin asignar —' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
                 disabled={cargandoCatalogos}
-                className={`${inputBase} cursor-pointer`}
-              >
-                <option value="">— Sin asignar —</option>
-                {usuarios.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </SelectConFlecha>
+                aria-label="Asignado a"
+              />
             </div>
 
             <div className="md:col-span-2">

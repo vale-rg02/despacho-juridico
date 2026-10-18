@@ -179,7 +179,7 @@ describe('ComboboxCatalogo', () => {
     expect(screen.getByRole('listbox')).toHaveAttribute('tabindex', '-1')
   })
 
-  it('DJ-123: muestra la flecha visual (chevron), igual que SelectConFlecha', () => {
+  it('DJ-123: muestra la flecha visual (chevron), igual que Select', () => {
     const { container } = render(<ComboboxCatalogo value="" onChange={() => {}} opciones={opcionesHermosillo} />)
 
     expect(container.querySelector('svg.lucide-chevron-down')).toBeInTheDocument()

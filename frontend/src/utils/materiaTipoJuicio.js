@@ -3,6 +3,9 @@
 
 export const MATERIAS = ['Civil', 'Mercantil', 'Familiar', 'Arrendamiento']
 
+// Para el componente Select (compartido por Nuevo y Editar expediente).
+export const OPCIONES_MATERIA = [{ valor: '', etiqueta: '— Selecciona —' }, ...MATERIAS.map(m => ({ valor: m, etiqueta: m }))]
+
 export const TIPOS_JUICIO = [
   { valor: 'Hipotecario', etiqueta: 'Hipotecario' },
   { valor: 'Jurisdiccion Voluntaria', etiqueta: 'Jurisdicción Voluntaria' },

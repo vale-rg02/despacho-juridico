@@ -10,7 +10,7 @@ import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 import BotonActualizarExpedientes from '../components/BotonActualizarExpedientes'
-import SelectConFlecha from '../components/SelectConFlecha'
+import Select from '../components/Select'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
@@ -208,17 +208,13 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
         <p className="text-xs text-muted-foreground mb-4">
           Se agregará a {expedienteIds.length} expediente{expedienteIds.length !== 1 ? 's' : ''} seleccionado{expedienteIds.length !== 1 ? 's' : ''}.
         </p>
-        <SelectConFlecha
+        <Select
           value={usuarioId}
-          onChange={e => setUsuarioId(e.target.value)}
-          className="w-full bg-input-background text-foreground text-sm px-3 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
-          wrapperClassName="mb-4"
-        >
-          <option value="">Selecciona un usuario…</option>
-          {usuarios.map(u => (
-            <option key={u.id} value={u.id}>{u.nombre}</option>
-          ))}
-        </SelectConFlecha>
+          onChange={setUsuarioId}
+          opciones={[{ valor: '', etiqueta: 'Selecciona un usuario…' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
+          className="mb-4"
+          aria-label="Usuario"
+        />
         <div className="flex justify-end gap-2">
           <button
             onClick={onCerrar}
