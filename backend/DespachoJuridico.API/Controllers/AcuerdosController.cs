@@ -403,6 +403,7 @@ public class AcuerdosController : ControllerBase
 
     // PATCH /api/acuerdos/{id}/promover
     // PATCH /api/acuerdos/{id}/promover?dryRun=false — ejecuta de verdad y notifica
+    // PATCH /api/acuerdos/{id}/promover?dryRun=false&notificar=false — ejecuta sin correo
     // DJ-140: único camino para promover un acuerdo que el ALGORITMO escondió
     // (Oculto=true) y que nadie más tocó -- a diferencia de Confirmar (solo
     // Confianza=Media) y Restaurar (solo si un litigante lo había descartado a
@@ -416,9 +417,15 @@ public class AcuerdosController : ControllerBase
     // y /colisiones-juzgado/{id}/reintentar. Si falla la notificación real, el
     // acuerdo queda promovido igual (mismo criterio que el ciclo normal del
     // scraper -- ver EjecutarScrapingAsync).
+    // DJ-141: notificar=true por defecto -- pásalo en false cuando el litigante
+    // ya está al tanto del caso por otro medio (ej. un acuerdo posterior sobre
+    // el mismo expediente que ya se le notificó) y mandarle el correo normal de
+    // "nuevo acuerdo" sería redundante o confuso dado el tiempo transcurrido.
+    // NotificacionEnviada se queda en false en ese caso -- refleja la realidad
+    // (no salió correo), no hay ningún proceso que lo vuelva a intentar después.
     [HttpPatch("{id}/promover")]
     [Authorize(Policy = "AccesoAdmin")]
-    public async Task<IActionResult> Promover(int id, [FromQuery] bool dryRun = true)
+    public async Task<IActionResult> Promover(int id, [FromQuery] bool dryRun = true, [FromQuery] bool notificar = true)
     {
         var usuarioIdActual = ObtenerUsuarioId();
         var acuerdo = await _context.AcuerdosScrapeados
@@ -438,10 +445,13 @@ public class AcuerdosController : ControllerBase
             return Ok(new
             {
                 dryRun = true,
-                mensaje = "Vista previa -- nada se guardó ni se notificó. Vuelve a llamar con dryRun=false para promover de verdad.",
+                mensaje = notificar
+                    ? "Vista previa -- nada se guardó ni se notificó. Vuelve a llamar con dryRun=false para promover de verdad."
+                    : "Vista previa -- nada se guardó. Vuelve a llamar con dryRun=false para promover de verdad (sin enviar correo).",
                 acuerdo.NumeroExpediente,
                 acuerdo.NombreJuzgado,
                 acuerdo.FechaAcuerdo,
+                notificara = notificar,
                 destinatarioNombre = acuerdo.Expediente.UsuarioAsignado?.Nombre,
                 destinatarioEmail = acuerdo.Expediente.UsuarioAsignado?.Email
             });
@@ -451,21 +461,26 @@ public class AcuerdosController : ControllerBase
         acuerdo.Confianza = "Alta";
         await _context.SaveChangesAsync();
 
-        try
+        if (notificar)
         {
-            await _scraper.EnviarNotificacionManualAsync(_emailService, acuerdo.Expediente, acuerdo);
-            acuerdo.NotificacionEnviada = true;
-            await _context.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "No se pudo notificar al promover el acuerdo {Id} -- queda promovido igual", id);
+            try
+            {
+                await _scraper.EnviarNotificacionManualAsync(_emailService, acuerdo.Expediente, acuerdo);
+                acuerdo.NotificacionEnviada = true;
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo notificar al promover el acuerdo {Id} -- queda promovido igual", id);
+            }
         }
 
         await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_promovido",
-            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) promovido manualmente: \"{acuerdo.Sintesis}\"");
+            notificar
+                ? $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) promovido manualmente: \"{acuerdo.Sintesis}\""
+                : $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) promovido manualmente sin notificar (litigante ya enterado por otro medio): \"{acuerdo.Sintesis}\"");
 
-        return Ok(new { mensaje = "Acuerdo promovido correctamente" });
+        return Ok(new { mensaje = notificar ? "Acuerdo promovido correctamente" : "Acuerdo promovido correctamente (sin notificar)" });
     }
 
     // PATCH /api/acuerdos/{id}/sugerir

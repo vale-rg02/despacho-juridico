@@ -226,6 +226,57 @@ public class PromoverAcuerdoTests
     }
 
     [Fact]
+    public async Task Promover_NotificarFalse_LoHaceVisibleSinMandarCorreo()
+    {
+        var nombreBD = nameof(Promover_NotificarFalse_LoHaceVisibleSinMandarCorreo);
+        using var context = CrearContextoEnMemoria(nombreBD);
+        var (admin, _, _, acuerdo) = await SembrarAcuerdoOcultoAsync(context);
+        var email = new FakeEmailService();
+        var controller = CrearController(context, admin.Id, email, CrearScraperService(nombreBD, email));
+
+        var resultado = await controller.Promover(acuerdo.Id, dryRun: false, notificar: false);
+
+        Assert.IsType<OkObjectResult>(resultado);
+        Assert.Empty(email.Enviados);
+        var actualizado = await context.AcuerdosScrapeados.FindAsync(acuerdo.Id);
+        Assert.False(actualizado!.Oculto);
+        Assert.Equal("Alta", actualizado.Confianza);
+        Assert.False(actualizado.NotificacionEnviada);
+    }
+
+    [Fact]
+    public async Task Promover_NotificarFalse_DryRunIndicaQueNoSeEnviaraCorreo()
+    {
+        var nombreBD = nameof(Promover_NotificarFalse_DryRunIndicaQueNoSeEnviaraCorreo);
+        using var context = CrearContextoEnMemoria(nombreBD);
+        var (admin, _, _, acuerdo) = await SembrarAcuerdoOcultoAsync(context);
+        var email = new FakeEmailService();
+        var controller = CrearController(context, admin.Id, email, CrearScraperService(nombreBD, email));
+
+        var resultado = await controller.Promover(acuerdo.Id, dryRun: true, notificar: false);
+
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        var json = System.Text.Json.JsonSerializer.Serialize(ok.Value);
+        Assert.Contains("sin enviar correo", json);
+    }
+
+    [Fact]
+    public async Task Promover_NotificarFalse_RegistraEnBitacoraQueNoSeNotifico()
+    {
+        var nombreBD = nameof(Promover_NotificarFalse_RegistraEnBitacoraQueNoSeNotifico);
+        using var context = CrearContextoEnMemoria(nombreBD);
+        var (admin, _, expediente, acuerdo) = await SembrarAcuerdoOcultoAsync(context);
+        var email = new FakeEmailService();
+        var controller = CrearController(context, admin.Id, email, CrearScraperService(nombreBD, email));
+
+        await controller.Promover(acuerdo.Id, dryRun: false, notificar: false);
+
+        var entrada = await context.BitacoraCambios.SingleOrDefaultAsync(b => b.ExpedienteId == expediente.Id);
+        Assert.NotNull(entrada);
+        Assert.Contains("sin notificar", entrada!.Detalle);
+    }
+
+    [Fact]
     public async Task Promover_SiFallaLaNotificacion_ElAcuerdoQuedaPromovidoIgual()
     {
         var nombreBD = nameof(Promover_SiFallaLaNotificacion_ElAcuerdoQuedaPromovidoIgual);

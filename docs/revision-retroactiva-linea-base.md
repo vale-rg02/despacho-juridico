@@ -185,7 +185,30 @@ Se confirmó que la bitácora de D=16 de octubre solo tiene 7 corridas automáti
 
 ## Estado de las recuperaciones
 
-**Ninguna recuperación ejecutada todavía.** Los 8 candidatos de S1 de Cola 1 están listados arriba, listos para que se apruebe su recuperación vía `Promover` (primero con `dryRun=true` para confirmar destinatario, caso por caso, con decisión explícita sobre si notificar automático o avisar a mano dado que varios tienen más de un mes de antigüedad).
+Para destrabar esto se construyeron dos capacidades nuevas en `AcuerdosController` (18-oct), ambas con `dryRun=true` por defecto:
+
+- **`PATCH /api/acuerdos/{id}/sugerir`** — hermano de `Promover`, pero sube el acuerdo a `Confianza=Media` en vez de `Alta`. Reusa el correo de "posible acuerdo, confirma o descarta" que ya existía para cualquier Media (DJ-122) — el litigante decide, no se le dice que es un hecho confirmado. Se le corrigió un bug antes de desplegarlo: sin el fix, `RecordatorioAcuerdosPendientesService` habría mandado un segundo correo de seguimiento al día siguiente (cuenta los días desde `FechaDetectado`, que seguía con la fecha original de hace semanas) — ya resuelto, con prueba de regresión.
+- **`PATCH /api/acuerdos/{id}/promover?notificar=false`** — para cuando el litigante ya está al tanto del caso por otro medio (ej. un acuerdo posterior sobre el mismo expediente que ya se le notificó). Agrega el acuerdo a la base y lo marca `Confianza=Alta` sin mandar ningún correo. `NotificacionEnviada` se queda en `false` (refleja la realidad — no salió correo — y no hay ningún proceso que lo reintente después).
+
+**Plan final decidido (18-oct), ninguno ejecutado todavía en producción:**
+
+| Id | Expediente | Camino | Motivo |
+|---|---|---|---|
+| 6640 | 704/2025 | `Sugerir` | — |
+| 4665 | 78/2026 | `Sugerir` | Duda genuina sobre si es correcto (señalada al revisar el contenido real) |
+| 3354 | 72/2026 | `Sugerir` | — |
+| 4506 | 462/2026 | `Promover` (con correo) | De los dos acuerdos nuevos de este expediente, este es el que se notifica |
+| 3746 | 462/2026 | `Promover?notificar=false` | Mismo expediente que 4506 — litigante ya al tanto por ese otro acuerdo, no se duplica el correo |
+| 5059 | 130/2026 | `Promover?notificar=false` | Litigante ya está al tanto del status del expediente por un acuerdo posterior ya notificado y registrado |
+| 4586 | 67/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio |
+| 3189 | 400/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio |
+
+Sigue pendiente: decidir quién ejecuta esto en producción (el equipo no puede iniciar sesión ahí para correrlo por API) y correr `dryRun=true` en los 8 antes de la ejecución real.
+
+### Pendientes a futuro (agregados el 18-oct, fuera de alcance de esta historia)
+
+- **Mecanismo para "litigante ya enterado por otro acuerdo"**: los 4 casos de `notificar=false` de arriba son un parche puntual (un parámetro en `Promover`), no una solución general. Falta investigar y definir un mecanismo propio del scraper para detectar este patrón automáticamente (acuerdo oculto cuyo expediente ya tuvo un acuerdo posterior visible/notificado) en vez de decidirlo a mano caso por caso.
+- **Plantilla de correo para recuperaciones tardías**: `Promover` y `Sugerir` reusan la misma plantilla que una detección del día — para acuerdos que se notifican con semanas de retraso (como varios de los 8 de aquí), falta definir si conviene una plantilla distinta que deje claro que es una recuperación tardía y no un hallazgo de hoy.
 
 ---
 
