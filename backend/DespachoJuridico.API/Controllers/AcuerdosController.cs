@@ -468,6 +468,70 @@ public class AcuerdosController : ControllerBase
         return Ok(new { mensaje = "Acuerdo promovido correctamente" });
     }
 
+    // PATCH /api/acuerdos/{id}/sugerir
+    // PATCH /api/acuerdos/{id}/sugerir?dryRun=false — ejecuta de verdad y notifica como sugerencia
+    // DJ-141: hermano de Promover para cuando el equipo técnico NO tiene certeza
+    // de que un acuerdo oculto por el algoritmo sea real -- en vez de subirlo
+    // directo a Confianza=Alta (confirmado), lo sube a Media (sugerido) y reusa
+    // el mismo correo "posible acuerdo, confirma o descarta" que ya existe para
+    // cualquier acuerdo Media (ver EnviarNotificacionAsync, DJ-122). El litigante
+    // decide con Confirmar/Descartar, igual que cualquier otro Media -- no hace
+    // falta una plantilla de correo nueva.
+    [HttpPatch("{id}/sugerir")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> Sugerir(int id, [FromQuery] bool dryRun = true)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null) return NotFound(new { mensaje = "Acuerdo no encontrado" });
+        if (!acuerdo.Oculto) return BadRequest(new { mensaje = "Este acuerdo ya está visible" });
+        if (acuerdo.DescartadoManualmente)
+            return BadRequest(new { mensaje = "Este acuerdo fue descartado manualmente por un litigante -- usa Restaurar en su lugar" });
+
+        if (dryRun)
+        {
+            return Ok(new
+            {
+                dryRun = true,
+                mensaje = "Vista previa -- nada se guardó ni se notificó. Vuelve a llamar con dryRun=false para sugerir de verdad.",
+                acuerdo.NumeroExpediente,
+                acuerdo.NombreJuzgado,
+                acuerdo.FechaAcuerdo,
+                destinatarioNombre = acuerdo.Expediente.UsuarioAsignado?.Nombre,
+                destinatarioEmail = acuerdo.Expediente.UsuarioAsignado?.Email
+            });
+        }
+
+        acuerdo.Oculto = false;
+        acuerdo.Confianza = "Media";
+        // RecordatorioAcuerdosPendientesService cuenta los días del recordatorio
+        // desde FechaDetectado (ver EsElegibleParaRecordatorio) -- sin este reset
+        // seguía con la fecha en que el algoritmo lo encontró oculto hace semanas,
+        // así que al día siguiente el litigante recibiría de inmediato el correo
+        // de "hace unos días le avisamos..." sobre algo que se le acaba de avisar.
+        acuerdo.FechaDetectado = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        try
+        {
+            await _scraper.EnviarNotificacionManualAsync(_emailService, acuerdo.Expediente, acuerdo);
+            acuerdo.NotificacionEnviada = true;
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo notificar al sugerir el acuerdo {Id} -- queda sugerido igual", id);
+        }
+
+        await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_sugerido",
+            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) sugerido manualmente desde oculto: \"{acuerdo.Sintesis}\"");
+
+        return Ok(new { mensaje = "Acuerdo sugerido correctamente -- el litigante deberá confirmarlo o descartarlo" });
+    }
+
     private async Task RegistrarBitacora(int expedienteId, int usuarioId, string accion, string detalle)
     {
         _context.BitacoraCambios.Add(new Models.BitacoraCambio
