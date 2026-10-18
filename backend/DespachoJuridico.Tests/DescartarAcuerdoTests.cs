@@ -30,7 +30,7 @@ public class DescartarAcuerdoTests
         var controller = new AcuerdosController(
             context, new AccesoExpedientesService(context), new FakeEmailService(),
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AcuerdosController>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AcuerdosController>.Instance, null!);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {
@@ -316,7 +316,7 @@ public class DescartarAcuerdoTests
 
         // Sin pasar fecha: el filtro real es por FechaDetectado (hoy, momento en
         // que SembrarEscenarioAsync creó el registro), no por FechaAcuerdo.
-        var scraperController = new ScraperController(null!, context, null!);
+        var scraperController = new ScraperController(null!, context, null!, null!);
         var resultado = await scraperController.Registros();
 
         var ok = Assert.IsType<OkObjectResult>(resultado);

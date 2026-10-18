@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<AcuerdoVistoPorUsuario> AcuerdoVistoPorUsuarios => Set<AcuerdoVistoPorUsuario>();
     public DbSet<BitacoraEvaluacionScraper> BitacoraEvaluacionScraper => Set<BitacoraEvaluacionScraper>();
     public DbSet<BitacoraDescarteItemizado> BitacoraDescarteItemizado => Set<BitacoraDescarteItemizado>();
+    public DbSet<HallazgoAuditoria> HallazgosAuditoria => Set<HallazgoAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -156,5 +157,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<JuzgadoCatalogo>()
             .HasIndex(j => new { j.SedeId, j.Nombre })
             .IsUnique();
+
+        // DJ-140: igual que CreadoPorId en Expediente -- Restrict, nunca se
+        // borra un Usuario que ya haya registrado un hallazgo.
+        modelBuilder.Entity<HallazgoAuditoria>()
+            .HasOne(h => h.RegistradoPor)
+            .WithMany()
+            .HasForeignKey(h => h.RegistradoPorId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

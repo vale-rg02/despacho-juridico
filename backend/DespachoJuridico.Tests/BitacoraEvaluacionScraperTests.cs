@@ -10,6 +10,43 @@ namespace DespachoJuridico.Tests;
 // todo junto con una base real) se prueba aparte en
 // BitacoraEvaluacionScraperIntegracionTests.cs, igual que el resto del scraper
 // separa lógica pura de orquestación (ver ReevaluarMediaTests.cs).
+// DJ-140: ClasificarOrigenCorrida es la segunda pieza de decisión pura del
+// scraper -- igual que ClasificarDescarteSinCandidato, sin EF ni IO.
+public class ClasificarOrigenCorridaTests
+{
+    [Fact]
+    public void ConFiltroDeExpedientes_EsManual_SinImportarLoDemas()
+    {
+        Assert.Equal("Manual", ScraperAcuerdosService.ClasificarOrigenCorrida(
+            tieneFiltroExpedientes: true, notificar: true, esCicloAutomaticoProgramado: true));
+        Assert.Equal("Manual", ScraperAcuerdosService.ClasificarOrigenCorrida(
+            tieneFiltroExpedientes: true, notificar: false, esCicloAutomaticoProgramado: false));
+    }
+
+    [Fact]
+    public void SinFiltroYNotificarFalse_EsBackfill()
+    {
+        Assert.Equal("Backfill", ScraperAcuerdosService.ClasificarOrigenCorrida(
+            tieneFiltroExpedientes: false, notificar: false, esCicloAutomaticoProgramado: false));
+    }
+
+    [Fact]
+    public void SinFiltroNotificarTrueYCicloInterno_EsAutomatica()
+    {
+        Assert.Equal("Automatica", ScraperAcuerdosService.ClasificarOrigenCorrida(
+            tieneFiltroExpedientes: false, notificar: true, esCicloAutomaticoProgramado: true));
+    }
+
+    // DJ-140: el caso que antes se perdía dentro de "Automatica" -- un admin
+    // forzando /ejecutar a mano, sin filtros, sin ser el ciclo interno.
+    [Fact]
+    public void SinFiltroNotificarTrueSinCicloInterno_EsManualForzada()
+    {
+        Assert.Equal("ManualForzada", ScraperAcuerdosService.ClasificarOrigenCorrida(
+            tieneFiltroExpedientes: false, notificar: true, esCicloAutomaticoProgramado: false));
+    }
+}
+
 public class ClasificarDescarteSinCandidatoTests
 {
     private static Expediente Exp(string numero, int id = 1) => new() { Id = id, NumeroExpediente = numero, Juzgado = "2do Civil Hermosillo" };

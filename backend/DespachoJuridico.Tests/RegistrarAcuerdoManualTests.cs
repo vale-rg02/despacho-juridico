@@ -35,7 +35,7 @@ public class RegistrarAcuerdoManualTests
         var fakeEmail = new FakeEmailService();
         var controller = new AcuerdosController(
             context, new AccesoExpedientesService(context), fakeEmail,
-            new ConfigurationBuilder().Build(), NullLogger<AcuerdosController>.Instance);
+            new ConfigurationBuilder().Build(), NullLogger<AcuerdosController>.Instance, null!);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {

@@ -24,7 +24,10 @@ builder.Services.AddHostedService<RecordatorioAcuerdosPendientesService>();
 builder.Services.AddSingleton<ScraperAcuerdosService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScraperAcuerdosService>());
 builder.Services.AddSingleton<FrasesGenericasCandidatasService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<FrasesGenericasCandidatasService>()); builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FrasesGenericasCandidatasService>());
+builder.Services.AddSingleton<ReporteAuditoriaScraperService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ReporteAuditoriaScraperService>());
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

@@ -3,6 +3,45 @@ using Xunit;
 
 namespace DespachoJuridico.Tests;
 
+// DJ-140: PuntajeMaximoSimilitud es la variante de PartesCoinciden que
+// regresa el puntaje (double) en vez de bool -- misma lógica de fragmentos,
+// usada por la Cola 2 del reporte de auditoría. Nombres de prueba sintéticos,
+// no datos reales de producción.
+public class PuntajeMaximoSimilitudTests
+{
+    [Fact]
+    public void CoincidenciaExacta_DaUno()
+    {
+        var puntaje = ScraperAcuerdosService.PuntajeMaximoSimilitud("GARCIA LOPEZ", "DEMANDA.- GARCIA LOPEZ VS BANCO");
+        Assert.Equal(1.0, puntaje);
+    }
+
+    [Fact]
+    public void SinNadaParecido_DaPuntajeBajo()
+    {
+        // La búsqueda de subcadena aproximada puede encontrar coincidencias
+        // parciales accidentales incluso en texto no relacionado -- no es 0.0
+        // exacto, pero sí claramente por debajo de cualquier umbral razonable.
+        var puntaje = ScraperAcuerdosService.PuntajeMaximoSimilitud("GARCIA LOPEZ", "DEMANDA.- TOTALMENTE OTRO ASUNTO");
+        Assert.True(puntaje < 0.5, $"Puntaje inesperadamente alto: {puntaje}");
+    }
+
+    [Fact]
+    public void VariacionDeOrtografia_DaPuntajeAltoSinSerUno()
+    {
+        // "CORONA" vs "CORONADO" -- mismo caso real documentado en PartesCoinciden.
+        var puntaje = ScraperAcuerdosService.PuntajeMaximoSimilitud("CORONA AVILA", "DEMANDA.- JUAN CORONADO AVILA VS BANCO");
+        Assert.True(puntaje < 1.0 && puntaje > 0.7, $"Puntaje inesperado: {puntaje}");
+    }
+
+    [Fact]
+    public void TextoVacio_DaCero()
+    {
+        Assert.Equal(0.0, ScraperAcuerdosService.PuntajeMaximoSimilitud("", "algo"));
+        Assert.Equal(0.0, ScraperAcuerdosService.PuntajeMaximoSimilitud("algo", ""));
+    }
+}
+
 public class PartesCoincidenTests
 {
     [Theory]

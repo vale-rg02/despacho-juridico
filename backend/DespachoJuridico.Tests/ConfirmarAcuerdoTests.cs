@@ -27,7 +27,7 @@ public class ConfirmarAcuerdoTests
         var controller = new AcuerdosController(
             context, new AccesoExpedientesService(context), new FakeEmailService(),
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AcuerdosController>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AcuerdosController>.Instance, null!);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {

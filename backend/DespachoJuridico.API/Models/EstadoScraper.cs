@@ -8,4 +8,10 @@ public class EstadoScraper
 {
     public int Id { get; set; }
     public DateTime? UltimaCorridaCompletaEn { get; set; }
+
+    // DJ-140: marca de agua del reporte diario de auditoría -- cada envío real
+    // (nunca una vista previa) la actualiza; el siguiente reporte solo muestra
+    // lo nuevo desde esta fecha. Reutiliza esta fila singleton (Id=1) en vez de
+    // una tabla nueva solo para esto.
+    public DateTime? UltimoReporteAuditoriaEnviadoEn { get; set; }
 }

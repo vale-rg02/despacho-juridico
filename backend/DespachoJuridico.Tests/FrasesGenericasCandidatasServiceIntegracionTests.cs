@@ -38,6 +38,40 @@ public class FrasesGenericasCandidatasServiceIntegracionTests
         return (context, servicio);
     }
 
+    // DJ-140: variante con IEmailService real (FakeEmailService) y config
+    // extra -- para probar el gate de Auditoria:ApagarCorreoSemanalFrasesGenericas
+    // en RevisarYEnviarSiHayCandidatosAsync, que CrearEscenario no necesita
+    // para el resto de las pruebas de este archivo (GenerarReporteAsync nunca
+    // toca IEmailService).
+    private static (AppDbContext Context, FrasesGenericasCandidatasService Servicio, FakeEmailService Email) CrearEscenarioConEmail(
+        string nombreBD, bool apagarCorreoSemanal)
+    {
+        var servicios = new ServiceCollection();
+        servicios.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(nombreBD));
+        var emailFake = new FakeEmailService();
+        servicios.AddSingleton<IEmailService>(emailFake);
+        var proveedor = servicios.BuildServiceProvider();
+
+        var context = new AppDbContext(
+            new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(nombreBD).Options);
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FrasesGenericas:UmbralExpedientes"] = "3",
+                ["FrasesGenericas:Destinatarios"] = "equipo@test.com",
+                ["Auditoria:ApagarCorreoSemanalFrasesGenericas"] = apagarCorreoSemanal ? "true" : "false"
+            })
+            .Build();
+
+        var servicio = new FrasesGenericasCandidatasService(
+            proveedor.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<FrasesGenericasCandidatasService>.Instance,
+            config);
+
+        return (context, servicio, emailFake);
+    }
+
     private static Expediente NuevoExpediente(string numero, string juzgado, string tipoJuicio = "Hipotecario") => new()
     {
         NumeroExpediente = numero,
@@ -164,5 +198,51 @@ public class FrasesGenericasCandidatasServiceIntegracionTests
             Assert.True(acuerdo!.Oculto);
             Assert.Equal("Baja", acuerdo.Confianza);
         }
+    }
+
+    // DJ-140: RevisarYEnviarSiHayCandidatosAsync es el método que corre el
+    // ciclo periódico real (ExecuteAsync lo llama cada semana) -- a diferencia
+    // de GenerarReporteAsync/EnviarSiHayCandidatosAsync (usados también por la
+    // vista previa del controller y por el reporte de DJ-140), este SÍ debe
+    // respetar la bandera que apaga el correo semanal cuando el reporte diario
+    // ya lo absorbe.
+    [Fact]
+    public async Task RevisarYEnviar_ConBanderaApagada_NoEnviaElCorreoSemanalAunqueHayaCandidatosReales()
+    {
+        var nombreBD = nameof(RevisarYEnviar_ConBanderaApagada_NoEnviaElCorreoSemanalAunqueHayaCandidatosReales);
+        var (context, servicio, email) = CrearEscenarioConEmail(nombreBD, apagarCorreoSemanal: true);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var exp = NuevoExpediente($"{700 + i}/2026", "2do Civil Hermosillo", "Hipotecario");
+            context.Expedientes.Add(exp);
+            await context.SaveChangesAsync();
+            context.AcuerdosScrapeados.Add(NuevoAcuerdo(exp, 153, "2do Civil Hermosillo", "ESPECIAL HIPOTECARIO - ACCION BANDERA APAGADA"));
+        }
+        await context.SaveChangesAsync();
+
+        await servicio.RevisarYEnviarSiHayCandidatosAsync(CancellationToken.None);
+
+        Assert.Empty(email.Enviados);
+    }
+
+    [Fact]
+    public async Task RevisarYEnviar_SinLaBandera_EnviaElCorreoSemanalComoAntes()
+    {
+        var nombreBD = nameof(RevisarYEnviar_SinLaBandera_EnviaElCorreoSemanalComoAntes);
+        var (context, servicio, email) = CrearEscenarioConEmail(nombreBD, apagarCorreoSemanal: false);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var exp = NuevoExpediente($"{710 + i}/2026", "2do Civil Hermosillo", "Hipotecario");
+            context.Expedientes.Add(exp);
+            await context.SaveChangesAsync();
+            context.AcuerdosScrapeados.Add(NuevoAcuerdo(exp, 153, "2do Civil Hermosillo", "ESPECIAL HIPOTECARIO - ACCION BANDERA ENCENDIDA"));
+        }
+        await context.SaveChangesAsync();
+
+        await servicio.RevisarYEnviarSiHayCandidatosAsync(CancellationToken.None);
+
+        Assert.Single(email.Enviados);
     }
 }

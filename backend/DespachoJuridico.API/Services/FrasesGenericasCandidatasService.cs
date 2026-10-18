@@ -57,8 +57,15 @@ public class FrasesGenericasCandidatasService : BackgroundService
         } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private async Task RevisarYEnviarSiHayCandidatosAsync(CancellationToken ct)
+    internal async Task RevisarYEnviarSiHayCandidatosAsync(CancellationToken ct)
     {
+        // DJ-140: cuando el reporte diario de auditoría está activo, absorbe
+        // este aviso semanal -- queda un solo correo, no dos. GenerarReporteAsync
+        // y EnviarSiHayCandidatosAsync siguen sin cambios para quien los llame
+        // directo (la vista previa de este controller, y el elemento 3 del
+        // reporte de DJ-140).
+        if (_config.GetValue<bool>("Auditoria:ApagarCorreoSemanalFrasesGenericas", false)) return;
+
         var reporte = await GenerarReporteAsync(null, ct);
         await EnviarSiHayCandidatosAsync(reporte);
     }

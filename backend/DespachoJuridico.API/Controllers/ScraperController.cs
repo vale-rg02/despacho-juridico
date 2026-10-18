@@ -1,5 +1,6 @@
 using DespachoJuridico.API.Data;
 using DespachoJuridico.API.DTOs;
+using DespachoJuridico.API.Models;
 using DespachoJuridico.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ public class ScraperController : ControllerBase
     private readonly ScraperAcuerdosService _scraper;
     private readonly AppDbContext _context;
     private readonly FrasesGenericasCandidatasService _frasesGenericas;
+    private readonly ReporteAuditoriaScraperService _reporteAuditoria;
 
     // DJ-102: cooldown fijo entre usos del botón "Actualizar expedientes".
     private static readonly TimeSpan CooldownActualizacionManual = TimeSpan.FromMinutes(15);
@@ -31,11 +33,14 @@ public class ScraperController : ControllerBase
     // acercarse a esto.
     private static readonly TimeSpan UmbralProgresoObsoleto = TimeSpan.FromMinutes(10);
 
-    public ScraperController(ScraperAcuerdosService scraper, AppDbContext context, FrasesGenericasCandidatasService frasesGenericas)
+    public ScraperController(
+        ScraperAcuerdosService scraper, AppDbContext context, FrasesGenericasCandidatasService frasesGenericas,
+        ReporteAuditoriaScraperService reporteAuditoria)
     {
         _scraper = scraper;
         _context = context;
         _frasesGenericas = frasesGenericas;
+        _reporteAuditoria = reporteAuditoria;
     }
 
     private int ObtenerUsuarioId() =>
@@ -215,6 +220,116 @@ public class ScraperController : ControllerBase
             await _frasesGenericas.EnviarSiHayCandidatosAsync(reporte);
 
         return Ok(reporte);
+    }
+
+    // GET /api/scraper/auditoria-preview?fecha=2026-10-16
+    // GET /api/scraper/auditoria-preview?fecha=2026-10-16&dryRun=false — avanza la marca de agua (no envía correo aquí)
+    // DJ-140: arma el reporte diario de auditoría completo con datos reales,
+    // sin enviar correo (dryRun=true por defecto, mismo patrón que
+    // reevaluar-ocultos/frases-genericas). dryRun=false solo avanza la marca
+    // de agua -- para enviar el correo real usar el ciclo automático
+    // (Auditoria:Activo=true) una vez aprobada la vista previa.
+    [HttpGet("auditoria-preview")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> AuditoriaPreview([FromQuery] DateOnly? fecha = null, [FromQuery] bool dryRun = true)
+    {
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var fechaConsulta = fecha ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
+
+        var reporte = await _reporteAuditoria.GenerarReporteAsync(fechaConsulta, avanzarMarcaDeAgua: !dryRun, HttpContext.RequestAborted);
+        return Ok(reporte);
+    }
+
+    // POST /api/scraper/hallazgos
+    // DJ-140: registro manual de un hallazgo (S1/S2/S3) durante la revisión
+    // diaria. Alimenta el conteo de días hábiles de este mismo reporte y el
+    // registro diario de DJ-143 -- un solo registro para los dos. Sin frontend.
+    [HttpPost("hallazgos")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> RegistrarHallazgo([FromBody] HallazgoAuditoriaRequest request)
+    {
+        var error = ReporteAuditoriaScraperService.ValidarHallazgo(request);
+        if (error != null) return BadRequest(new { mensaje = error });
+
+        var hallazgo = new HallazgoAuditoria
+        {
+            Fecha = request.Fecha,
+            Severidad = request.Severidad,
+            Categoria = request.Categoria,
+            Descripcion = request.Descripcion,
+            NumeroExpediente = request.NumeroExpediente,
+            NombreJuzgado = request.NombreJuzgado,
+            RegistradoPorId = ObtenerUsuarioId()
+        };
+
+        _context.HallazgosAuditoria.Add(hallazgo);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { hallazgo.Id });
+    }
+
+    // GET /api/scraper/hallazgos?fechaInicio=2026-10-15&fechaFin=2026-10-16
+    // Sin filtro de fechas regresa todo el historial -- lo consume DJ-143
+    // (ventana de observación) además de este mismo reporte. Sin frontend.
+    [HttpGet("hallazgos")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> ListarHallazgos([FromQuery] DateOnly? fechaInicio = null, [FromQuery] DateOnly? fechaFin = null)
+    {
+        var query = _context.HallazgosAuditoria.Include(h => h.RegistradoPor).AsQueryable();
+        if (fechaInicio.HasValue) query = query.Where(h => h.Fecha >= fechaInicio.Value);
+        if (fechaFin.HasValue) query = query.Where(h => h.Fecha <= fechaFin.Value);
+
+        var hallazgos = await query
+            .OrderBy(h => h.Fecha)
+            .Select(h => new HallazgoAuditoriaResponse
+            {
+                Id = h.Id,
+                Fecha = h.Fecha,
+                Severidad = h.Severidad,
+                Categoria = h.Categoria,
+                Descripcion = h.Descripcion,
+                NumeroExpediente = h.NumeroExpediente,
+                NombreJuzgado = h.NombreJuzgado,
+                RegistradoPorNombre = h.RegistradoPor.Nombre,
+                CreadoEn = h.CreadoEn
+            })
+            .ToListAsync();
+
+        return Ok(hallazgos);
+    }
+
+    // POST /api/scraper/colisiones-juzgado/{id}/reintentar
+    // POST /api/scraper/colisiones-juzgado/{id}/reintentar?dryRun=false
+    // DJ-140: recupera un hallazgo de la Cola 2b (BitacoraDescarteItemizado,
+    // Razon=NUMERO_COINCIDE_JUZGADO_NO). Ese acuerdo nunca se guardó -- se
+    // descartó antes de crear nada, y su texto (Partes, síntesis) nunca se
+    // almacenó (DJ-139 nunca lo guarda) -- así que no hay nada que "restaurar"
+    // como con un AcuerdoScrapeado. La única forma de recuperarlo es volver a
+    // pedírselo a ADISON para el mismo juzgado y la misma fecha exacta de la
+    // corrida original (se calcula a partir de CorridaId+IdUnidad, ya que
+    // BitacoraDescarteItemizado no guarda la fecha consultada directamente).
+    // Si nadie corrigió la causa real primero (el juzgado mal registrado en el
+    // expediente, o un patrón de JuzgadoCoincide que le falte a ese juzgado),
+    // esto simplemente lo vuelve a descartar igual -- comportamiento correcto,
+    // no un error. dryRun=true por defecto, mismo patrón que /ejecutar.
+    [HttpPost("colisiones-juzgado/{id}/reintentar")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> ReintentarColisionJuzgado(int id, [FromQuery] bool dryRun = true)
+    {
+        var descarte = await _context.BitacoraDescarteItemizado.FindAsync(id);
+        if (descarte == null) return NotFound(new { mensaje = "Descarte no encontrado" });
+        if (descarte.Razon != "NUMERO_COINCIDE_JUZGADO_NO")
+            return BadRequest(new { mensaje = "Este endpoint solo aplica a descartes de razón NUMERO_COINCIDE_JUZGADO_NO" });
+
+        var corrida = await _context.BitacoraEvaluacionScraper
+            .FirstOrDefaultAsync(b => b.CorridaId == descarte.CorridaId && b.IdUnidad == descarte.IdUnidad);
+        if (corrida == null)
+            return BadRequest(new { mensaje = "No se encontró la corrida original para calcular la fecha -- no se puede reintentar" });
+
+        var resultado = await _scraper.EjecutarScrapingAsync(
+            corrida.FechaConsultada, dryRun, new HashSet<int> { descarte.IdUnidad });
+
+        return Ok(resultado);
     }
 
     // POST /api/scraper/actualizar-mis-expedientes

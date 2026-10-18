@@ -194,19 +194,48 @@ public class BitacoraEvaluacionScraperIntegracionTests
         Assert.Equal(1, fila.DescartadoSinCandidato);
     }
 
-    [Theory]
-    [InlineData(true, "Automatica")]
-    [InlineData(false, "Backfill")]
-    public async Task OrigenAutomaticaOBackfill_SeDerivaDeNotificar(bool notificar, string origenEsperado)
+    [Fact]
+    public async Task OrigenBackfill_SeDerivaDeNotificarFalse()
     {
-        var nombreBD = $"{nameof(OrigenAutomaticaOBackfill_SeDerivaDeNotificar)}_{origenEsperado}";
+        var nombreBD = nameof(OrigenBackfill_SeDerivaDeNotificarFalse);
         var respuestas = new Dictionary<int, ResultadoScrapeoJuzgado> { [IdUnidadDePrueba] = new(new(), true, null) };
         var (_, servicio) = CrearEscenario(nombreBD, respuestas);
 
         var resultado = await servicio.EjecutarScrapingAsync(
-            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba }, notificar: notificar);
+            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba }, notificar: false);
 
-        Assert.Equal(origenEsperado, Assert.Single(resultado.Embudo).Origen);
+        Assert.Equal("Backfill", Assert.Single(resultado.Embudo).Origen);
+    }
+
+    [Fact]
+    public async Task OrigenAutomatica_SoloCuandoLoLlamaElCicloInterno()
+    {
+        var nombreBD = nameof(OrigenAutomatica_SoloCuandoLoLlamaElCicloInterno);
+        var respuestas = new Dictionary<int, ResultadoScrapeoJuzgado> { [IdUnidadDePrueba] = new(new(), true, null) };
+        var (_, servicio) = CrearEscenario(nombreBD, respuestas);
+
+        var resultado = await servicio.EjecutarScrapingAsync(
+            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba },
+            esCicloAutomaticoProgramado: true);
+
+        Assert.Equal("Automatica", Assert.Single(resultado.Embudo).Origen);
+    }
+
+    // DJ-140: un admin corriendo /ejecutar a mano (sin idsUnidad reales de
+    // filtro de expedientes, sin esCicloAutomaticoProgramado) ya NO se mezcla
+    // con "Automatica" -- antes de este fix caía ahí por descarte (ver
+    // comentario de DJ-139 en Jira sobre esta ambigüedad).
+    [Fact]
+    public async Task OrigenManualForzada_CuandoAdminEjecutaSinFiltrosYSinCicloInterno()
+    {
+        var nombreBD = nameof(OrigenManualForzada_CuandoAdminEjecutaSinFiltrosYSinCicloInterno);
+        var respuestas = new Dictionary<int, ResultadoScrapeoJuzgado> { [IdUnidadDePrueba] = new(new(), true, null) };
+        var (_, servicio) = CrearEscenario(nombreBD, respuestas);
+
+        var resultado = await servicio.EjecutarScrapingAsync(
+            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba });
+
+        Assert.Equal("ManualForzada", Assert.Single(resultado.Embudo).Origen);
     }
 
     [Fact]
@@ -220,7 +249,8 @@ public class BitacoraEvaluacionScraperIntegracionTests
             fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba },
             expedienteIdsFiltro: new HashSet<int> { 1 });
         var resultadoAutomatico = await servicio.EjecutarScrapingAsync(
-            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba });
+            fechaConsulta: new DateOnly(2026, 10, 1), idsUnidad: new HashSet<int> { IdUnidadDePrueba },
+            esCicloAutomaticoProgramado: true);
 
         Assert.Equal("Manual", Assert.Single(resultadoManual.Embudo).Origen);
         Assert.Equal("Automatica", Assert.Single(resultadoAutomatico.Embudo).Origen);

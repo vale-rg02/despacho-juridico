@@ -226,7 +226,7 @@ public class ScraperAcuerdosService : BackgroundService
                 await _scrapingLock.WaitAsync(stoppingToken);
                 try
                 {
-                    await EjecutarScrapingAsync();
+                    await EjecutarScrapingAsync(esCicloAutomaticoProgramado: true);
                 }
                 finally
                 {
@@ -275,7 +275,15 @@ public class ScraperAcuerdosService : BackgroundService
     // sobre expedientes ajenos, aunque compartan juzgado con uno de los suyos.
     // Default null: comportamiento idéntico al de siempre para el ciclo automático
     // y los endpoints admin existentes.
-    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true, IReadOnlySet<int>? expedienteIdsFiltro = null)
+    // DJ-140: esCicloAutomaticoProgramado=true SOLO lo pasa el propio timer
+    // interno (ExecuteAsync) -- nunca un endpoint. Antes de esto, un admin
+    // corriendo /ejecutar sin filtros quedaba indistinguible del ciclo real
+    // (ambos daban Origen="Automatica"), lo que inflaba cualquier señal de
+    // salud basada en "cuántas corridas Automática hubo hoy" (ver comentario
+    // de DJ-139 en Jira). Default false: ningún endpoint/controller existente
+    // cambia de comportamiento, solo cambia qué Origen queda escrito cuando un
+    // admin fuerza una corrida completa a mano.
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true, IReadOnlySet<int>? expedienteIdsFiltro = null, bool esCicloAutomaticoProgramado = false)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
         var fecha = fechaConsulta ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria));
@@ -296,7 +304,7 @@ public class ScraperAcuerdosService : BackgroundService
         // ver Paso 1 de la investigación de DJ-139.
         var corridaId = Guid.NewGuid();
         var fechaHoraCorrida = DateTime.UtcNow;
-        var origenCorrida = expedienteIdsFiltro != null ? "Manual" : (!notificar ? "Backfill" : "Automatica");
+        var origenCorrida = ClasificarOrigenCorrida(expedienteIdsFiltro != null, notificar, esCicloAutomaticoProgramado);
         resultado.CorridaId = corridaId;
 
         using var scope = _scopeFactory.CreateScope();
@@ -741,6 +749,19 @@ public class ScraperAcuerdosService : BackgroundService
 
         _logger.LogInformation("Scraping completado para {Fecha}", fecha);
         return resultado;
+    }
+
+    // DJ-140: "Manual" (DJ-102, acotado a expedientes propios) siempre gana --
+    // es la distinción más específica y ya existía. "Backfill" (notificar=false)
+    // también es anterior a esto. El único caso nuevo es: notificar=true,
+    // sin expedienteIdsFiltro, pero NO llamado por el timer interno -- un
+    // admin forzando /ejecutar a mano. Antes caía en "Automatica" por descarte;
+    // ahora tiene su propio valor para no mezclarse con el ciclo real.
+    internal static string ClasificarOrigenCorrida(bool tieneFiltroExpedientes, bool notificar, bool esCicloAutomaticoProgramado)
+    {
+        if (tieneFiltroExpedientes) return "Manual";
+        if (!notificar) return "Backfill";
+        return esCicloAutomaticoProgramado ? "Automatica" : "ManualForzada";
     }
 
     // DJ-139: por qué un acuerdo sin candidato no avanzó, más allá de "no hay
@@ -1221,6 +1242,14 @@ public class ScraperAcuerdosService : BackgroundService
         bool ConsultaExitosa,
         string? MotivoFallo);
 
+    // DJ-140: wrapper público mínimo para que AcuerdosController pueda
+    // notificar al promover manualmente un acuerdo oculto
+    // (PATCH /acuerdos/{id}/promover, ver "promover acuerdo oculto" en DJ-140)
+    // -- reusa la misma plantilla de correo que una detección normal, sin
+    // duplicar el HTML en otro archivo.
+    public Task EnviarNotificacionManualAsync(IEmailService emailService, Expediente expediente, AcuerdoScrapeado acuerdo) =>
+        EnviarNotificacionAsync(emailService, expediente, acuerdo);
+
     private async Task EnviarNotificacionAsync(IEmailService emailService, Expediente expediente, AcuerdoScrapeado acuerdo)
     {
         if (expediente.UsuarioAsignado == null) return;
@@ -1294,7 +1323,7 @@ public class ScraperAcuerdosService : BackgroundService
             ? $"Posible acuerdo del expediente (Exp. {numeroExpediente}) — confirma para notificar"
             : $"Nuevo acuerdo judicial — Exp. {numeroExpediente}";
 
-    private static string NormalizarNumero(string numero)
+    internal static string NormalizarNumero(string numero)
     {
         var partes = numero.Trim().Replace(" ", "").Split('/', '-');
         if (partes.Length == 2)
@@ -1633,6 +1662,40 @@ public class ScraperAcuerdosService : BackgroundService
             return NombreIndividualCoincide(parteRelevante);
 
         return nombresConfiables.Any(NombreIndividualCoincide);
+    }
+
+    // DJ-140: variante de PartesCoinciden que regresa el puntaje máximo (0.0 a
+    // 1.0) en vez de un bool -- para la Cola 2 del reporte de auditoría
+    // (ocultos foráneos cuyo nombre "casi" coincide, justo debajo del umbral
+    // real). Misma lógica de fragmentos exacta; nunca decide un match real,
+    // solo reporta qué tan cerca estuvo.
+    internal static double PuntajeMaximoSimilitud(string parteDemandada, string partesScrapeadas)
+    {
+        if (string.IsNullOrWhiteSpace(parteDemandada) || string.IsNullOrWhiteSpace(partesScrapeadas))
+            return 0.0;
+
+        var parteRelevante = QuitarSufijoOtroDemandado(parteDemandada);
+        var textoNormalizado = NormalizarTexto(partesScrapeadas);
+
+        double PuntajeIndividual(string nombre)
+        {
+            var patronNormalizado = NormalizarTexto(nombre);
+            if (textoNormalizado.Contains(patronNormalizado)) return 1.0;
+            return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado);
+        }
+
+        var nombres = System.Text.RegularExpressions.Regex
+            .Split(parteRelevante, @"\s*,\s*|\s+Y\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
+
+        var nombresConfiables = nombres.Where(EsNombreConfiable).ToList();
+
+        if (nombresConfiables.Count == 0)
+            return PuntajeIndividual(parteRelevante);
+
+        return nombresConfiables.Max(PuntajeIndividual);
     }
 
     private static bool EsNombreConfiable(string nombre) =>

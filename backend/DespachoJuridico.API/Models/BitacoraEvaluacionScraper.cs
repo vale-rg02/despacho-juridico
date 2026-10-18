@@ -19,8 +19,10 @@ public class BitacoraEvaluacionScraper
     public int IdUnidad { get; set; }
     public string NombreJuzgado { get; set; } = string.Empty;
 
-    // "Automatica" | "Manual" (DJ-102) | "Backfill" (notificar=false) --
-    // derivado de los parámetros de la corrida, no es un parámetro nuevo.
+    // "Automatica" (solo el ciclo interno real) | "ManualForzada" (DJ-140,
+    // admin corriendo /ejecutar a mano sin filtros) | "Manual" (DJ-102,
+    // acotado a expedientes propios) | "Backfill" (notificar=false) -- ver
+    // ScraperAcuerdosService.ClasificarOrigenCorrida.
     public string Origen { get; set; } = string.Empty;
     public bool DryRun { get; set; }
 

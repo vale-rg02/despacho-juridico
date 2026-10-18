@@ -341,6 +341,9 @@ namespace DespachoJuridico.API.Migrations
                     b.Property<DateTime?>("UltimaCorridaCompletaEn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("UltimoReporteAuditoriaEnviadoEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
                     b.ToTable("EstadosScraper");
@@ -484,6 +487,48 @@ namespace DespachoJuridico.API.Migrations
                         .IsUnique();
 
                     b.ToTable("ExpedienteAccesos");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.HallazgoAuditoria", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<string>("NombreJuzgado")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NumeroExpediente")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RegistradoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Severidad")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegistradoPorId");
+
+                    b.ToTable("HallazgosAuditoria");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.HistorialEtapa", b =>
@@ -829,6 +874,17 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("Expediente");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.HallazgoAuditoria", b =>
+                {
+                    b.HasOne("DespachoJuridico.API.Models.Usuario", "RegistradoPor")
+                        .WithMany()
+                        .HasForeignKey("RegistradoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RegistradoPor");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.HistorialEtapa", b =>

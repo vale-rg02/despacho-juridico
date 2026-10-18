@@ -19,14 +19,18 @@ public class AcuerdosController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly IConfiguration _config;
     private readonly ILogger<AcuerdosController> _logger;
+    private readonly ScraperAcuerdosService _scraper;
 
-    public AcuerdosController(AppDbContext context, IAccesoExpedientesService acceso, IEmailService emailService, IConfiguration config, ILogger<AcuerdosController> logger)
+    public AcuerdosController(
+        AppDbContext context, IAccesoExpedientesService acceso, IEmailService emailService, IConfiguration config,
+        ILogger<AcuerdosController> logger, ScraperAcuerdosService scraper)
     {
         _context = context;
         _acceso = acceso;
         _emailService = emailService;
         _config = config;
         _logger = logger;
+        _scraper = scraper;
     }
 
     // GET /api/acuerdos/no-vistos
@@ -395,6 +399,73 @@ public class AcuerdosController : ControllerBase
             $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) confirmado: \"{acuerdo.Sintesis}\"");
 
         return Ok(new { mensaje = "Acuerdo confirmado correctamente" });
+    }
+
+    // PATCH /api/acuerdos/{id}/promover
+    // PATCH /api/acuerdos/{id}/promover?dryRun=false — ejecuta de verdad y notifica
+    // DJ-140: único camino para promover un acuerdo que el ALGORITMO escondió
+    // (Oculto=true) y que nadie más tocó -- a diferencia de Confirmar (solo
+    // Confianza=Media) y Restaurar (solo si un litigante lo había descartado a
+    // mano). Pensado para cuando la revisión diaria del reporte de auditoría
+    // (Cola 1/Cola 2 de DJ-140) confirma que un oculto SÍ es un caso real. Solo
+    // admin -- es una revisión del equipo técnico, no una acción de litigante.
+    // dryRun=true por defecto (a diferencia de Confirmar/Restaurar, que son
+    // reversibles): esto manda un correo real de inmediato y no hay forma de
+    // "desenviarlo" después, así que antes de comprometerse hay que poder ver
+    // a quién le llegaría -- mismo criterio que /ejecutar, /auditoria-preview
+    // y /colisiones-juzgado/{id}/reintentar. Si falla la notificación real, el
+    // acuerdo queda promovido igual (mismo criterio que el ciclo normal del
+    // scraper -- ver EjecutarScrapingAsync).
+    [HttpPatch("{id}/promover")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> Promover(int id, [FromQuery] bool dryRun = true)
+    {
+        var usuarioIdActual = ObtenerUsuarioId();
+        var acuerdo = await _context.AcuerdosScrapeados
+            .Include(a => a.Expediente).ThenInclude(e => e.UsuarioAsignado)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (acuerdo == null) return NotFound(new { mensaje = "Acuerdo no encontrado" });
+        if (!acuerdo.Oculto) return BadRequest(new { mensaje = "Este acuerdo ya está visible" });
+        // Un litigante ya lo revisó y dijo explícitamente que no es suyo -- Promover
+        // es para lo que escondió el algoritmo solo, no para pasar por encima de esa
+        // decisión. Usar Restaurar si de verdad hace falta revertirla.
+        if (acuerdo.DescartadoManualmente)
+            return BadRequest(new { mensaje = "Este acuerdo fue descartado manualmente por un litigante -- usa Restaurar en su lugar" });
+
+        if (dryRun)
+        {
+            return Ok(new
+            {
+                dryRun = true,
+                mensaje = "Vista previa -- nada se guardó ni se notificó. Vuelve a llamar con dryRun=false para promover de verdad.",
+                acuerdo.NumeroExpediente,
+                acuerdo.NombreJuzgado,
+                acuerdo.FechaAcuerdo,
+                destinatarioNombre = acuerdo.Expediente.UsuarioAsignado?.Nombre,
+                destinatarioEmail = acuerdo.Expediente.UsuarioAsignado?.Email
+            });
+        }
+
+        acuerdo.Oculto = false;
+        acuerdo.Confianza = "Alta";
+        await _context.SaveChangesAsync();
+
+        try
+        {
+            await _scraper.EnviarNotificacionManualAsync(_emailService, acuerdo.Expediente, acuerdo);
+            acuerdo.NotificacionEnviada = true;
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo notificar al promover el acuerdo {Id} -- queda promovido igual", id);
+        }
+
+        await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_promovido",
+            $"Acuerdo del {acuerdo.NombreJuzgado} ({acuerdo.FechaAcuerdo:yyyy-MM-dd}) promovido manualmente: \"{acuerdo.Sintesis}\"");
+
+        return Ok(new { mensaje = "Acuerdo promovido correctamente" });
     }
 
     private async Task RegistrarBitacora(int expedienteId, int usuarioId, string accion, string detalle)

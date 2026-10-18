@@ -30,7 +30,7 @@ public class GetNoVistosTests
     {
         var controller = new AcuerdosController(
             context, new AccesoExpedientesService(context), new FakeEmailService(),
-            new ConfigurationBuilder().Build(), NullLogger<AcuerdosController>.Instance);
+            new ConfigurationBuilder().Build(), NullLogger<AcuerdosController>.Instance, null!);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {
