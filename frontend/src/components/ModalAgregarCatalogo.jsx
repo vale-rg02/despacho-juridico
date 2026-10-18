@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 
 // DJ-112/DJ-87: modal simple para que un admin agregue una Sede o un Juzgado
 // nuevo al catálogo -- mismo look que ModalConfirmacion.jsx.
 function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
+  const inputId = useId()
   const [nombre, setNombre] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -38,10 +39,11 @@ function ModalAgregarCatalogo({ titulo, label, onGuardar, onCancelar }) {
           {titulo}
         </h3>
 
-        <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+        <label htmlFor={inputId} className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
           {label}
         </label>
         <input
+          id={inputId}
           type="text"
           value={nombre}
           onChange={e => setNombre(e.target.value)}

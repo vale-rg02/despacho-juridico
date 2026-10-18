@@ -61,8 +61,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
 
         <div className="space-y-3">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Nueva fecha límite</label>
-            <input
+            <label htmlFor="etapa-cal-nueva-fecha-limite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Nueva fecha límite</label>
+            <input id="etapa-cal-nueva-fecha-limite"
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
@@ -72,8 +72,8 @@ function ModalEtapaCalendario({ modalEtapa, setModalEtapa, onGuardado, onVerExpe
             />
           </div>
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora (opcional)</label>
-            <input
+            <label htmlFor="etapa-cal-hora-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora (opcional)</label>
+            <input id="etapa-cal-hora-opcional"
               type="time"
               value={hora}
               onChange={e => setHora(e.target.value)}

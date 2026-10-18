@@ -11,6 +11,7 @@ import { createExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
 import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const PRIORIDADES = [
   { valor: 0, etiqueta: 'Normal' },
@@ -22,6 +23,7 @@ const labelClass = "block text-xs font-medium uppercase tracking-widest text-mut
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
 function NuevoExpediente() {
+  useTituloPagina('Nuevo expediente')
   const navigate = useNavigate()
 
   const [bancos, setBancos] = useState([])
@@ -198,7 +200,7 @@ function NuevoExpediente() {
     <div className="min-h-screen bg-background">
       <Topbar />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate('/expedientes')}
           className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
@@ -221,10 +223,10 @@ function NuevoExpediente() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="nuevo-exp-numero-de-expediente" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Número de expediente *
               </label>
-              <input
+              <input id="nuevo-exp-numero-de-expediente"
                 type="text"
                 name="numeroExpediente"
                 value={form.numeroExpediente}
@@ -238,10 +240,10 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="nuevo-exp-parte-demandada" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Parte demandada *
               </label>
-              <input
+              <input id="nuevo-exp-parte-demandada"
                 type="text"
                 name="parteDemandada"
                 value={form.parteDemandada}
@@ -268,12 +270,12 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
+              <label id="nuevo-exp-materia-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
               <Select
                 value={form.materia}
                 onChange={valor => cambiarCampo('materia', valor)}
                 opciones={OPCIONES_MATERIA}
-                aria-label="Materia"
+                aria-labelledby="nuevo-exp-materia-label"
               />
             </div>
 
@@ -305,39 +307,39 @@ function NuevoExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
+              <label id="nuevo-exp-tipo-de-juicio-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
               <Select
                 value={form.tipoJuicio}
                 onChange={valor => cambiarCampo('tipoJuicio', valor)}
                 opciones={[SIN_SELECCION, ...tiposJuicioDisponibles(form.materia).map(t => ({ valor: t.valor, etiqueta: t.etiqueta }))]}
-                aria-label="Tipo de juicio"
+                aria-labelledby="nuevo-exp-tipo-de-juicio-label"
               />
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
+              <label id="nuevo-exp-prioridad-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Prioridad</label>
               <Select
                 value={form.prioridad}
                 onChange={valor => cambiarCampo('prioridad', valor)}
                 opciones={PRIORIDADES}
-                aria-label="Prioridad"
+                aria-labelledby="nuevo-exp-prioridad-label"
               />
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
+              <label id="nuevo-exp-asignado-a-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
               <Select
                 value={form.usuarioAsignadoId}
                 onChange={valor => cambiarCampo('usuarioAsignadoId', valor)}
                 opciones={[{ valor: '', etiqueta: '— Sin asignar —' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
                 disabled={cargandoCatalogos}
-                aria-label="Asignado a"
+                aria-labelledby="nuevo-exp-asignado-a-label"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
-              <textarea
+              <label htmlFor="nuevo-exp-notas" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
+              <textarea id="nuevo-exp-notas"
                 name="notas"
                 value={form.notas}
                 onChange={handleChange}

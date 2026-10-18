@@ -6,6 +6,7 @@ import Select from '../components/Select'
 import { getUsuario } from '../services/auth'
 import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const SOCIO_PRINCIPAL_ID = 1
 
@@ -28,6 +29,7 @@ function nivelAccesoANumero(nivelAcceso) {
 }
 
 function Perfil() {
+  useTituloPagina('Perfil')
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === SOCIO_PRINCIPAL_ID
@@ -217,7 +219,8 @@ function Perfil() {
         </aside>
 
         {/* Contenido */}
-        <main className="flex-1 min-w-0">
+        <main id="contenido" tabIndex={-1} className="focus:outline-none flex-1 min-w-0">
+          <h1 className="sr-only">Perfil</h1>
 
           {/* Mi información */}
           {seccion === 'info' && (
@@ -246,18 +249,18 @@ function Perfil() {
               <h2 className="text-lg font-medium text-foreground" style={serifStyle}>Cambiar contraseña</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
-                  <input type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
+                  <label htmlFor="perfil-contrasena-actual" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña actual</label>
+                  <input id="perfil-contrasena-actual" type="password" value={passwordActual} onChange={e => setPasswordActual(e.target.value)}
                     className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
-                  <input type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
+                  <label htmlFor="perfil-nueva-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nueva contraseña</label>
+                  <input id="perfil-nueva-contrasena" type="password" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
                     className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Confirmar contraseña</label>
-                  <input type="password" value={confirmarPassword} onChange={e => setConfirmarPassword(e.target.value)}
+                  <label htmlFor="perfil-confirmar-contrasena" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Confirmar contraseña</label>
+                  <input id="perfil-confirmar-contrasena" type="password" value={confirmarPassword} onChange={e => setConfirmarPassword(e.target.value)}
                     className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                 </div>
                 {errorPassword && <p className="text-red-500 text-xs">{errorPassword}</p>}
@@ -403,38 +406,38 @@ function Perfil() {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nombre</label>
-                        <input value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))}
+                        <label htmlFor="perfil-nombre" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nombre</label>
+                        <input id="perfil-nombre" value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))}
                           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Correo</label>
-                        <input value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))}
+                        <label htmlFor="perfil-correo" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Correo</label>
+                        <input id="perfil-correo" value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))}
                           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                       </div>
                       {modalUsuario === 'crear' && (
                         <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña inicial</label>
-                          <input type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))}
+                          <label htmlFor="perfil-contrasena-inicial" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Contraseña inicial</label>
+                          <input id="perfil-contrasena-inicial" type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))}
                             className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-accent/50" />
                         </div>
                       )}
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Rol</label>
+                        <label id="perfil-rol-label" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Rol</label>
                         <Select
                           value={formUsuario.rol}
                           onChange={valor => setFormUsuario(f => ({ ...f, rol: valor }))}
                           opciones={['Litigante', 'Socio']}
-                          aria-label="Rol"
+                          aria-labelledby="perfil-rol-label"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
+                        <label id="perfil-nivel-de-permisos-label" className="text-xs text-muted-foreground uppercase tracking-widest block mb-1" style={monoStyle}>Nivel de Permisos</label>
                         <Select
                           value={formUsuario.nivelAcceso}
                           onChange={valor => setFormUsuario(f => ({ ...f, nivelAcceso: parseInt(valor) }))}
                           opciones={NIVEL_ACCESO_OPCIONES}
-                          aria-label="Nivel de permisos"
+                          aria-labelledby="perfil-nivel-de-permisos-label"
                         />
                       </div>
                       {errorUsuario && <p className="text-red-500 text-xs">{errorUsuario}</p>}

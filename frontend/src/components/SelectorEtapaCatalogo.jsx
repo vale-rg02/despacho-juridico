@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import Select from './Select'
 import { SIN_SELECCION } from './desplegable'
 
-function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, className }) {
+function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, className, labelId }) {
   const [principalId, setPrincipalId] = useState('')
   const [subetapaId, setSubetapaId] = useState('')
 
@@ -65,7 +65,8 @@ function SelectorEtapaCatalogo({ catalogo, valorId, onCambiar, disabled, classNa
         onChange={handlePrincipalChange}
         opciones={[SIN_SELECCION, ...etapasPrincipales.map(e => ({ valor: e.id, etiqueta: e.nombre }))]}
         disabled={disabled}
-        aria-label="Etapa"
+        aria-label={labelId ? undefined : 'Etapa'}
+        aria-labelledby={labelId}
       />
 
       {tieneSubmenu && (

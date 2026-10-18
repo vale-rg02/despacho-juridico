@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Scale } from 'lucide-react'
 import { login } from '../services/auth'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 function Login() {
+  useTituloPagina('Iniciar sesión')
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -38,7 +40,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-3">
@@ -63,10 +65,10 @@ function Login() {
           )}
 
           <div className="mb-4">
-            <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <label htmlFor="login-correo-electronico" className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
               Correo electrónico
             </label>
-            <input
+            <input id="login-correo-electronico"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -76,10 +78,10 @@ function Login() {
           </div>
 
           <div className="mb-6">
-            <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <label htmlFor="login-contrasena" className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
               Contraseña
             </label>
-            <input
+            <input id="login-contrasena"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -100,7 +102,7 @@ function Login() {
           Despacho Jurídico Acedo e Hijos · {new Date().getFullYear()}
         </p>
       </div>
-    </div>
+    </main>
   )
 }
 

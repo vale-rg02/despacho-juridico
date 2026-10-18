@@ -12,6 +12,7 @@ import { getExpedientes } from '../services/expedientes'
 import { getHistorialEtapas } from '../services/etapas'
 import { getCitas } from '../services/citas'
 import './Calendario.css'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const TAMANO_LOTE = 20
 
@@ -137,6 +138,7 @@ function mesAnioDe(fecha) {
 }
 
 function Calendario() {
+  useTituloPagina('Calendario')
   const navigate = useNavigate()
 
   const [eventosEtapas, setEventosEtapas] = useState([])
@@ -250,7 +252,8 @@ function Calendario() {
         }
       />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8">
+        <h1 className="sr-only">Calendario</h1>
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}

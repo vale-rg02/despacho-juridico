@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 import { CAJA_CON_FLECHA, FLECHA, PANEL, claseOpcion, normalizarParaBusqueda } from './desplegable'
@@ -31,7 +31,9 @@ function ComboboxCatalogo({
   disabled = false,
   onAgregarNuevo,
   textoAgregarNuevo = '+ Agregar nueva',
+  'aria-label': ariaLabel,
 }) {
+  const inputId = useId()
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState(value || '')
   // Solo true después de que el usuario escribe algo desde que se abrió --
@@ -142,14 +144,16 @@ function ComboboxCatalogo({
   return (
     <div ref={contenedorRef} className="relative">
       {label && (
-        <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+        <label htmlFor={inputId} className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
           {label}
         </label>
       )}
       <div className="relative">
         <input
+          id={inputId}
           type="text"
           role="combobox"
+          aria-label={label ? undefined : ariaLabel}
           aria-expanded={abierto}
           aria-autocomplete="list"
           value={texto}

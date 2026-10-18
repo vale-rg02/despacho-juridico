@@ -11,11 +11,13 @@ import { getExpedienteById, updateExpediente } from '../services/expedientes'
 import { getBancos, getUsuarios, getSedes, getJuzgados, crearSede, crearJuzgado, crearBanco } from '../services/catalogos'
 import { getUsuario } from '../services/auth'
 import { OPCIONES_MATERIA, tiposJuicioDisponibles } from '../utils/materiaTipoJuicio'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
 
 function EditarExpediente() {
+  useTituloPagina('Editar expediente')
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -240,7 +242,7 @@ function EditarExpediente() {
     <div className="min-h-screen bg-background">
       <Topbar />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 max-w-3xl">
         <button
           onClick={() => navigate(`/expedientes/${id}`)}
           className="text-sm text-accent hover:underline mb-6 flex items-center gap-1.5"
@@ -263,10 +265,10 @@ function EditarExpediente() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="editar-exp-numero-de-expediente" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Número de expediente *
               </label>
-              <input
+              <input id="editar-exp-numero-de-expediente"
                 type="text"
                 name="numeroExpediente"
                 value={form.numeroExpediente}
@@ -279,10 +281,10 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+              <label htmlFor="editar-exp-parte-demandada" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
                 Parte demandada *
               </label>
-              <input
+              <input id="editar-exp-parte-demandada"
                 type="text"
                 name="parteDemandada"
                 value={form.parteDemandada}
@@ -307,12 +309,12 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
+              <label id="editar-exp-materia-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Materia</label>
               <Select
                 value={form.materia}
                 onChange={handleMateriaChange}
                 opciones={OPCIONES_MATERIA}
-                aria-label="Materia"
+                aria-labelledby="editar-exp-materia-label"
               />
             </div>
 
@@ -343,28 +345,28 @@ function EditarExpediente() {
             </div>
 
             <div>
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
+              <label id="editar-exp-tipo-de-juicio-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de juicio</label>
               <Select
                 value={form.tipoJuicio}
                 onChange={valor => setForm(prev => ({ ...prev, tipoJuicio: valor }))}
                 opciones={[SIN_SELECCION, ...tiposJuicioDisponibles(form.materia).map(t => ({ valor: t.valor, etiqueta: t.etiqueta }))]}
-                aria-label="Tipo de juicio"
+                aria-labelledby="editar-exp-tipo-de-juicio-label"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
+              <label id="editar-exp-asignado-a-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Asignado a</label>
               <Select
                 value={form.usuarioAsignadoId}
                 onChange={valor => setForm(prev => ({ ...prev, usuarioAsignadoId: valor }))}
                 opciones={[{ valor: '', etiqueta: '— Sin asignar —' }, ...usuarios.map(u => ({ valor: u.id, etiqueta: u.nombre }))]}
-                aria-label="Asignado a"
+                aria-labelledby="editar-exp-asignado-a-label"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
-              <textarea
+              <label htmlFor="editar-exp-notas" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
+              <textarea id="editar-exp-notas"
                 name="notas"
                 value={form.notas}
                 onChange={handleChange}

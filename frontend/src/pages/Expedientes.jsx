@@ -11,6 +11,7 @@ import api from '../services/api'
 import { useCerrarConEscape } from '../hooks/useCerrarConEscape'
 import BotonActualizarExpedientes from '../components/BotonActualizarExpedientes'
 import Select from '../components/Select'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const estadoConfig = {
   Abierto: { bg: 'bg-secondary', text: 'text-foreground', dot: 'bg-emerald-500' },
@@ -67,6 +68,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
             <th className="px-4 py-3 w-8">
               <input
                 type="checkbox"
+                aria-label="Seleccionar todos los expedientes"
                 checked={todosSeleccionados}
                 onChange={() => onToggleSeleccionarTodos(expedientes.map(e => e.id))}
                 className="accent-accent cursor-pointer"
@@ -95,6 +97,7 @@ function TablaExpedientes({ expedientes, cargando, onRowClick, sortKey, sortDir,
               <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                 <input
                   type="checkbox"
+                  aria-label={`Seleccionar expediente ${exp.numeroExpediente}`}
                   checked={seleccionados.has(exp.id)}
                   onChange={() => onToggleSeleccion(exp.id)}
                   className="accent-accent cursor-pointer"
@@ -236,6 +239,7 @@ function ModalAgregarColaboradorMasivo({ expedienteIds, usuarios, onCerrar, onCo
 }
 
 function Expedientes() {
+  useTituloPagina('Expedientes')
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === 1
@@ -397,6 +401,7 @@ function Expedientes() {
             <input
               type="text"
               placeholder="Buscar por número o parte demandada…"
+              aria-label="Buscar expedientes por número o parte demandada"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               className="w-full bg-input-background text-foreground placeholder:text-muted-foreground text-sm pl-9 pr-8 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-accent/50 transition"
@@ -465,7 +470,8 @@ function Expedientes() {
         <div className="fixed inset-0 z-20" onClick={() => setDropdownUsuarioOpen(false)} />
       )}
 
-      <main className="max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+        <h1 className="sr-only">Expedientes</h1>
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
             {error}

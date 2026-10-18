@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import ComboboxCatalogo from './ComboboxCatalogo'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
@@ -21,6 +22,8 @@ function SelectorBancoOParticular({
   onCambiarParteActoraParticular,
   disabled = false,
 }) {
+  const etiquetaId = useId()
+
   function tabClass(activo) {
     return `flex-1 text-xs px-3 py-1.5 rounded-md border font-medium transition ${
       activo
@@ -30,19 +33,20 @@ function SelectorBancoOParticular({
   }
 
   return (
-    <div>
-      <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Parte actora</label>
+    <div role="group" aria-labelledby={etiquetaId}>
+      <span id={etiquetaId} className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Parte actora</span>
       <div className="flex gap-2 mb-2">
-        <button type="button" onClick={() => onCambiarModo('banco')} className={tabClass(modo === 'banco')}>
+        <button type="button" aria-pressed={modo === 'banco'} onClick={() => onCambiarModo('banco')} className={tabClass(modo === 'banco')}>
           Banco
         </button>
-        <button type="button" onClick={() => onCambiarModo('particular')} className={tabClass(modo === 'particular')}>
+        <button type="button" aria-pressed={modo === 'particular'} onClick={() => onCambiarModo('particular')} className={tabClass(modo === 'particular')}>
           Asunto particular
         </button>
       </div>
 
       {modo === 'banco' ? (
         <ComboboxCatalogo
+          aria-label="Banco"
           value={banco}
           onChange={onCambiarBanco}
           opciones={bancosOpciones}
@@ -54,6 +58,7 @@ function SelectorBancoOParticular({
       ) : (
         <input
           type="text"
+          aria-label="Nombre de la parte actora"
           value={parteActoraParticular}
           onChange={e => onCambiarParteActoraParticular(e.target.value)}
           placeholder="Nombre completo de la parte actora"

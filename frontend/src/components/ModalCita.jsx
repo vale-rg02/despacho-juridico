@@ -101,8 +101,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         )}
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Título *</label>
-          <input
+          <label htmlFor="cita-titulo" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Título *</label>
+          <input id="cita-titulo"
             type="text"
             value={titulo}
             onChange={e => setTitulo(e.target.value)}
@@ -112,7 +112,7 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         </div>
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Expediente</label>
+          <label id="cita-expediente-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Expediente</label>
           <Select
             value={expedienteId}
             onChange={setExpedienteId}
@@ -120,14 +120,14 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
               { valor: '', etiqueta: 'Sin expediente' },
               ...expedientesActivos.map(exp => ({ valor: exp.id, etiqueta: `${exp.numeroExpediente} — ${exp.parteDemandada}` })),
             ]}
-            aria-label="Expediente"
+            aria-labelledby="cita-expediente-label"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha *</label>
-            <input
+            <label htmlFor="cita-fecha" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha *</label>
+            <input id="cita-fecha"
               type="date"
               value={fecha}
               onChange={e => setFecha(e.target.value)}
@@ -137,8 +137,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
             />
           </div>
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora *</label>
-            <input
+            <label htmlFor="cita-hora" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Hora *</label>
+            <input id="cita-hora"
               type="time"
               value={hora}
               onChange={e => setHora(e.target.value)}
@@ -148,8 +148,8 @@ function ModalCita({ modalCita, setModalCita, expedientesActivos, onGuardado }) 
         </div>
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Descripción</label>
-          <textarea
+          <label htmlFor="cita-descripcion" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Descripción</label>
+          <textarea id="cita-descripcion"
             value={descripcion}
             onChange={e => setDescripcion(e.target.value)}
             placeholder="Detalles adicionales (opcional)"

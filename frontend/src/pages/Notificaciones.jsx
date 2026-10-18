@@ -7,6 +7,7 @@ import { getUsuario } from '../services/auth'
 import { getPanelNotificaciones, getUsuariosDisponibles, marcarAtendida } from '../services/notificaciones'
 import { getAcuerdosNoVistos } from '../services/acuerdos'
 import { formatearFechaCorta } from '../utils/formato'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 function urgenciaClase(dias) {
   if (dias <= 1) return 'text-red-600 bg-red-50'
@@ -112,6 +113,7 @@ function FilaAcuerdo({ acuerdo, onNavegar }) {
 }
 
 function Notificaciones() {
+  useTituloPagina('Notificaciones')
   const navigate = useNavigate()
   const usuario = getUsuario()
   const esSocioPrincipal = usuario?.id === 1
@@ -213,7 +215,7 @@ function Notificaciones() {
         }
       />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between gap-4 mb-6">
           <h1 className="text-2xl text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
             Panel de Notificaciones

@@ -19,6 +19,7 @@ import { getExpedienteById, getBitacora, cambiarEstado, cambiarPrioridad, elimin
 import EtiquetaSeccion from '../components/EtiquetaSeccion'
 import EstadoVacio from '../components/EstadoVacio'
 import ModalConfirmacion from '../components/ModalConfirmacion'
+import { useTituloPagina } from '../hooks/useTituloPagina'
 
 const estadoConfig = {
   Abierto: {
@@ -261,6 +262,7 @@ function DetalleExpediente() {
   const usuario = getUsuario()
 
   const [expediente, setExpediente] = useState(null)
+  useTituloPagina(expediente ? `Exp. ${expediente.numeroExpediente}` : 'Expediente')
   const [etapas, setEtapas] = useState([])
   const [bitacora, setBitacora] = useState([])
   const [acuerdos, setAcuerdos] = useState([])
@@ -561,7 +563,7 @@ function DetalleExpediente() {
         }
       />
 
-      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-8">
+      <main id="contenido" tabIndex={-1} className="focus:outline-none max-w-screen-xl mx-auto px-6 py-8 space-y-8">
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md px-3 py-2">
@@ -775,8 +777,8 @@ function DetalleExpediente() {
           {mostrarFormAcuerdo && (
             <div className="bg-secondary/40 border border-border rounded-lg p-4 mb-3">
               <div className="mb-3">
-                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</label>
-                <div className="flex gap-4 text-sm">
+                <span id="detalle-tipo-registro-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</span>
+                <div role="radiogroup" aria-labelledby="detalle-tipo-registro-label" className="flex gap-4 text-sm">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -797,8 +799,8 @@ function DetalleExpediente() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
-                  <input
+                  <label htmlFor="detalle-fecha-del-acuerdo" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha del acuerdo *</label>
+                  <input id="detalle-fecha-del-acuerdo"
                     type="date"
                     value={formAcuerdo.fechaAcuerdo}
                     onChange={e => setFormAcuerdo(f => ({ ...f, fechaAcuerdo: e.target.value }))}
@@ -807,8 +809,8 @@ function DetalleExpediente() {
                 </div>
                 {formAcuerdo.esExhorto ? (
                   <div>
-                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
-                    <input
+                    <label htmlFor="detalle-juzgado-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Juzgado (opcional)</label>
+                    <input id="detalle-juzgado-opcional"
                       type="text"
                       value={formAcuerdo.nombreJuzgado}
                       onChange={e => setFormAcuerdo(f => ({ ...f, nombreJuzgado: e.target.value }))}
@@ -818,8 +820,8 @@ function DetalleExpediente() {
                   </div>
                 ) : (
                   <div>
-                    <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de trámite *</label>
-                    <input
+                    <label htmlFor="detalle-tipo-de-tramite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Tipo de trámite *</label>
+                    <input id="detalle-tipo-de-tramite"
                       type="text"
                       value={formAcuerdo.tipoAsunto}
                       onChange={e => setFormAcuerdo(f => ({ ...f, tipoAsunto: e.target.value }))}
@@ -831,8 +833,8 @@ function DetalleExpediente() {
               </div>
               {formAcuerdo.esExhorto && (
                 <div className="mb-3">
-                  <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
-                  <input
+                  <label htmlFor="detalle-ciudad-estado-destino-opcional" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Ciudad/estado destino (opcional)</label>
+                  <input id="detalle-ciudad-estado-destino-opcional"
                     type="text"
                     value={formAcuerdo.ciudadDestino}
                     onChange={e => setFormAcuerdo(f => ({ ...f, ciudadDestino: e.target.value }))}
@@ -842,8 +844,8 @@ function DetalleExpediente() {
                 </div>
               )}
               <div className="mb-3">
-                <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
-                <textarea
+                <label htmlFor="detalle-sintesis" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Síntesis *</label>
+                <textarea id="detalle-sintesis"
                   value={formAcuerdo.sintesis}
                   onChange={e => setFormAcuerdo(f => ({ ...f, sintesis: e.target.value }))}
                   rows={3}

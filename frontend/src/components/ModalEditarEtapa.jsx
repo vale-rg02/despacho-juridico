@@ -94,8 +94,8 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
         )}
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-          <SelectorEtapaCatalogo
+          <label id="editar-etapa-etapa-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
+          <SelectorEtapaCatalogo labelId="editar-etapa-etapa-label"
             catalogo={catalogo}
             valorId={etapaCatalogoId}
             onCambiar={setEtapaCatalogoId}
@@ -112,9 +112,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
 
         <div className="space-y-4">
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
+            <label htmlFor="editar-etapa-fecha-de-inicio" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
             <div className="flex gap-2">
-              <input
+              <input id="editar-etapa-fecha-de-inicio"
                 type="date"
                 value={fechaInicio}
                 onChange={e => setFechaInicio(e.target.value)}
@@ -134,9 +134,9 @@ function ModalEditarEtapa({ expedienteId, etapa, tipoJuicio, onGuardado, onCerra
           </div>
 
           <div>
-            <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
+            <label htmlFor="editar-etapa-fecha-limite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha límite</label>
             <div className="flex gap-2">
-              <input
+              <input id="editar-etapa-fecha-limite"
                 type="date"
                 value={fechaLimite}
                 onChange={e => setFechaLimite(e.target.value)}

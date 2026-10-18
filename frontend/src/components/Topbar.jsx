@@ -165,6 +165,12 @@ function Topbar({ breadcrumb }) {
 
   return (
     <header className="bg-primary border-b border-white/10 sticky top-0 z-40">
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-2 focus:z-50 focus:bg-card focus:text-foreground focus:px-3 focus:py-2 focus:rounded focus:text-sm focus:shadow-lg"
+      >
+        Saltar al contenido
+      </a>
       <div className="max-w-screen-xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-2 sm:gap-4">
         {/* Logo */}
         <div
@@ -193,7 +199,7 @@ function Topbar({ breadcrumb }) {
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-1 sm:gap-3">
+        <nav aria-label="Principal" className="ml-auto flex items-center gap-1 sm:gap-3">
           {/* Calendario */}
           <button
             onClick={() => navigate('/calendario')}
@@ -371,7 +377,7 @@ function Topbar({ breadcrumb }) {
             <LogOut size={14} />
             <span className="hidden sm:inline">Salir</span>
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   )

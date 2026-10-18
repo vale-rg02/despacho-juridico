@@ -100,8 +100,8 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
       )}
 
       <div className="mb-3">
-        <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
-        <SelectorEtapaCatalogo
+        <label id="form-etapa-etapa-label" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Etapa *</label>
+        <SelectorEtapaCatalogo labelId="form-etapa-etapa-label"
           catalogo={catalogo}
           valorId={etapaCatalogoId}
           onCambiar={setEtapaCatalogoId}
@@ -119,9 +119,9 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
+          <label htmlFor="form-etapa-fecha-de-inicio" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Fecha de inicio *</label>
           <div className="flex gap-2">
-            <input
+            <input id="form-etapa-fecha-de-inicio"
               type="date"
               value={fechaInicio}
               onChange={e => setFechaInicio(e.target.value)}
@@ -141,14 +141,14 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
         </div>
 
         <div>
-          <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
+          <label htmlFor="form-etapa-fecha-limite" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>
             Fecha límite
             {etapaSeleccionada?.terminoDias != null && (
               <span className="text-muted-foreground/60 font-normal"> (sugerida)</span>
             )}
           </label>
           <div className="flex gap-2">
-            <input
+            <input id="form-etapa-fecha-limite"
               type="date"
               value={fechaLimite}
               onChange={e => setFechaLimite(e.target.value)}
@@ -172,8 +172,8 @@ function FormularioEtapa({ expedienteId, tipoJuicio, onGuardado, onCancelar }) {
       </div>
 
       <div className="mb-3">
-        <label className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
-        <input
+        <label htmlFor="form-etapa-notas" className={labelClass} style={{ fontFamily: "'DM Mono', monospace" }}>Notas</label>
+        <input id="form-etapa-notas"
           type="text"
           value={notas}
           onChange={e => setNotas(e.target.value)}
