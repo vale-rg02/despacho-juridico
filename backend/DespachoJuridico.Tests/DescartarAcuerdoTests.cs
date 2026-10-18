@@ -316,7 +316,7 @@ public class DescartarAcuerdoTests
 
         // Sin pasar fecha: el filtro real es por FechaDetectado (hoy, momento en
         // que SembrarEscenarioAsync creó el registro), no por FechaAcuerdo.
-        var scraperController = new ScraperController(null!, context, null!, null!);
+        var scraperController = new ScraperController(null!, context, null!, null!, null!);
         var resultado = await scraperController.Registros();
 
         var ok = Assert.IsType<OkObjectResult>(resultado);

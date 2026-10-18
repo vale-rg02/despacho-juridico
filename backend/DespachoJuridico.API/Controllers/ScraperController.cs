@@ -23,6 +23,7 @@ public class ScraperController : ControllerBase
     private readonly AppDbContext _context;
     private readonly FrasesGenericasCandidatasService _frasesGenericas;
     private readonly ReporteAuditoriaScraperService _reporteAuditoria;
+    private readonly ILogger<ScraperController> _logger;
 
     // DJ-102: cooldown fijo entre usos del botón "Actualizar expedientes".
     private static readonly TimeSpan CooldownActualizacionManual = TimeSpan.FromMinutes(15);
@@ -35,12 +36,13 @@ public class ScraperController : ControllerBase
 
     public ScraperController(
         ScraperAcuerdosService scraper, AppDbContext context, FrasesGenericasCandidatasService frasesGenericas,
-        ReporteAuditoriaScraperService reporteAuditoria)
+        ReporteAuditoriaScraperService reporteAuditoria, ILogger<ScraperController> logger)
     {
         _scraper = scraper;
         _context = context;
         _frasesGenericas = frasesGenericas;
         _reporteAuditoria = reporteAuditoria;
+        _logger = logger;
     }
 
     private int ObtenerUsuarioId() =>
@@ -316,6 +318,7 @@ public class ScraperController : ControllerBase
     [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> ReintentarColisionJuzgado(int id, [FromQuery] bool dryRun = true)
     {
+        var usuarioIdActual = ObtenerUsuarioId();
         var descarte = await _context.BitacoraDescarteItemizado.FindAsync(id);
         if (descarte == null) return NotFound(new { mensaje = "Descarte no encontrado" });
         if (descarte.Razon != "NUMERO_COINCIDE_JUZGADO_NO")
@@ -325,6 +328,14 @@ public class ScraperController : ControllerBase
             .FirstOrDefaultAsync(b => b.CorridaId == descarte.CorridaId && b.IdUnidad == descarte.IdUnidad);
         if (corrida == null)
             return BadRequest(new { mensaje = "No se encontró la corrida original para calcular la fecha -- no se puede reintentar" });
+
+        // Quién y cuándo -- a diferencia de Promover (BitacoraCambios, ligado a
+        // un Expediente), esto no tiene un único expediente dueño (puede tocar
+        // varios candidatos del mismo juzgado+fecha), así que queda en el log
+        // de aplicación en vez de forzarlo en una tabla pensada para otra cosa.
+        _logger.LogInformation(
+            "Reintentar colisión de juzgado: descarte {DescarteId} (IdUnidad {IdUnidad}, fecha {Fecha}) solicitado por usuario {UsuarioId}, dryRun={DryRun}",
+            id, descarte.IdUnidad, corrida.FechaConsultada, usuarioIdActual, dryRun);
 
         var resultado = await _scraper.EjecutarScrapingAsync(
             corrida.FechaConsultada, dryRun, new HashSet<int> { descarte.IdUnidad });

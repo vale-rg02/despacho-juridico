@@ -56,7 +56,7 @@ public class ActualizarMisExpedientesControllerTests
 
     private static ScraperController CrearControllerComoUsuario(AppDbContext context, string nombreBD, int usuarioId)
     {
-        var controller = new ScraperController(CrearScraperService(nombreBD), context, CrearFrasesGenericasService(nombreBD), null!);
+        var controller = new ScraperController(CrearScraperService(nombreBD), context, CrearFrasesGenericasService(nombreBD), null!, null!);
         var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()) });
         controller.ControllerContext = new ControllerContext
         {

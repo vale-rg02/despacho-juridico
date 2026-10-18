@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using static DespachoJuridico.API.Services.ScraperAcuerdosService;
@@ -37,7 +38,7 @@ public class ReintentarColisionJuzgadoTests
     }
 
     private static (AppDbContext Context, ScraperController Controller) CrearEscenario(
-        string nombreBD, Dictionary<int, ResultadoScrapeoJuzgado> respuestas)
+        string nombreBD, Dictionary<int, ResultadoScrapeoJuzgado> respuestas, ILogger<ScraperController>? logger = null)
     {
         var servicios = new ServiceCollection();
         servicios.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(nombreBD));
@@ -48,7 +49,13 @@ public class ReintentarColisionJuzgadoTests
         var config = new ConfigurationBuilder().Build();
         var scraper = new ScraperDePrueba(proveedor.GetRequiredService<IServiceScopeFactory>(), config, respuestas);
 
-        var controller = new ScraperController(scraper, context, null!, null!);
+        var controller = new ScraperController(scraper, context, null!, null!, logger ?? NullLogger<ScraperController>.Instance);
+        var identidad = new System.Security.Claims.ClaimsIdentity(
+            new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "1") });
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = new System.Security.Claims.ClaimsPrincipal(identidad) }
+        };
         return (context, controller);
     }
 
@@ -63,6 +70,40 @@ public class ReintentarColisionJuzgadoTests
         CorridaId = corridaId, FechaHoraCorrida = DateTime.UtcNow, FechaConsultada = fechaConsultada,
         IdUnidad = IdUnidadDePrueba, NombreJuzgado = "2do Civil Hermosillo", Origen = "Automatica", ConsultaExitosa = true
     };
+
+    // Captura los mensajes de log para confirmar que reintentar deja constancia
+    // de quién lo pidió y cuándo -- a diferencia de Promover (BitacoraCambios),
+    // esto no tiene un único expediente dueño, así que queda en el log de
+    // aplicación en vez de una tabla.
+    private class LoggerDePrueba : ILogger<ScraperController>
+    {
+        public List<string> Mensajes { get; } = new();
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => null!;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Mensajes.Add(formatter(state, exception));
+    }
+
+    [Fact]
+    public async Task DejaConstanciaDeQuienYCuandoEnElLog()
+    {
+        var nombreBD = nameof(DejaConstanciaDeQuienYCuandoEnElLog);
+        var respuestas = new Dictionary<int, ResultadoScrapeoJuzgado> { [IdUnidadDePrueba] = new(new(), true, null) };
+        var loggerDePrueba = new LoggerDePrueba();
+        var (context, controller) = CrearEscenario(nombreBD, respuestas, loggerDePrueba);
+
+        var corridaId = Guid.NewGuid();
+        context.BitacoraEvaluacionScraper.Add(NuevaCorrida(corridaId, new DateOnly(2026, 9, 10)));
+        var descarte = NuevoDescarte(corridaId);
+        context.BitacoraDescarteItemizado.Add(descarte);
+        await context.SaveChangesAsync();
+
+        await controller.ReintentarColisionJuzgado(descarte.Id, dryRun: true);
+
+        var mensaje = Assert.Single(loggerDePrueba.Mensajes);
+        Assert.Contains(descarte.Id.ToString(), mensaje);
+        Assert.Contains("usuario 1", mensaje); // claim NameIdentifier="1" del arnés de prueba
+    }
 
     [Fact]
     public async Task CalculaLaFechaCorrectaYReintentaEseJuzgado()
