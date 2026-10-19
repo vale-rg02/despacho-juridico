@@ -1,6 +1,6 @@
 # Revisión retroactiva — línea base de falsos negativos y falsos positivos (DJ-141)
 
-**Estado: EN PROGRESO.** Partes A y B completas. Parte C en progreso (ver sección propia) — la prueba hacia adelante necesita datos de varios días calendario distintos (D=16, D=19, D=20 de octubre) y no se puede completar en una sola sesión. Ninguna recuperación (`Promover`/`reintentar`) se ha ejecutado todavía — todo lo listado abajo está pendiente de aprobación explícita.
+**Estado: COMPLETO (18 de octubre).** Partes A, B y C completas. Las 8 recuperaciones de S1 ya se ejecutaron en producción — ver "Estado de las recuperaciones". Quedan fuera de esta historia, para seguimiento aparte: el fix del algoritmo de apellidos invertidos (candidato identificado, no implementado), [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) (notificación nunca enviada, ticket separado) y las dos notas "a futuro" de la sección de recuperaciones.
 
 Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres de clientes — solo Id de acuerdo/expediente, número de expediente, juzgado, fecha, categoría y puntaje de similitud.
 
@@ -10,7 +10,7 @@ Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres d
 
 - **Tasa de falsos negativos estimada (Cola 1 + Cola 2 combinadas):** 1.9% a 30 días, 3.4% a 60 días (cota inferior — ver advertencia en Parte A).
 - **Tasa de S2 estimada:** 0% observado, pero el intervalo de confianza real es 0%–8.8% (n=40, Clopper-Pearson 95%).
-- **8 candidatos reales de S1** encontrados en Cola 1 (Hermosillo), ninguno recuperado todavía. **2 de los 8 (25%) son exhorto** — sobrerrepresentados frente al ~8.6% de tasa base.
+- **8 candidatos reales de S1** encontrados en Cola 1 (Hermosillo), **los 8 ya recuperados en producción** (3 `Sugerir`, 1 `Promover` con correo, 4 `Promover` sin correo). **2 de los 8 (25%) son exhorto** — sobrerrepresentados frente al ~8.6% de tasa base.
 - **0 candidatos de S1** en Cola 2 (foráneos) de 2,132 revisados.
 - **1 hallazgo de algoritmo nuevo:** el matching no prueba el orden invertido de apellidos (caso real confirmado).
 - **4 expedientes con captura duplicada** encontrados en toda la base (no es bug de scraper, es limpieza de datos).
@@ -18,7 +18,7 @@ Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres d
 - **Fallas completas de scrapeo descartadas como causa:** 0 de 3,108 corridas fallaron en 60 días.
 - **Categoría no auditada, descubierta por cruce con Jira:** acuerdos correctamente detectados cuya notificación nunca se envió — no cubierta por Parte A ni B. El ticket [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) de esta categoría sigue abierto 39+ días.
 - **3 candidatos de exhorto (1999, 1888, 1541) confirmados como ruido real** (materia distinta, patrón DJ-98) — no eran casos mal clasificados.
-- **Parte C (publicación tardía):** sin confirmar todavía — hay un indicio real (un acuerdo detectado 21 días después de su fecha) pero falta completar la medición sistemática.
+- **Parte C (publicación tardía): completa.** Mecanismo confirmado real (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada), pero bajo impacto medido — 0 misses reales en la pasada hacia atrás (10 días hábiles × 29 juzgados de Hermosillo). En el camino se encontró y corrigió un bug real que inflaba cualquier conteo de dry-run del sistema (no revisaba si el acuerdo ya existía) — afectaba también `/auditoria-preview`.
 
 ---
 
@@ -161,13 +161,36 @@ Se confirmó que la bitácora de D=16 de octubre solo tiene 7 corridas automáti
 | 183 | Juzgado Mixto Magdalena | 37 |
 | 188 | Juzgado 1ro Civil Nogales | 46 |
 
-**Pendiente:** reconsultar ADISON (dry-run) para esta misma fecha (16 de octubre) y estos mismos 12 juzgados, fuera de la ventana del ciclo automático (después de las 18:05 hora de Hermosillo), y comparar conteos. Bloqueado momentáneamente por estar dentro de la ventana del ciclo automático al momento de escribir esto — se retoma esta noche.
+**Reconsulta completada (18 de octubre, vía `POST /api/scraper/ejecutar?fecha=2026-10-16&dryRun=true`):**
 
-**Después de D=16, falta repetir con D=19 y D=20 de octubre** (días que todavía no ocurren al momento de escribir este documento) — la prueba hacia adelante necesariamente se completa en varios días calendario distintos, no en una sola sesión.
+| IdUnidad | Juzgado | Devueltos (16-oct, ciclo automático) | Devueltos (16-oct, reconsultado 18-oct) | Diferencia |
+|---|---|---|---|---|
+| 152 | 1ro Civil Hermosillo | 94 | 94 | — |
+| 153 | 2do Civil Hermosillo | 69 | 69 | — |
+| 154 | 3ro Civil Hermosillo | 71 | 71 | — |
+| 156 | 2do Familiar Hermosillo | 138 | 138 | — |
+| 158 | 1ro Mercantil Hermosillo | 90 | 90 | — |
+| 173 | 1ro Oral Mercantil Hermosillo | 47 | 47 | — |
+| 174 | Arrendamiento Hermosillo | 16 | 16 | — |
+| 296 | 4to Familiar Hermosillo | 79 | **105** | **+26** |
+| 300 | 2do Oral Mercantil Hermosillo | 54 | 54 | — |
+| 133 | Juzgado Mixto Cananea | 33 | 33 | — |
+| 183 | Juzgado Mixto Magdalena | 37 | 37 | — |
+| 188 | Juzgado 1ro Civil Nogales | 46 | 46 | — |
+
+**Hallazgo confirmado:** 11 de los 12 juzgados dieron exactamente el mismo conteo dos días después — pero "4to Familiar Hermosillo" (IdUnidad 296) creció de 79 a 105. **Esto confirma el mecanismo de la hipótesis: ADISON sí sigue agregando resultados a una fecha ya publicada**, no es estático. Se revisó el embudo completo de ese juzgado para ver si los 26 adicionales tocaban algo real: `evaluaciones=105, descartadoSinCandidato=100, descartadoNumeroJuzgadoNoCoincide=5, guardadoVisibleAlta=0, guardadoVisibleMedia=0, guardadoOcultoBaja=0` — cuadra exacto (100+5=105) y **ninguno de los 105 (ni los originales ni los 26 nuevos) coincidió con un expediente real del despacho**. Conclusión para esta fecha/juzgado: el mecanismo de publicación tardía es real, pero en este caso específico no causó ningún falso negativo para el despacho — es ruido de casos ajenos que ADISON sigue sumando a ese día.
 
 ### Pasada hacia atrás (punto 1 del plan)
 
-**Sin empezar todavía** — también requiere consultas dry-run a ADISON, bloqueadas por la misma ventana horaria.
+**Metodología:** reconsultar en dry-run los 10 días hábiles del 5 al 18 de octubre, los 29 juzgados de Hermosillo completos (misma lista que Parte A), vía `POST /api/scraper/ejecutar?fecha=X&dryRun=true` (se intentó primero con `/ejecutar-rango` pero esa ruta metía 5 días en una sola petición HTTP y el proxy de Railway la cortaba con 502 antes de terminar — se cambió a una llamada por día).
+
+**Bug real encontrado y corregido en el camino (18-oct):** el primer intento dio resultados que no cuadraban (48 "nuevos" en 10 días, mucho más que los 8 de toda la Parte A). La causa: en `EjecutarScrapingAsync`, el chequeo de "¿ya existe este acuerdo?" vivía *después* del `if (dryRun) {...; continue;}` — así que en dry-run ese chequeo nunca corría, y **cualquier acuerdo que coincidiera contaba como "nuevo guardado" aunque llevara semanas ya capturado**. Esto afecta cualquier vista previa de dry-run del sistema, no solo esta prueba (incluye `/auditoria-preview`, de uso diario del equipo). Se corrigió moviendo el chequeo de `yaExiste` antes del branch de `dryRun` ([ScraperAcuerdosService.cs:608](backend/DespachoJuridico.API/Services/ScraperAcuerdosService.cs:608)), con una prueba de regresión nueva. Desplegado y verificado: al repetir la misma pasada después del fix, los 48 "nuevos" originales pasaron a contarse correctamente como `yaExistian` (6, 7, 3, 5, 8, 0, 5, 5, 3, 6 — idéntico al conteo viejo), y `nuevosEncontrados` dio **0 en los 10 días**.
+
+**Resultado final de la pasada hacia atrás:** 0 misses reales en 10 días hábiles × 29 juzgados de Hermosillo.
+
+### Conclusión de Parte C
+
+El mecanismo de publicación tardía de ADISON **es real** — confirmado en la prueba hacia adelante (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada) — pero **de bajo impacto medido**: ni en ese caso puntual ni en los 10 días de la pasada hacia atrás se encontró un solo caso real del despacho perdido por esta causa. No se descarta que exista en otras ventanas no probadas, pero no hay evidencia de que sea una fuente significativa de falsos negativos para este despacho hoy.
 
 ---
 
@@ -190,20 +213,20 @@ Para destrabar esto se construyeron dos capacidades nuevas en `AcuerdosControlle
 - **`PATCH /api/acuerdos/{id}/sugerir`** — hermano de `Promover`, pero sube el acuerdo a `Confianza=Media` en vez de `Alta`. Reusa el correo de "posible acuerdo, confirma o descarta" que ya existía para cualquier Media (DJ-122) — el litigante decide, no se le dice que es un hecho confirmado. Se le corrigió un bug antes de desplegarlo: sin el fix, `RecordatorioAcuerdosPendientesService` habría mandado un segundo correo de seguimiento al día siguiente (cuenta los días desde `FechaDetectado`, que seguía con la fecha original de hace semanas) — ya resuelto, con prueba de regresión.
 - **`PATCH /api/acuerdos/{id}/promover?notificar=false`** — para cuando el litigante ya está al tanto del caso por otro medio (ej. un acuerdo posterior sobre el mismo expediente que ya se le notificó). Agrega el acuerdo a la base y lo marca `Confianza=Alta` sin mandar ningún correo. `NotificacionEnviada` se queda en `false` (refleja la realidad — no salió correo — y no hay ningún proceso que lo reintente después).
 
-**Plan final decidido (18-oct), ninguno ejecutado todavía en producción:**
+**Ejecutadas las 8 en producción el 18-oct** (vista previa con `dryRun=true` confirmada contra destinatario esperado, luego ejecución real — las 8 regresaron `200`):
 
-| Id | Expediente | Camino | Motivo |
-|---|---|---|---|
-| 6640 | 704/2025 | `Sugerir` | — |
-| 4665 | 78/2026 | `Sugerir` | Duda genuina sobre si es correcto (señalada al revisar el contenido real) |
-| 3354 | 72/2026 | `Sugerir` | — |
-| 4506 | 462/2026 | `Promover` (con correo) | De los dos acuerdos nuevos de este expediente, este es el que se notifica |
-| 3746 | 462/2026 | `Promover?notificar=false` | Mismo expediente que 4506 — litigante ya al tanto por ese otro acuerdo, no se duplica el correo |
-| 5059 | 130/2026 | `Promover?notificar=false` | Litigante ya está al tanto del status del expediente por un acuerdo posterior ya notificado y registrado |
-| 4586 | 67/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio |
-| 3189 | 400/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio |
+| Id | Expediente | Camino | Motivo | Resultado |
+|---|---|---|---|---|
+| 6640 | 704/2025 | `Sugerir` | — | Sugerido, correo enviado a Carlos Arturo Acedo Jr. |
+| 4665 | 78/2026 | `Sugerir` | Duda genuina sobre si es correcto (señalada al revisar el contenido real) | Sugerido, correo enviado a Mario Acedo |
+| 3354 | 72/2026 | `Sugerir` | — | Sugerido, correo enviado a Carlos Arturo Acedo Jr. |
+| 4506 | 462/2026 | `Promover` (con correo) | De los dos acuerdos nuevos de este expediente, este es el que se notifica | Promovido, correo enviado a Mario Acedo |
+| 3746 | 462/2026 | `Promover?notificar=false` | Mismo expediente que 4506 — litigante ya al tanto por ese otro acuerdo, no se duplica el correo | Promovido sin notificar |
+| 5059 | 130/2026 | `Promover?notificar=false` | Litigante ya está al tanto del status del expediente por un acuerdo posterior ya notificado y registrado | Promovido sin notificar |
+| 4586 | 67/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio | Promovido sin notificar |
+| 3189 | 400/2026 | `Promover?notificar=false` | Litigante ya enterado por otro medio | Promovido sin notificar |
 
-Sigue pendiente: decidir quién ejecuta esto en producción (el equipo no puede iniciar sesión ahí para correrlo por API) y correr `dryRun=true` en los 8 antes de la ejecución real.
+Las 8 quedaron visibles en sus expedientes y fuera de Cola 1. Los 3 `Sugerir` ahora dependen de que el litigante los confirme o descarte desde el sistema — no se les da seguimiento aparte en este documento, siguen el flujo normal de Media (incluye el recordatorio pasivo a partir de 3 días si no se resuelven).
 
 ### Pendientes a futuro (agregados el 18-oct, fuera de alcance de esta historia)
 
