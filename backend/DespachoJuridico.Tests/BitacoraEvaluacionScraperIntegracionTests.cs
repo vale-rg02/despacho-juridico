@@ -159,6 +159,47 @@ public class BitacoraEvaluacionScraperIntegracionTests
         Assert.Equal(1, fila.GuardadoVisibleAlta);
     }
 
+    // DJ-141: hallazgo real al usar dryRun para medir publicación tardía de
+    // ADISON en una pasada hacia atrás -- el chequeo de "ya existe" vivía
+    // después del continue de dryRun, así que CUALQUIER preview (incluyendo
+    // /auditoria-preview, de uso diario) contaba como "nuevo guardado" a un
+    // acuerdo que llevaba semanas ya capturado, solo porque dryRun nunca llegaba
+    // a preguntarle a la base si ya existía.
+    [Fact]
+    public async Task DryRun_AcuerdoYaExistente_CuentaComoYaExistiaNoComoNuevo()
+    {
+        var nombreBD = nameof(DryRun_AcuerdoYaExistente_CuentaComoYaExistiaNoComoNuevo);
+        var acuerdos = new List<(string, string, string, DateOnly, string?)>
+        {
+            ("401/2026", "SE ADMITE DEMANDA.- JUAN PEREZ LOPEZ", "Se admite.", new DateOnly(2026, 10, 1), "Exp.")
+        };
+        var respuestas = new Dictionary<int, ResultadoScrapeoJuzgado> { [IdUnidadDePrueba] = new(acuerdos, true, null) };
+        var (context, servicio) = CrearEscenario(nombreBD, respuestas);
+        var expediente = NuevoExpediente("401/2026", "JUAN PEREZ LOPEZ");
+        context.Expedientes.Add(expediente);
+        await context.SaveChangesAsync();
+
+        // El acuerdo ya está guardado desde antes -- mismo ExpedienteId, FechaAcuerdo y Sintesis
+        // que lo que "trae" la respuesta simulada de ADISON.
+        context.AcuerdosScrapeados.Add(new AcuerdoScrapeado
+        {
+            ExpedienteId = expediente.Id, NumeroExpediente = "401/2026", IdUnidad = IdUnidadDePrueba,
+            NombreJuzgado = NombreJuzgadoDePrueba, Partes = "SE ADMITE DEMANDA.- JUAN PEREZ LOPEZ",
+            Sintesis = "Se admite.", FechaAcuerdo = new DateOnly(2026, 10, 1), Confianza = "Alta"
+        });
+        await context.SaveChangesAsync();
+
+        var resultado = await servicio.EjecutarScrapingAsync(
+            fechaConsulta: new DateOnly(2026, 10, 1), dryRun: true, idsUnidad: new HashSet<int> { IdUnidadDePrueba });
+
+        Assert.Equal(1, await context.AcuerdosScrapeados.CountAsync()); // dry-run no agrega una segunda copia
+        var fila = Assert.Single(resultado.Embudo);
+        Assert.Equal(1, fila.YaExistia);
+        Assert.Equal(0, fila.GuardadoVisibleAlta);
+        Assert.Equal(0, fila.GuardadoVisibleMedia);
+        Assert.Equal(0, fila.GuardadoOcultoBaja);
+    }
+
     [Fact]
     public async Task Invariante_SumaDeCategoriasSiempreIgualAEvaluaciones_InclusoConNumeroDuplicado()
     {

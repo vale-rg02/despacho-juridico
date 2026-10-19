@@ -605,6 +605,25 @@ public class ScraperAcuerdosService : BackgroundService
                         });
                     }
 
+                    // Verificar si ya existe este acuerdo -- ANTES del branch de dryRun
+                    // (DJ-141): un dry-run debe reflejar exactamente lo que pasaría en una
+                    // corrida real, y en una corrida real un acuerdo que ya existe nunca
+                    // cuenta como "nuevo guardado". Antes este chequeo vivía después del
+                    // continue de dryRun, así que CUALQUIER vista previa (incluyendo
+                    // /auditoria-preview, de uso diario) contaba como "nuevo" a todo acuerdo
+                    // que coincidiera, sin importar si llevaba semanas ya guardado -- hallazgo
+                    // real al intentar usar dryRun para medir publicación tardía de ADISON.
+                    var yaExiste = await context.AcuerdosScrapeados.AnyAsync(a =>
+                        a.ExpedienteId == expediente.Id &&
+                        a.FechaAcuerdo == acuerdo.FechaAcuerdo &&
+                        a.Sintesis == acuerdo.Sintesis);
+
+                    if (yaExiste)
+                    {
+                        bitacora.YaExistia++;
+                        continue;
+                    }
+
                     if (dryRun)
                     {
                         // DJ-139: clasifica para la bitácora igual que una corrida real,
@@ -614,18 +633,6 @@ public class ScraperAcuerdosService : BackgroundService
                         if (oculto) bitacora.GuardadoOcultoBaja++;
                         else if (confianza == "Media") bitacora.GuardadoVisibleMedia++;
                         else bitacora.GuardadoVisibleAlta++;
-                        continue;
-                    }
-
-                    // Verificar si ya existe este acuerdo
-                    var yaExiste = await context.AcuerdosScrapeados.AnyAsync(a =>
-                        a.ExpedienteId == expediente.Id &&
-                        a.FechaAcuerdo == acuerdo.FechaAcuerdo &&
-                        a.Sintesis == acuerdo.Sintesis);
-
-                    if (yaExiste)
-                    {
-                        bitacora.YaExistia++;
                         continue;
                     }
 
