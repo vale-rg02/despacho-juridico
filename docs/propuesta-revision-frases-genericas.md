@@ -1,6 +1,6 @@
 # Propuesta: cómo registrar que un candidato ya fue revisado (DJ-133, punto 5)
 
-**Estado: implementada (DJ-137, 19 de octubre de 2026) — se eligió la Opción A', no la Opción B recomendada originalmente abajo.** Ver "Decisión final" al fondo del documento antes de leer la comparación original, que se conserva tal cual para contexto histórico.
+**Estado: implementada (DJ-137, 18 de octubre de 2026) — se eligió la Opción A', no la Opción B recomendada originalmente abajo.** Ver "Decisión final" al fondo del documento antes de leer la comparación original, que se conserva tal cual para contexto histórico.
 
 ## El problema
 
@@ -42,7 +42,7 @@ Nada de esto se implementó originalmente: era la comparación pedida por el pun
 
 ---
 
-## Decisión final (DJ-137, 19 de octubre de 2026)
+## Decisión final (DJ-137, 18 de octubre de 2026)
 
 **Se implementó la Opción A' — tabla `RevisionCandidatoFraseGenerica` — no la Opción B recomendada arriba.** La recomendación original quedó invalidada por un motivo que no se había considerado al escribirla:
 
