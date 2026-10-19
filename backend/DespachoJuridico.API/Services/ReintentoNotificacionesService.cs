@@ -25,6 +25,7 @@ public class ReintentoNotificacionesService : BackgroundService
     private readonly ILogger<ReintentoNotificacionesService> _logger;
     private readonly IConfiguration _config;
     private readonly TimeSpan _intervalo;
+    private readonly int _antiguedadMaximaDias;
 
     public ReintentoNotificacionesService(
         IServiceScopeFactory scopeFactory,
@@ -39,6 +40,12 @@ public class ReintentoNotificacionesService : BackgroundService
 
         var minutos = config.GetValue<int?>("ReintentoNotificaciones:IntervaloMinutos") ?? 60;
         _intervalo = TimeSpan.FromMinutes(minutos);
+        // DJ-141 (incidente real del 18-oct): sin este tope, el reintento le mandó a Mario
+        // 25 correos y a Carlos 9 de un backfill histórico de seis semanas de antigüedad --
+        // el mismo correo de "nuevo acuerdo" de siempre, sobre algo que ya no era nuevo.
+        // Pasado este umbral (sobre FechaAcuerdo, la fecha real del acuerdo, no cuándo se
+        // detectó), nunca se reintenta solo -- va directo a avisar al equipo.
+        _antiguedadMaximaDias = config.GetValue<int?>("ReintentoNotificaciones:AntiguedadMaximaDias") ?? 7;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,9 +72,17 @@ public class ReintentoNotificacionesService : BackgroundService
         !acuerdo.Oculto && !acuerdo.NotificacionEnviada && !acuerdo.DescartadoManualmente
         && !acuerdo.NotificacionOmitida && !acuerdo.AlertaReintentoEnviada;
 
+    // Sobre FechaAcuerdo (la fecha real del acuerdo, no FechaDetectado) -- lo que importa
+    // es si el contenido ya se siente viejo para quien lo reciba, no cuándo lo vio el
+    // sistema por primera vez.
+    internal static bool EsDemasiadoAntiguo(AcuerdoScrapeado acuerdo, DateOnly hoy, int antiguedadMaximaDias) =>
+        hoy.DayNumber - acuerdo.FechaAcuerdo.DayNumber > antiguedadMaximaDias;
+
     // internal (no private): las pruebas de integración lo llaman directo con un
-    // IServiceScopeFactory controlado, mismo patrón que EjecutarScrapingAsync.
-    internal async Task ReintentarPendientesAsync(CancellationToken ct = default)
+    // IServiceScopeFactory controlado, mismo patrón que EjecutarScrapingAsync. `hoy`
+    // es inyectable (igual que `ahoraUtc` en RecordatorioAcuerdosPendientesService) para
+    // que las pruebas no dependan del reloj real al evaluar EsDemasiadoAntiguo.
+    internal async Task ReintentarPendientesAsync(CancellationToken ct = default, DateOnly? hoy = null)
     {
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -83,8 +98,21 @@ public class ReintentoNotificacionesService : BackgroundService
 
         _logger.LogInformation("Reintento de notificaciones: {Cantidad} acuerdos pendientes", candidatos.Count);
 
+        var hoyEfectivo = hoy ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
         foreach (var acuerdo in candidatos)
         {
+            if (EsDemasiadoAntiguo(acuerdo, hoyEfectivo, _antiguedadMaximaDias))
+            {
+                _logger.LogWarning(
+                    "Exp {Numero} supera los {Dias} días de antigüedad -- no se reintenta solo, se avisa directo al equipo",
+                    acuerdo.NumeroExpediente, _antiguedadMaximaDias);
+                if (!await IntentarAvisarAlEquipoAsync(emailService, acuerdo, antiguo: true)) continue;
+                acuerdo.AlertaReintentoEnviada = true;
+                await context.SaveChangesAsync(ct);
+                continue;
+            }
+
             try
             {
                 // Sin litigante asignado, EnviarNotificacionAsync regresa en silencio sin
@@ -103,21 +131,7 @@ public class ReintentoNotificacionesService : BackgroundService
                 _logger.LogError(ex,
                     "Reintento de notificación también falló: Exp {Numero} -- avisando al equipo",
                     acuerdo.NumeroExpediente);
-                try
-                {
-                    await AvisarAlEquipoAsync(emailService, acuerdo);
-                }
-                catch (Exception exAviso)
-                {
-                    // Si hasta el aviso falla (ej. el mismo servicio de correo está caído),
-                    // no se debe perder el progreso ya hecho en este lote -- se guarda igual
-                    // abajo y se reintenta avisar en el siguiente ciclo (AlertaReintentoEnviada
-                    // se queda en false).
-                    _logger.LogError(exAviso,
-                        "No se pudo avisar al equipo sobre Exp {Numero} -- se reintentará avisar en el siguiente ciclo",
-                        acuerdo.NumeroExpediente);
-                    continue;
-                }
+                if (!await IntentarAvisarAlEquipoAsync(emailService, acuerdo, antiguo: false)) continue;
                 acuerdo.AlertaReintentoEnviada = true;
             }
 
@@ -128,7 +142,26 @@ public class ReintentoNotificacionesService : BackgroundService
         }
     }
 
-    private async Task AvisarAlEquipoAsync(IEmailService emailService, AcuerdoScrapeado acuerdo)
+    // Regresa false si hasta el aviso falló (ej. el mismo servicio de correo está caído) --
+    // en ese caso no se debe marcar AlertaReintentoEnviada ni perder el progreso ya hecho
+    // en el lote; se reintenta avisar en el siguiente ciclo.
+    private async Task<bool> IntentarAvisarAlEquipoAsync(IEmailService emailService, AcuerdoScrapeado acuerdo, bool antiguo)
+    {
+        try
+        {
+            await AvisarAlEquipoAsync(emailService, acuerdo, antiguo);
+            return true;
+        }
+        catch (Exception exAviso)
+        {
+            _logger.LogError(exAviso,
+                "No se pudo avisar al equipo sobre Exp {Numero} -- se reintentará avisar en el siguiente ciclo",
+                acuerdo.NumeroExpediente);
+            return false;
+        }
+    }
+
+    private async Task AvisarAlEquipoAsync(IEmailService emailService, AcuerdoScrapeado acuerdo, bool antiguo = false)
     {
         var destinatarios = (_config["Auditoria:Destinatarios"] ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -143,8 +176,17 @@ public class ReintentoNotificacionesService : BackgroundService
 
         var numeroEnc = System.Net.WebUtility.HtmlEncode(acuerdo.NumeroExpediente);
         var juzgadoEnc = System.Net.WebUtility.HtmlEncode(acuerdo.NombreJuzgado);
-        var asunto = $"Notificación sin poder enviarse (2do intento) — Exp. {acuerdo.NumeroExpediente}";
-        var cuerpoHtml = $@"
+        var asunto = antiguo
+            ? $"Acuerdo antiguo sin notificar, requiere revisión manual — Exp. {acuerdo.NumeroExpediente}"
+            : $"Notificación sin poder enviarse (2do intento) — Exp. {acuerdo.NumeroExpediente}";
+        var cuerpoHtml = antiguo
+            ? $@"
+<p>El acuerdo del expediente <strong>{numeroEnc}</strong> ({juzgadoEnc}, {acuerdo.FechaAcuerdo:dd/MM/yyyy}) ya está guardado y visible,
+pero nunca se notificó y tiene más de {_antiguedadMaximaDias} días de antigüedad -- el sistema NO le mandó correo automático al
+litigante para evitar un aviso tardío y confuso sobre algo que ya no es reciente.</p>
+<p>Revisa el caso y decide a mano si notificar directo al litigante, usar <code>Promover?notificar=false</code> si ya está al
+tanto por otro medio, o algo distinto.</p>"
+            : $@"
 <p>El acuerdo del expediente <strong>{numeroEnc}</strong> ({juzgadoEnc}, {acuerdo.FechaAcuerdo:dd/MM/yyyy}) ya está guardado y visible,
 pero el correo al litigante falló dos veces -- la primera vez al detectarlo, y ahora en el reintento automático.</p>
 <p>No se va a reintentar de nuevo solo. Revisa el correo del litigante asignado y, si hace falta, avísale directamente.</p>";

@@ -104,6 +104,24 @@ public class ReintentoNotificacionesTests
             NuevoAcuerdoVisibleSinNotificar(alertaReintentoEnviada: true)));
     }
 
+    [Fact]
+    public void AcuerdoDentroDelTope_NoEsDemasiadoAntiguo()
+    {
+        var acuerdo = NuevoAcuerdoVisibleSinNotificar();
+        acuerdo.FechaAcuerdo = new DateOnly(2026, 10, 1);
+        Assert.False(ReintentoNotificacionesService.EsDemasiadoAntiguo(acuerdo, new DateOnly(2026, 10, 8), antiguedadMaximaDias: 7));
+    }
+
+    [Fact]
+    public void AcuerdoPasandoElTope_EsDemasiadoAntiguo()
+    {
+        // Mismo incidente real del 18-oct: un backfill de seis semanas de antigüedad
+        // no debe tratarse como "recién llegado" solo porque el sistema lo vio hoy.
+        var acuerdo = NuevoAcuerdoVisibleSinNotificar();
+        acuerdo.FechaAcuerdo = new DateOnly(2026, 9, 1);
+        Assert.True(ReintentoNotificacionesService.EsDemasiadoAntiguo(acuerdo, new DateOnly(2026, 10, 18), antiguedadMaximaDias: 7));
+    }
+
     // ── Integración (EF InMemory real, igual patrón que SugerirAcuerdoTests) ──
 
     private static AppDbContext CrearContextoEnMemoria(string nombreBD) =>
@@ -170,7 +188,7 @@ public class ReintentoNotificacionesTests
         var email = new FakeEmailService();
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         var enviado = Assert.Single(email.Enviados);
         Assert.Equal(litigante.Email, enviado.Email);
@@ -189,7 +207,7 @@ public class ReintentoNotificacionesTests
         var email = new EmailServiceQueFallaSoloParaElLitigante(new HashSet<string> { litigante.Email });
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         var aviso = Assert.Single(email.Enviados); // el único que SÍ se logra enviar es el aviso al equipo
         Assert.Equal("equipo@despacho.com", aviso.Email);
@@ -209,7 +227,7 @@ public class ReintentoNotificacionesTests
         var email = new EmailServiceQueFalla();
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email, destinatarios: null);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         // Solo el intento fallido de notificar al litigante -- sin destinatarios
         // configurados, nunca se intenta un segundo envío para el aviso.
@@ -232,7 +250,7 @@ public class ReintentoNotificacionesTests
         var email = new FakeEmailService();
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         Assert.Empty(email.Enviados); // nunca se le manda nada al litigante que ya está al tanto
     }
@@ -249,7 +267,7 @@ public class ReintentoNotificacionesTests
         var email = new EmailServiceQueFalla();
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         Assert.Empty(email.Intentos); // no se vuelve a intentar, no se vuelve a avisar
     }
@@ -268,7 +286,7 @@ public class ReintentoNotificacionesTests
         var email = new FakeEmailService();
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         var aviso = Assert.Single(email.Enviados);
         Assert.Equal("equipo@despacho.com", aviso.Email);
@@ -312,7 +330,7 @@ public class ReintentoNotificacionesTests
         });
         var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
 
-        await servicio.ReintentarPendientesAsync();
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 2)); // dentro del tope de antigüedad por defecto
 
         context.ChangeTracker.Clear();
         var primero = await context.AcuerdosScrapeados.FindAsync(acuerdoQueSiFunciona.Id);
@@ -321,5 +339,32 @@ public class ReintentoNotificacionesTests
         var segundo = await context.AcuerdosScrapeados.FindAsync(acuerdoQueFalla.Id);
         Assert.False(segundo!.NotificacionEnviada);
         Assert.False(segundo.AlertaReintentoEnviada); // el aviso también falló -- se reintenta el próximo ciclo
+    }
+
+    [Fact]
+    public async Task AcuerdoDemasiadoAntiguo_NuncaIntentaNotificarAlLitigante_AvisaDirectoAlEquipo()
+    {
+        // Reproduce el incidente real del 18-oct: un acuerdo con semanas de antigüedad
+        // (backfill histórico) nunca debe generar un intento de correo al litigante --
+        // va directo al aviso del equipo, sin pasar por EnviarNotificacionManualAsync.
+        var nombreBD = nameof(AcuerdoDemasiadoAntiguo_NuncaIntentaNotificarAlLitigante_AvisaDirectoAlEquipo);
+        using var context = CrearContextoEnMemoria(nombreBD);
+        var (litigante, _, acuerdo) = await SembrarAcuerdoVisibleSinNotificarAsync(context);
+        var acuerdoViejo = await context.AcuerdosScrapeados.FirstAsync();
+        acuerdoViejo.FechaAcuerdo = new DateOnly(2026, 9, 1); // seis semanas antes del "hoy" de la prueba
+        await context.SaveChangesAsync();
+        var email = new FakeEmailService();
+        var servicio = CrearServicio(nombreBD, CrearScraperService(nombreBD), email);
+
+        await servicio.ReintentarPendientesAsync(hoy: new DateOnly(2026, 10, 18));
+
+        var unico = Assert.Single(email.Enviados);
+        Assert.Equal("equipo@despacho.com", unico.Email); // nunca el correo del litigante
+        Assert.NotEqual(litigante.Email, unico.Email);
+        Assert.Contains("revisión manual", unico.Asunto, StringComparison.OrdinalIgnoreCase);
+        context.ChangeTracker.Clear();
+        var actualizado = await context.AcuerdosScrapeados.FindAsync(acuerdo.Id);
+        Assert.False(actualizado!.NotificacionEnviada);
+        Assert.True(actualizado.AlertaReintentoEnviada);
     }
 }

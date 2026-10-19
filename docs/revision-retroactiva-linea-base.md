@@ -1,6 +1,6 @@
 # Revisión retroactiva — línea base de falsos negativos y falsos positivos (DJ-141)
 
-**Estado: COMPLETO (19 de octubre), con revisión externa incorporada.** Partes A, B y C completas (incluida la extensión a foráneos). Las 8 recuperaciones de S1 ejecutadas en producción. La categoría "detectado pero no notificado" se midió (11 casos reales) y se resolvió con un reintento mínimo + alerta. Los 4 expedientes duplicados se fusionaron sin pérdida de historial. Quedan fuera de esta historia, para seguimiento aparte: el fix de apellidos invertidos y DJ-134 (0 de los 8 S1 vienen de ahí, se difieren), [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) (ticket separado, sigue abierto), DJ-137/DJ-129/DJ-106 (sin evaluar, contenido no discutido en esta revisión), y las dos notas "a futuro" de la sección de recuperaciones. **DJ-132 (bancos sin capturar) sí entra** — causó 1 de los 8 S1.
+**Estado: COMPLETO (18 de octubre, hora de Hermosillo), con revisión externa incorporada.** *(Nota: varias secciones de este documento originalmente decían "19-oct" — eran timestamps de migración/commit en UTC, que caen al día siguiente en Hermosillo (UTC-7). Corregido el 18-oct tras detectarlo en una revisión externa — ver también DJ-140 sobre esta misma regla de horario.)* Partes A, B y C completas (incluida la extensión a foráneos). Las 8 recuperaciones de S1 ejecutadas en producción. La categoría "detectado pero no notificado" se midió (11 casos reales) y se resolvió con un reintento mínimo + alerta. Los 4 expedientes duplicados se fusionaron sin pérdida de historial. Quedan fuera de esta historia, para seguimiento aparte: el fix de apellidos invertidos y DJ-134 (0 de los 8 S1 vienen de ahí, se difieren), [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) (ticket separado, sigue abierto), DJ-137/DJ-129/DJ-106 (sin evaluar, contenido no discutido en esta revisión), y las dos notas "a futuro" de la sección de recuperaciones. **DJ-132 (bancos sin capturar) sí entra** — causó 1 de los 8 S1.
 
 Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres de clientes — solo Id de acuerdo/expediente, número de expediente, juzgado, fecha, categoría y puntaje de similitud.
 
@@ -13,10 +13,10 @@ Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres d
 - **8 candidatos reales de S1** encontrados en Cola 1 (Hermosillo), **los 8 ya recuperados en producción** (3 `Sugerir`, 1 `Promover` con correo, 4 `Promover` sin correo). **2 de los 8 (25%) son exhorto** — sobrerrepresentados frente al ~8.6% de tasa base.
 - **0 candidatos de S1** en Cola 2 (foráneos) de 2,132 revisados.
 - **1 hallazgo de algoritmo nuevo:** el matching no prueba el orden invertido de apellidos (caso real confirmado).
-- **4 expedientes con captura duplicada** encontrados en toda la base — **resueltos el 19-oct** (acuerdos fusionados, copias sobrantes cerradas, sin pérdida de historial).
+- **4 expedientes con captura duplicada** encontrados en toda la base — **resueltos el 18-oct** (acuerdos fusionados, copias sobrantes cerradas, sin pérdida de historial).
 - **2 bugs de `JuzgadoCoincide`** encontrados y corregidos aparte durante este mismo trabajo (commit `80635a7`, separado de esta historia por ser cambio de matching real) — sin impacto retroactivo en esta ventana porque no hay expedientes reales en esos dos juzgados.
 - **Fallas completas de scrapeo descartadas como causa:** 0 de 3,108 corridas fallaron en 60 días.
-- **Categoría "detectado pero no notificado", medida y resuelta (19-oct):** 11 casos reales en 60 días (más 33 de un backfill histórico esperado, excluidos). Resuelto con `ReintentoNotificacionesService` — reintento + alerta al equipo si no se resuelve. El ticket [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) de esta misma categoría sigue abierto en Jira, sin relación directa con el fix.
+- **Categoría "detectado pero no notificado", medida y resuelta (18-oct):** 11 casos reales en 60 días (más 33 de un backfill histórico esperado, excluidos). Resuelto con `ReintentoNotificacionesService` — reintento + alerta al equipo si no se resuelve. El ticket [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) de esta misma categoría sigue abierto en Jira, sin relación directa con el fix.
 - **3 candidatos de exhorto (1999, 1888, 1541) confirmados como ruido real** (materia distinta, patrón DJ-98) — no eran casos mal clasificados.
 - **Parte C (publicación tardía): completa.** Mecanismo confirmado real (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada), pero bajo impacto medido — 0 misses reales en la pasada hacia atrás (10 días hábiles × 29 juzgados de Hermosillo). En el camino se encontró y corrigió un bug real que inflaba cualquier conteo de dry-run del sistema (no revisaba si el acuerdo ya existía) — afectaba también `/auditoria-preview`.
 
@@ -82,7 +82,7 @@ Al revisar las colisiones de número+juzgado contra la propia tabla `Expedientes
 
 Con al menos 2 de los 4 pares ambos "Abierto", el scraper evalúa el mismo acuerdo real dos veces por cada copia — contribuye ruido extra, no afecta la clasificación de S1 encontrada arriba. Se revisó toda la base (no solo Hermosillo) y no aparecieron duplicados adicionales en juzgados foráneos.
 
-**Resueltos el 19-oct.** Antes de fusionar se encontró que 3 de las 4 copias "sobrantes" (1233, 1217, 1181) **no estaban vacías de verdad** — tenían `HistorialEtapa`/`BitacoraCambios` propios — así que no se borró ningún expediente. En vez de eso: los acuerdos se movieron a la copia que se quedó abierta (evitando colisión con el índice único `ExpedienteId+FechaAcuerdo+Sintesis`, descartando duplicados exactos), y la copia sobrante se marcó `Estado='Cerrado'` (ya confirmado que excluye del matching activo), dejando su historial de etapas intacto por si hace falta consultarlo después:
+**Resueltos el 18-oct.** Antes de fusionar se encontró que 3 de las 4 copias "sobrantes" (1233, 1217, 1181) **no estaban vacías de verdad** — tenían `HistorialEtapa`/`BitacoraCambios` propios — así que no se borró ningún expediente. En vez de eso: los acuerdos se movieron a la copia que se quedó abierta (evitando colisión con el índice único `ExpedienteId+FechaAcuerdo+Sintesis`, descartando duplicados exactos), y la copia sobrante se marcó `Estado='Cerrado'` (ya confirmado que excluye del matching activo), dejando su historial de etapas intacto por si hace falta consultarlo después:
 
 | Número | Se cerró | Se quedó abierta | Acuerdos antes (cerrada + abierta) | Acuerdos después |
 |---|---|---|---|---|
@@ -102,7 +102,9 @@ Se revisó si alguna corrida automática falló por completo (`ConsultaExitosa =
 - **A 30 días (ventanas consistentes):** 2 S1 (los únicos de los 8 detectados en los últimos 30 días) / (99 Alta + 3 Media + 2 S1) = **1.9%**
 - **A 60 días** (asumiendo que Cola 2 se mantiene igual de rara en los 30 días adicionales — supuesto, no medido en esa ventana completa): 8 S1 / (214 Alta + 14 Media + 8 S1) = **3.4%**
 
-**Advertencia:** es una cota inferior. No captura la clase de acuerdos que nunca llegaron a guardarse en absoluto (ver Parte C).
+**Advertencia:** es una cota inferior. No captura la clase de acuerdos que nunca llegaron a guardarse en absoluto (ver Parte C) — ni la categoría de "detectado pero nunca notificado" (ver sección propia más abajo), que el plan también define como S1.
+
+**Tasa combinada (agregada el 18-oct, señalada en revisión externa):** el plan define S1 como "un acuerdo real no se notificó o quedó oculto" — los 1.9%/3.4% de arriba solo cuentan acuerdos ocultos, no los detectados-pero-sin-notificar. Sumando los 11 casos de esa categoría (ver sección "Categoría medida el 18-oct") a los 8 de Cola 1: **19 S1 / 236 acuerdos reales a 60 días ≈ 8.1%** (236 = 214 Alta + 14 Media + 8 S1; los 11 ya estaban dentro de los 214 Alta, no se suman al denominador). **Este es el número que corresponde comparar contra el criterio de salida de 0.67%**, no el 3.4% aislado — con él, el criterio no se cumple todavía.
 
 ---
 
@@ -199,7 +201,7 @@ Se confirmó que la bitácora de D=16 de octubre solo tiene 7 corridas automáti
 
 **Resultado final de la pasada hacia atrás:** 0 misses reales en 10 días hábiles × 29 juzgados de Hermosillo.
 
-### Extensión a foráneos (agregada el 19-oct)
+### Extensión a foráneos (agregada el 18-oct)
 
 La pasada hacia atrás original solo cubrió Hermosillo — los foráneos nunca se probaron. Se repitió con una muestra de los 8 juzgados foráneos más activos (Caborca, Navojoa, Tribunal Laboral Cajeme, Magdalena, Guaymas, 2do/3ro Familiar Cajeme, San Luis Río Colorado) en 3 fechas dentro de la misma ventana (7, 12 y 16 de octubre), ya con el fix de `yaExiste` desplegado:
 
@@ -217,7 +219,7 @@ El mecanismo de publicación tardía de ADISON **es real** — confirmado en la 
 
 ---
 
-## Revisión externa del 18-19 de octubre — desglose de causas contra el criterio de salida
+## Revisión externa del 18 de octubre — desglose de causas contra el criterio de salida
 
 Un compañero revisó este documento contra el criterio de salida (máximo 1 error en 150 acuerdos reales, ~0.67%) y pidió el desglose exacto de causa por cada uno de los 8 S1, para decidir qué tickets de la semana 1 entran por la regla de congelamiento.
 
@@ -253,14 +255,14 @@ Los 4 con `TipoAsunto="Exh."` pasan por la rama de exhorto, que **nunca** tiene 
 | Bancos sin capturar en el expediente (DJ-132) | Captura de datos faltante, no bug de matching | **Sí, entra — causó 1 de los 8 S1** (6640/704-2025: ADISON mencionaba el banco, el expediente no lo tenía capturado, así que nunca se activó el rescate por banco). Ver desglose completo arriba. |
 | El algoritmo no prueba el orden invertido de apellidos al comparar nombres | Cambio chico y acotado (agregar una comparación adicional en `PartesCoinciden`) | **Se difiere de la semana 1** — 0 de los 8 S1 vienen de ahí (confirmado con el desglose). Sigue siendo candidato real para la 1 Media que sí causó (acuerdo 4663), solo que no es parte del backlog de S1 actual. |
 | Palabras sueltas en la comparación de nombres (DJ-134) | — | **Se difiere** — 0 de los 8 S1, mismo motivo que apellidos invertidos (ninguno de los 8 tiene nombre de persona publicado). |
-| 4 expedientes con captura duplicada en la base | Limpieza de datos, no cambio de código | **Resuelto el 19-oct** — acuerdos fusionados, copias sobrantes marcadas `Cerrado`, sin pérdida de historial (ver sección de Duplicados). |
+| 4 expedientes con captura duplicada en la base | Limpieza de datos, no cambio de código | **Resuelto el 18-oct** — acuerdos fusionados, copias sobrantes marcadas `Cerrado`, sin pérdida de historial (ver sección de Duplicados). |
 | Expediente "Pausado" sigue en el grupo de matching activo (solo "Cerrado" se excluye) | Posible cambio de diseño | Documentado para decisión futura, fuera de alcance de esta historia (ver hallazgo del expediente 150/2023 original, no confundir con la colisión de número — son hallazgos distintos) |
 | Bugs de `JuzgadoCoincide` (Violencia de Género, Tribunal Unitario) | Ya corregidos | Ya resuelto, comiteado aparte (`80635a7`) por ser cambio de matching real, no observación. Sin impacto retroactivo medido en esta ventana. |
-| Acuerdos detectados correctamente pero cuya notificación nunca salió | Categoría nueva, medida el 18-19 de octubre (ver abajo) — 11 casos reales en 60 días | **Ya resuelto con un reintento mínimo** (`ReintentoNotificacionesService`), desplegado el 19-oct — ver sección propia. |
+| Acuerdos detectados correctamente pero cuya notificación nunca salió | Categoría nueva, medida el 18 de octubre (ver abajo) — 11 casos reales en 60 días | **Ya resuelto con un reintento mínimo** (`ReintentoNotificacionesService`), desplegado el 18-oct — ver sección propia. |
 
 ---
 
-## Categoría medida el 18-19 de octubre: detectado pero nunca notificado
+## Categoría medida el 18 de octubre: detectado pero nunca notificado
 
 El compañero señaló que esta categoría (acuerdos que el scraper matcheó correctamente pero cuyo correo nunca salió) cuenta como S1 para el criterio de salida aunque el matching haya acertado, y que no estaba medida. Se midió:
 
@@ -271,13 +273,27 @@ Consulta: `Oculto=false AND NotificacionEnviada=false AND DescartadoManualmente=
 
 No se pudo determinar la causa técnica exacta de cada uno — la bitácora de excepciones (`BitacoraDescarteItemizado.EtapaFalla='notificacion'`) se creó hasta el 15 de octubre como parte de DJ-139, y los logs de Railway ya no retienen nada de esas fechas (se confirmó vacío incluso para el caso más reciente, 8-oct). El patrón (esporádico en 7 semanas, no agrupado) es consistente con fallas transitorias de envío de correo que el sistema nunca reintentaba.
 
-### Fix: `ReintentoNotificacionesService` (desplegado el 19-oct)
+### Fix: `ReintentoNotificacionesService` (desplegado el 18-oct)
 
 Nuevo `BackgroundService`, corre cada 60 min (configurable, `ReintentoNotificaciones:IntervaloMinutos`), empieza de inmediato al desplegar (resuelve el backlog de los 11 sin paso manual aparte). Por cada acuerdo visible sin notificar: reintenta el correo; si funciona, `NotificacionEnviada=true`; si vuelve a fallar, avisa una sola vez al equipo técnico (mismos destinatarios que el reporte diario de DJ-140) y deja de tocarlo (`AlertaReintentoEnviada=true`) — de ahí en adelante es decisión humana.
 
 Dos campos nuevos en `AcuerdoScrapeado`: `NotificacionOmitida` (para que esto nunca toque los silenciados a propósito vía `Promover?notificar=false` — la migración incluye el backfill de los 4 ya existentes) y `AlertaReintentoEnviada`.
 
-Dos fallas encontradas y corregidas antes de desplegar: (1) el guardado era por lote, no por acuerdo — si el aviso al equipo también fallaba, se perdía el progreso ya hecho y se duplicaban correos en el siguiente ciclo; (2) un expediente sin litigante asignado se contaba como "éxito" silencioso (`EnviarNotificacionAsync` no lanza excepción si no hay a quién mandarle) — ahora cuenta como falla real y dispara el aviso. 10 pruebas nuevas, suite completa en verde.
+Dos fallas encontradas y corregidas antes de desplegar: (1) el guardado era por lote, no por acuerdo — si el aviso al equipo también fallaba, se perdía el progreso ya hecho y se duplicaban correos en el siguiente ciclo; (2) un expediente sin litigante asignado se contaba como "éxito" silencioso (`EnviarNotificacionAsync` no lanza excepción si no hay a quién mandarle) — ahora cuenta como falla real y dispara el aviso.
+
+### Incidente real: correos tardíos a Mario y Carlos (18-oct)
+
+Una tercera falla **no se encontró en revisión de código — se encontró porque ya había pasado**, señalada en la revisión externa: el servicio no excluía los 33 acuerdos del backfill histórico del 1-sep (esos nunca pasaron por `Promover`, así que `NotificacionOmitida` nunca se les marcó). En el primer ciclo tras el despliegue original, el servicio le mandó a **Mario 25 correos y a Carlos 9** — el correo normal de "nuevo acuerdo", sobre acuerdos de hace seis semanas. Además, varios de los 11 casos reales también tenían semanas de antigüedad (el más viejo, 59 días) y salieron con el mismo fraseo confuso, aunque en esos sí era información legítima que debía llegar, solo que tarde.
+
+**Fix:** tope de antigüedad (`ReintentoNotificaciones:AntiguedadMaximaDias`, default 7 días, sobre `FechaAcuerdo`) — pasado el tope, nunca se intenta el correo al litigante, va directo a un aviso distinto al equipo ("requiere revisión manual"), sin tocar al litigante. 3 pruebas nuevas (función pura + integración reproduciendo el incidente), suite completa en verde (515 pruebas).
+
+**Pendiente:** avisar directo a Mario y Carlos que esos correos de acuerdos viejos (del 1-sep en adelante) son del backfill histórico, no casos nuevos urgentes — no hay forma de "desenviarlos".
+
+---
+
+## Línea base registrada en la tabla de hallazgos (18-oct)
+
+Era un criterio de aceptación pendiente — la línea base debía quedar registrada en `/api/scraper/hallazgos` (Severidad=S1) antes del 22 de octubre. Registradas las 19 entradas (Ids 1-19 en la tabla `HallazgosAuditoria`): los 8 S1 de Parte A con `Fecha=FechaAcuerdo` y los 11 de la categoría "detectado sin notificar", todas con fecha entre el 11 de agosto y el 8 de octubre — todas dentro de la ventana y antes del corte del 22.
 
 ---
 
