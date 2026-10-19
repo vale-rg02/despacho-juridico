@@ -224,6 +224,95 @@ public class ScraperController : ControllerBase
         return Ok(reporte);
     }
 
+    // POST /api/scraper/frases-genericas/revisiones
+    // DJ-137: registra que una persona ya revisó un candidato a frase genérica --
+    // "Descartado" (nombre real, se excluye del reporte de ahí en adelante) o
+    // "Aprobado" (jerga -- rastro informativo; el cambio real a
+    // FrasesGenericasConocidas sigue siendo un commit revisado aparte, esto no lo
+    // reemplaza). El candidato SÍ contiene texto real, por eso vive en una tabla
+    // solo-admin y nunca en código fuente (ver docs/propuesta-revision-frases-genericas.md).
+    [HttpPost("frases-genericas/revisiones")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> RegistrarRevisionCandidato([FromBody] RevisionCandidatoRequest request)
+    {
+        var error = ValidarRevisionCandidato(request);
+        if (error != null) return BadRequest(new { mensaje = error });
+
+        var normalizado = FrasesGenericasCandidatasService.NormalizarCandidato(request.Candidato);
+
+        // Un candidato no puede estar aprobado y descartado a la vez -- si ya se
+        // marcó "Aprobado" en FrasesGenericasConocidas (código), no tiene sentido
+        // registrarlo también como "Descartado" aquí.
+        if (request.Decision == "Descartado"
+            && ScraperAcuerdosService.FrasesGenericasConocidas.Select(FrasesGenericasCandidatasService.NormalizarCandidato).Contains(normalizado))
+        {
+            return BadRequest(new { mensaje = "Este candidato ya está en FrasesGenericasConocidas -- no se puede descartar lo que ya está aprobado." });
+        }
+
+        if (await _context.RevisionesCandidatoFraseGenerica.AnyAsync(r => r.CandidatoNormalizado == normalizado))
+            return BadRequest(new { mensaje = "Este candidato ya tiene una revisión registrada." });
+
+        var revision = new RevisionCandidatoFraseGenerica
+        {
+            CandidatoNormalizado = normalizado,
+            Decision = request.Decision,
+            Motivo = request.Motivo,
+            RevisadoPorId = ObtenerUsuarioId()
+        };
+
+        _context.RevisionesCandidatoFraseGenerica.Add(revision);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // El chequeo de arriba (AnyAsync) no es atómico con este guardado -- si
+            // dos solicitudes para el mismo candidato llegan casi al mismo tiempo,
+            // ambas pueden pasarlo antes de que cualquiera guarde. El índice único
+            // de la BD es la garantía real; esto solo lo convierte en un 400 legible
+            // en vez de un error crudo.
+            return BadRequest(new { mensaje = "Este candidato ya tiene una revisión registrada." });
+        }
+
+        return Ok(new { revision.Id });
+    }
+
+    // GET /api/scraper/frases-genericas/revisiones
+    // Solo-admin -- la respuesta nunca incluye el candidato en texto plano, solo
+    // metadatos (igual criterio que el resto de este archivo con texto de Partes).
+    [HttpGet("frases-genericas/revisiones")]
+    [Authorize(Policy = "AccesoAdmin")]
+    public async Task<IActionResult> ListarRevisionesCandidato()
+    {
+        var revisiones = await _context.RevisionesCandidatoFraseGenerica
+            .Include(r => r.RevisadoPor)
+            .OrderByDescending(r => r.RevisadoEn)
+            .Select(r => new RevisionCandidatoResponse
+            {
+                Id = r.Id,
+                Decision = r.Decision,
+                RevisadoEn = r.RevisadoEn,
+                RevisadoPorNombre = r.RevisadoPor.Nombre
+            })
+            .ToListAsync();
+
+        return Ok(revisiones);
+    }
+
+    internal static string? ValidarRevisionCandidato(RevisionCandidatoRequest req)
+    {
+        if (req.Decision != "Aprobado" && req.Decision != "Descartado")
+            return "Decision debe ser Aprobado o Descartado.";
+        if (string.IsNullOrWhiteSpace(req.Candidato))
+            return "Candidato es requerido.";
+        if (req.Candidato.Length > 300)
+            return "Candidato debe tener 300 caracteres o menos.";
+        if (req.Motivo != null && req.Motivo.Length > 200)
+            return "Motivo debe tener 200 caracteres o menos.";
+        return null;
+    }
+
     // GET /api/scraper/auditoria-preview?fecha=2026-10-16
     // GET /api/scraper/auditoria-preview?fecha=2026-10-16&dryRun=false — avanza la marca de agua (no envía correo aquí)
     // DJ-140: arma el reporte diario de auditoría completo con datos reales,

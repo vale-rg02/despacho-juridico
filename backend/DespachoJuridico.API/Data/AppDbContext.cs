@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<BitacoraEvaluacionScraper> BitacoraEvaluacionScraper => Set<BitacoraEvaluacionScraper>();
     public DbSet<BitacoraDescarteItemizado> BitacoraDescarteItemizado => Set<BitacoraDescarteItemizado>();
     public DbSet<HallazgoAuditoria> HallazgosAuditoria => Set<HallazgoAuditoria>();
+    public DbSet<RevisionCandidatoFraseGenerica> RevisionesCandidatoFraseGenerica => Set<RevisionCandidatoFraseGenerica>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,13 @@ public class AppDbContext : DbContext
         // Evita duplicados a nivel de BD si el cron y un trigger manual llegaran a solaparse
         modelBuilder.Entity<AcuerdoScrapeado>()
             .HasIndex(a => new { a.ExpedienteId, a.FechaAcuerdo, a.Sintesis })
+            .IsUnique();
+
+        // DJ-137: un candidato solo puede tener una revisión vigente -- evita el
+        // estado de "aprobado y descartado a la vez" a nivel de BD, no solo en el
+        // endpoint.
+        modelBuilder.Entity<RevisionCandidatoFraseGenerica>()
+            .HasIndex(r => r.CandidatoNormalizado)
             .IsUnique();
 
         // Si se elimina el expediente, la cita se conserva sin vincular (no se borra la cita)

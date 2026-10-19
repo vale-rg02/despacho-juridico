@@ -136,6 +136,62 @@ public class FrasesGenericasCandidatasServiceTests
         Assert.Equal(3, candidato.BancosDistintos);
     }
 
+    // DJ-137: candidato ya revisado y descartado (nombre real, no jerga) -- no
+    // debe repetirse en el reporte. Cadena inventada.
+    [Fact]
+    public void CandidatoYaDescartado_SeExcluyeYSeCuenta()
+    {
+        var filas = new List<AcuerdoParaCandidato>
+        {
+            Fila("100/2026", "1ro Civil Hermosillo", "FRASE DE PRUEBA INVENTADA"),
+            Fila("200/2026", "2do Civil Hermosillo", "FRASE DE PRUEBA INVENTADA"),
+            Fila("300/2026", "3ro Civil Hermosillo", "FRASE DE PRUEBA INVENTADA")
+        };
+
+        var resultado = CalcularCandidatos(
+            filas, Array.Empty<string>(), new[] { "FRASE DE PRUEBA INVENTADA" }, umbralExpedientes: 3);
+
+        Assert.Empty(resultado.CandidatosNuevos);
+        Assert.Equal(1, resultado.ExcluidosPorYaDescartado);
+    }
+
+    [Fact]
+    public void CandidatoSinRevisar_NoAfectaElContadorDeDescartados()
+    {
+        var filas = new List<AcuerdoParaCandidato>
+        {
+            Fila("100/2026", "1ro Civil Hermosillo", "OTRA FRASE INVENTADA"),
+            Fila("200/2026", "2do Civil Hermosillo", "OTRA FRASE INVENTADA"),
+            Fila("300/2026", "3ro Civil Hermosillo", "OTRA FRASE INVENTADA")
+        };
+
+        var resultado = CalcularCandidatos(filas, Array.Empty<string>(), Array.Empty<string>(), umbralExpedientes: 3);
+
+        Assert.Single(resultado.CandidatosNuevos);
+        Assert.Equal(0, resultado.ExcluidosPorYaDescartado);
+    }
+
+    // DJ-137: si por algún motivo un candidato terminara marcado como aprobado Y
+    // descartado a la vez (no debería pasar -- el endpoint lo valida), Aprobado
+    // gana -- se cuenta como ExcluidosPorYaAprobada, no como descartado.
+    [Fact]
+    public void CandidatoAprobadoYDescartadoALaVez_GanaElAprobado()
+    {
+        var filas = new List<AcuerdoParaCandidato>
+        {
+            Fila("100/2026", "1ro Civil Hermosillo", "FRASE AMBIGUA INVENTADA"),
+            Fila("200/2026", "2do Civil Hermosillo", "FRASE AMBIGUA INVENTADA"),
+            Fila("300/2026", "3ro Civil Hermosillo", "FRASE AMBIGUA INVENTADA")
+        };
+
+        var resultado = CalcularCandidatos(
+            filas, new[] { "FRASE AMBIGUA INVENTADA" }, new[] { "FRASE AMBIGUA INVENTADA" }, umbralExpedientes: 3);
+
+        Assert.Empty(resultado.CandidatosNuevos);
+        Assert.Equal(1, resultado.ExcluidosPorYaAprobada);
+        Assert.Equal(0, resultado.ExcluidosPorYaDescartado);
+    }
+
     [Fact]
     public void CandidatoDeUnaSolaPalabra_SeExcluyeYSeCuenta()
     {
@@ -197,6 +253,33 @@ public class FrasesGenericasCandidatasServiceTests
     {
         Assert.True(EsPalabraUnica("GARANTIA"));
         Assert.False(EsPalabraUnica("GARANTIA HIPOTECARIA"));
+    }
+
+    // DJ-137 (Paso 1 -- evidencia, no supuesto): CalcularCandidatos no tiene ningún
+    // concepto de "ya revisado" ni ventana de tiempo -- es puro y recalcula desde cero
+    // cada vez. Un candidato DESCARTADO (nombre real que coincidió por casualidad, no
+    // agregado a FrasesGenericasConocidas) reaparece exactamente igual en una segunda
+    // corrida, como si nunca se hubiera revisado. Cadena inventada, no texto real de
+    // ningún candidato real del despacho.
+    [Fact]
+    public void SinRegistroDeDescartados_UnCandidatoDescartadoReapareceEnLaSiguienteCorrida()
+    {
+        var filas = new List<AcuerdoParaCandidato>
+        {
+            Fila("100/2026", "1ro Civil Hermosillo", "FRASE DE PRUEBA INVENTADA"),
+            Fila("200/2026", "2do Civil Hermosillo", "FRASE DE PRUEBA INVENTADA"),
+            Fila("300/2026", "3ro Civil Hermosillo", "FRASE DE PRUEBA INVENTADA")
+        };
+
+        // "Corrida 1": alguien lo revisa y decide que es un nombre real (lo descarta) --
+        // pero como no hay ningún lugar donde registrar esa decisión, no hay nada que
+        // pasarle a la "Corrida 2" distinto de lo que ya se le pasó a la Corrida 1.
+        var corrida1 = CalcularCandidatos(filas, ScraperAcuerdosService.FrasesGenericasConocidas, umbralExpedientes: 3);
+        var corrida2 = CalcularCandidatos(filas, ScraperAcuerdosService.FrasesGenericasConocidas, umbralExpedientes: 3);
+
+        Assert.Single(corrida1.CandidatosNuevos);
+        Assert.Single(corrida2.CandidatosNuevos);
+        Assert.Equal(corrida1.CandidatosNuevos[0].Frase, corrida2.CandidatosNuevos[0].Frase);
     }
 
     [Fact]

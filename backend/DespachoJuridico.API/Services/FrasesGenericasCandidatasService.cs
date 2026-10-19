@@ -175,7 +175,16 @@ public class FrasesGenericasCandidatasService : BackgroundService
                 expediente.BancoId, expediente.Banco?.Nombre));
         }
 
-        var calculo = CalcularCandidatos(filas, ScraperAcuerdosService.FrasesGenericasConocidas, umbral);
+        // DJ-137: candidatos ya revisados y descartados (nombre real, no jerga) --
+        // sin esto se repetirían en el reporte indefinidamente mientras sigan
+        // cruzando el umbral. Ya vienen normalizados desde la BD (el endpoint que
+        // los registra normaliza antes de guardar), así que se usan tal cual.
+        var candidatosYaDescartados = await context.RevisionesCandidatoFraseGenerica
+            .Where(r => r.Decision == "Descartado")
+            .Select(r => r.CandidatoNormalizado)
+            .ToListAsync(ct);
+
+        var calculo = CalcularCandidatos(filas, ScraperAcuerdosService.FrasesGenericasConocidas, candidatosYaDescartados, umbral);
 
         return new ReporteCandidatosResponse
         {
@@ -183,7 +192,8 @@ public class FrasesGenericasCandidatasService : BackgroundService
             Candidatos = calculo.CandidatosNuevos,
             ExcluidosPorJuzgadoNoValido = excluidosPorJuzgadoNoValido,
             ExcluidosPorPalabraUnica = calculo.ExcluidosPorPalabraUnica,
-            ExcluidosPorYaAprobada = calculo.ExcluidosPorYaAprobada
+            ExcluidosPorYaAprobada = calculo.ExcluidosPorYaAprobada,
+            ExcluidosPorYaDescartado = calculo.ExcluidosPorYaDescartado
         };
     }
 
@@ -201,20 +211,27 @@ public class FrasesGenericasCandidatasService : BackgroundService
         int? BancoId, string? NombreBanco);
 
     internal record ResultadoCalculoCandidatos(
-        List<CandidatoFraseGenerica> CandidatosNuevos, int ExcluidosPorPalabraUnica, int ExcluidosPorYaAprobada);
+        List<CandidatoFraseGenerica> CandidatosNuevos, int ExcluidosPorPalabraUnica, int ExcluidosPorYaAprobada,
+        int ExcluidosPorYaDescartado);
 
     // Núcleo de la lógica de decisión -- sin EF, sin IO, 100% unit-testable.
     // Cuenta expedientes distintos como el par (NumeroExpediente, NombreJuzgado)
     // -- NUNCA el número solo (sección 4.4 de la investigación: el mismo número
     // se repite incluso entre los dos juzgados Oral Mercantil de Hermosillo).
     internal static ResultadoCalculoCandidatos CalcularCandidatos(
-        IReadOnlyList<AcuerdoParaCandidato> filas, IReadOnlyCollection<string> frasesYaAprobadas, int umbralExpedientes)
+        IReadOnlyList<AcuerdoParaCandidato> filas, IReadOnlyCollection<string> frasesYaAprobadas,
+        IReadOnlyCollection<string>? candidatosYaDescartados = null, int umbralExpedientes = 3)
     {
         var yaAprobadas = frasesYaAprobadas.Select(NormalizarCandidato).ToHashSet();
+        // DJ-137: ya vienen normalizados (se normalizan al guardar), pero se vuelve
+        // a normalizar aquí también -- barato, y evita que una fila vieja guardada
+        // antes de un cambio de normalización deje de excluirse en silencio.
+        var yaDescartados = (candidatosYaDescartados ?? Array.Empty<string>()).Select(NormalizarCandidato).ToHashSet();
 
         var candidatos = new List<CandidatoFraseGenerica>();
         var excluidosPorPalabraUnica = 0;
         var excluidosPorYaAprobada = 0;
+        var excluidosPorYaDescartado = 0;
 
         foreach (var grupo in filas.GroupBy(f => f.Candidato))
         {
@@ -229,9 +246,19 @@ public class FrasesGenericasCandidatasService : BackgroundService
             // ninguna de las exclusiones de abajo, es simplemente ruido normal.
             if (expedientesDistintos.Count < umbralExpedientes) continue;
 
+            // DJ-137: Aprobada gana sobre Descartada si por algún motivo un candidato
+            // terminara en los dos lados a la vez (no debería pasar -- el endpoint que
+            // escribe RevisionCandidatoFraseGenerica lo valida -- pero si pasa, que
+            // alguien ya haya decidido "esto SÍ es jerga" es la señal más fuerte).
             if (yaAprobadas.Contains(candidato))
             {
                 excluidosPorYaAprobada++;
+                continue;
+            }
+
+            if (yaDescartados.Contains(candidato))
+            {
+                excluidosPorYaDescartado++;
                 continue;
             }
 
@@ -271,7 +298,8 @@ public class FrasesGenericasCandidatasService : BackgroundService
         return new ResultadoCalculoCandidatos(
             candidatos.OrderByDescending(c => c.ExpedientesDistintos).ToList(),
             excluidosPorPalabraUnica,
-            excluidosPorYaAprobada);
+            excluidosPorYaAprobada,
+            excluidosPorYaDescartado);
     }
 
     // Mismo esqueleto visual que el resto de correos del sistema (navy +

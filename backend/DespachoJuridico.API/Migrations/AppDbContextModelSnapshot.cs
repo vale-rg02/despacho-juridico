@@ -685,6 +685,41 @@ namespace DespachoJuridico.API.Migrations
                     b.ToTable("Notificaciones");
                 });
 
+            modelBuilder.Entity("DespachoJuridico.API.Models.RevisionCandidatoFraseGenerica", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CandidatoNormalizado")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Motivo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RevisadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RevisadoPorId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidatoNormalizado")
+                        .IsUnique();
+
+                    b.HasIndex("RevisadoPorId");
+
+                    b.ToTable("RevisionesCandidatoFraseGenerica");
+                });
+
             modelBuilder.Entity("DespachoJuridico.API.Models.SedeCatalogo", b =>
                 {
                     b.Property<int>("Id")
@@ -964,6 +999,17 @@ namespace DespachoJuridico.API.Migrations
                     b.Navigation("Expediente");
 
                     b.Navigation("HistorialEtapa");
+                });
+
+            modelBuilder.Entity("DespachoJuridico.API.Models.RevisionCandidatoFraseGenerica", b =>
+                {
+                    b.HasOne("DespachoJuridico.API.Models.Usuario", "RevisadoPor")
+                        .WithMany()
+                        .HasForeignKey("RevisadoPorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RevisadoPor");
                 });
 
             modelBuilder.Entity("DespachoJuridico.API.Models.AcuerdoScrapeado", b =>

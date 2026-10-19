@@ -22,6 +22,11 @@ public class ReporteCandidatosResponse
     // el reporte porque su historial nunca desaparece (ver sección 5.2 de la
     // investigación).
     public int ExcluidosPorYaAprobada { get; set; }
+
+    // DJ-137: candidatos ya revisados y marcados "Descartado" en
+    // RevisionCandidatoFraseGenerica (nombre real que coincidió por casualidad,
+    // no jerga) -- sin esto se repetirían en el reporte indefinidamente.
+    public int ExcluidosPorYaDescartado { get; set; }
 }
 
 public class CandidatoFraseGenerica
@@ -42,4 +47,25 @@ public class CandidatoFraseGenerica
     public int BancosDistintos { get; set; }
     public bool PosibleNombreDeBanco { get; set; }
     public List<string> NombresBanco { get; set; } = new();
+}
+
+// DJ-137: registrar la revisión de un candidato -- "Aprobado" (jerga, rastro
+// informativo; el cambio real a FrasesGenericasConocidas sigue siendo un commit
+// aparte) o "Descartado" (nombre real, se excluye del reporte de ahí en adelante).
+public class RevisionCandidatoRequest
+{
+    public string Candidato { get; set; } = string.Empty;
+    public string Decision { get; set; } = string.Empty;
+    public string? Motivo { get; set; }
+}
+
+// Nunca incluye el candidato en texto plano más allá de lo que ya es la propia
+// tabla (acceso solo-admin) -- esta respuesta es la confirmación de que se
+// guardó, no una forma nueva de exponer el texto.
+public class RevisionCandidatoResponse
+{
+    public int Id { get; set; }
+    public string Decision { get; set; } = string.Empty;
+    public DateTime RevisadoEn { get; set; }
+    public string RevisadoPorNombre { get; set; } = string.Empty;
 }
