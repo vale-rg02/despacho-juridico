@@ -1,6 +1,6 @@
 # Revisión retroactiva — línea base de falsos negativos y falsos positivos (DJ-141)
 
-**Estado: COMPLETO (18 de octubre).** Partes A, B y C completas. Las 8 recuperaciones de S1 ya se ejecutaron en producción — ver "Estado de las recuperaciones". Quedan fuera de esta historia, para seguimiento aparte: el fix del algoritmo de apellidos invertidos (candidato identificado, no implementado), [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) (notificación nunca enviada, ticket separado) y las dos notas "a futuro" de la sección de recuperaciones.
+**Estado: COMPLETO (19 de octubre), con revisión externa incorporada.** Partes A, B y C completas (incluida la extensión a foráneos). Las 8 recuperaciones de S1 ejecutadas en producción. La categoría "detectado pero no notificado" se midió (11 casos reales) y se resolvió con un reintento mínimo + alerta. Los 4 expedientes duplicados se fusionaron sin pérdida de historial. Quedan fuera de esta historia, para seguimiento aparte: el fix de apellidos invertidos y DJ-134 (0 de los 8 S1 vienen de ahí, se difieren), [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) (ticket separado, sigue abierto), DJ-137/DJ-129/DJ-106 (sin evaluar, contenido no discutido en esta revisión), y las dos notas "a futuro" de la sección de recuperaciones. **DJ-132 (bancos sin capturar) sí entra** — causó 1 de los 8 S1.
 
 Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres de clientes — solo Id de acuerdo/expediente, número de expediente, juzgado, fecha, categoría y puntaje de similitud.
 
@@ -13,10 +13,10 @@ Regla seguida en todo el documento: nunca se cita texto de `Partes` ni nombres d
 - **8 candidatos reales de S1** encontrados en Cola 1 (Hermosillo), **los 8 ya recuperados en producción** (3 `Sugerir`, 1 `Promover` con correo, 4 `Promover` sin correo). **2 de los 8 (25%) son exhorto** — sobrerrepresentados frente al ~8.6% de tasa base.
 - **0 candidatos de S1** en Cola 2 (foráneos) de 2,132 revisados.
 - **1 hallazgo de algoritmo nuevo:** el matching no prueba el orden invertido de apellidos (caso real confirmado).
-- **4 expedientes con captura duplicada** encontrados en toda la base (no es bug de scraper, es limpieza de datos).
+- **4 expedientes con captura duplicada** encontrados en toda la base — **resueltos el 19-oct** (acuerdos fusionados, copias sobrantes cerradas, sin pérdida de historial).
 - **2 bugs de `JuzgadoCoincide`** encontrados y corregidos aparte durante este mismo trabajo (commit `80635a7`, separado de esta historia por ser cambio de matching real) — sin impacto retroactivo en esta ventana porque no hay expedientes reales en esos dos juzgados.
 - **Fallas completas de scrapeo descartadas como causa:** 0 de 3,108 corridas fallaron en 60 días.
-- **Categoría no auditada, descubierta por cruce con Jira:** acuerdos correctamente detectados cuya notificación nunca se envió — no cubierta por Parte A ni B. El ticket [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) de esta categoría sigue abierto 39+ días.
+- **Categoría "detectado pero no notificado", medida y resuelta (19-oct):** 11 casos reales en 60 días (más 33 de un backfill histórico esperado, excluidos). Resuelto con `ReintentoNotificacionesService` — reintento + alerta al equipo si no se resuelve. El ticket [DJ-120](https://manueldjah.atlassian.net/browse/DJ-120) de esta misma categoría sigue abierto en Jira, sin relación directa con el fix.
 - **3 candidatos de exhorto (1999, 1888, 1541) confirmados como ruido real** (materia distinta, patrón DJ-98) — no eran casos mal clasificados.
 - **Parte C (publicación tardía): completa.** Mecanismo confirmado real (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada), pero bajo impacto medido — 0 misses reales en la pasada hacia atrás (10 días hábiles × 29 juzgados de Hermosillo). En el camino se encontró y corrigió un bug real que inflaba cualquier conteo de dry-run del sistema (no revisaba si el acuerdo ya existía) — afectaba también `/auditoria-preview`.
 
@@ -81,6 +81,17 @@ Al revisar las colisiones de número+juzgado contra la propia tabla `Expedientes
 | 726/2023 | 2do Oral Mercantil Hermosillo | 1181, 1249 (ambos Abierto) |
 
 Con al menos 2 de los 4 pares ambos "Abierto", el scraper evalúa el mismo acuerdo real dos veces por cada copia — contribuye ruido extra, no afecta la clasificación de S1 encontrada arriba. Se revisó toda la base (no solo Hermosillo) y no aparecieron duplicados adicionales en juzgados foráneos.
+
+**Resueltos el 19-oct.** Antes de fusionar se encontró que 3 de las 4 copias "sobrantes" (1233, 1217, 1181) **no estaban vacías de verdad** — tenían `HistorialEtapa`/`BitacoraCambios` propios — así que no se borró ningún expediente. En vez de eso: los acuerdos se movieron a la copia que se quedó abierta (evitando colisión con el índice único `ExpedienteId+FechaAcuerdo+Sintesis`, descartando duplicados exactos), y la copia sobrante se marcó `Estado='Cerrado'` (ya confirmado que excluye del matching activo), dejando su historial de etapas intacto por si hace falta consultarlo después:
+
+| Número | Se cerró | Se quedó abierta | Acuerdos antes (cerrada + abierta) | Acuerdos después |
+|---|---|---|---|---|
+| 149/2026 | 1233 (ya estaba Cerrado y ya neutralizado — sin acción) | 1077 | — | — |
+| 300/2026 | 1242 (67, sin litigante asignado) | 1243 (22) | 67 + 22 | 67 (22 de 1242 eran duplicados exactos de los de 1243; 45 eran nuevos) |
+| 68/2026 | 1217 (44) | 1226 (101) | 44 + 101 | 101 (los 44 de 1217 resultaron ser, los 44, duplicados exactos de los de 1226) |
+| 726/2023 | 1181 (4) | 1249 (7) | 4 + 7 | 7 (los 4 de 1181 eran duplicados exactos de los de 1249) |
+
+Se verificó antes de cerrar que ninguno de los acuerdos descartados por colisión fuera `Confianza=Alta/Media` (todos Baja/Oculto en 1217, 1226, 1181, 1249) — sin riesgo de perder algo visible. 300/2026 sí tenía un acuerdo visible en cada copia (2 en total); ambos se preservaron, no colisionaron entre sí.
 
 ### Fallas completas de scrapeo (agregado el 18-oct — causa descartada)
 
@@ -188,9 +199,49 @@ Se confirmó que la bitácora de D=16 de octubre solo tiene 7 corridas automáti
 
 **Resultado final de la pasada hacia atrás:** 0 misses reales en 10 días hábiles × 29 juzgados de Hermosillo.
 
+### Extensión a foráneos (agregada el 19-oct)
+
+La pasada hacia atrás original solo cubrió Hermosillo — los foráneos nunca se probaron. Se repitió con una muestra de los 8 juzgados foráneos más activos (Caborca, Navojoa, Tribunal Laboral Cajeme, Magdalena, Guaymas, 2do/3ro Familiar Cajeme, San Luis Río Colorado) en 3 fechas dentro de la misma ventana (7, 12 y 16 de octubre), ya con el fix de `yaExiste` desplegado:
+
+| Fecha | Nuevos encontrados | Ya existían |
+|---|---|---|
+| 07-oct | 0 | 38 |
+| 12-oct | 0 | 0 |
+| 16-oct | 0 | 20 |
+
+**0 nuevos en los 8 foráneos × 3 fechas** — mismo resultado que Hermosillo.
+
 ### Conclusión de Parte C
 
-El mecanismo de publicación tardía de ADISON **es real** — confirmado en la prueba hacia adelante (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada) — pero **de bajo impacto medido**: ni en ese caso puntual ni en los 10 días de la pasada hacia atrás se encontró un solo caso real del despacho perdido por esta causa. No se descarta que exista en otras ventanas no probadas, pero no hay evidencia de que sea una fuente significativa de falsos negativos para este despacho hoy.
+El mecanismo de publicación tardía de ADISON **es real** — confirmado en la prueba hacia adelante (4to Familiar Hermosillo sumó 26 resultados nuevos a una fecha ya pasada) — pero **de bajo impacto medido**: ni en ese caso puntual, ni en los 10 días de la pasada hacia atrás en Hermosillo, ni en la muestra de 8 foráneos × 3 fechas, se encontró un solo caso real del despacho perdido por esta causa. No se descarta que exista en otras ventanas o juzgados no probados, pero no hay evidencia de que sea una fuente significativa de falsos negativos para este despacho hoy.
+
+---
+
+## Revisión externa del 18-19 de octubre — desglose de causas contra el criterio de salida
+
+Un compañero revisó este documento contra el criterio de salida (máximo 1 error en 150 acuerdos reales, ~0.67%) y pidió el desglose exacto de causa por cada uno de los 8 S1, para decidir qué tickets de la semana 1 entran por la regla de congelamiento.
+
+**Desglose real (confirmado con `TipoAsunto` y `Banco` de cada expediente):**
+
+| Id | Expediente | TipoAsunto | Rama de código | ¿Banco mencionado en ADISON? | ¿Banco capturado en el expediente? | ¿Algo lo hubiera salvado? |
+|---|---|---|---|---|---|---|
+| 6640 | 704/2025 | Exp. | Hermosillo normal | Sí ("BBVA MEXICO, S.A.") | **No** (`BancoId` vacío) | **Sí — DJ-132** |
+| 5059 | 130/2026 | Exh. | Exhorto (sin rescate por banco) | No | Sí (BBVA México) | No |
+| 4665 | 78/2026 | Exh. | Exhorto (sin rescate por banco) | No | Sí (BBVA México) | No |
+| 4586 | 67/2026 | Exh. | Exhorto (sin rescate por banco) | No | Sí (Scotiabank) | No |
+| 4506 | 462/2026 | Exp. | Hermosillo normal | No | Sí (BBVA México) | No |
+| 3746 | 462/2026 | Exp. | Hermosillo normal | No | Sí (BBVA México) | No |
+| 3354 | 72/2026 | Exh. | Exhorto (sin rescate por banco) | No | No capturado | No |
+| 3189 | 400/2026 | Exp. | Hermosillo normal | No | Sí (BBVA México) | No |
+
+Los 4 con `TipoAsunto="Exh."` pasan por la rama de exhorto, que **nunca** tiene vía de rescate por banco (el código excluye esto explícitamente con `!esSerieAuxiliar`) — no importa si el banco está capturado o no, nada los habría salvado. De los 4 restantes ("Exp."), solo **6640** menciona un banco en el texto de ADISON y además no lo tenía capturado — ahí sí habría funcionado el rescate por banco si DJ-132 ya estuviera resuelto.
+
+**Veredicto contra la regla de congelamiento:**
+
+- **DJ-132 (bancos sin capturar): entra — causó 1 de los 8 S1 real.**
+- **DJ-134 (palabras sueltas): se difiere — 0 de los 8 S1 vienen de ahí** (ninguno de los 8 tiene nombre de persona publicado por ADISON; DJ-134 solo importa cuando sí hay un nombre que comparar).
+- **Apellidos invertidos: se difiere — 0 de los 8 S1** (mismo motivo: no hay nombre que comparar). Sí causó el único hallazgo de Media (acuerdo 4663, expediente 1042/2014) — 1 de 14 Media, no S1.
+- **DJ-137, DJ-129, DJ-106: sin evaluar** — no se discutió su contenido en esta revisión, no se puede determinar si entran sin más contexto.
 
 ---
 
@@ -198,11 +249,35 @@ El mecanismo de publicación tardía de ADISON **es real** — confirmado en la 
 
 | Causa | Tipo de cambio | ¿Entra por congelamiento? |
 |---|---|---|
-| El diseño exige nombre de parte en `Partes` para confianza Alta, incluso con número+juzgado exacto coincidiendo | Decisión de diseño, no bug — causó los 8 S1 de Cola 1 | **No** — cualquier cambio (ej. confiar en número+juzgado solo) es un cambio real de comportamiento con riesgo de S2 ya demostrado (la colisión real de 150/2023 tenía número+juzgado exactos también). Requiere decisión explícita del equipo, no un "cambio pequeño". El camino ya construido (`Promover` caso por caso) es la mitigación actual. |
-| El algoritmo no prueba el orden invertido de apellidos al comparar nombres | Cambio chico y acotado (agregar una comparación adicional en `PartesCoinciden`) | **Sí, candidato real** — 1 caso real confirmado, cambio pequeño, bajo riesgo |
-| 4 expedientes con captura duplicada en la base | Limpieza de datos, no cambio de código | No aplica la regla de congelamiento (no es código) — recomendación operativa: fusionar o cerrar la copia sobrante |
+| El diseño exige nombre de parte en `Partes` para confianza Alta, incluso con número+juzgado exacto coincidiendo | Decisión de diseño, no bug — causó 7 de los 8 S1 de Cola 1 | **No** — cualquier cambio (ej. confiar en número+juzgado solo) es un cambio real de comportamiento con riesgo de S2 ya demostrado (la colisión real de 150/2023 tenía número+juzgado exactos también). Requiere decisión explícita del equipo, no un "cambio pequeño". El camino ya construido (`Promover` caso por caso) es la mitigación actual. |
+| Bancos sin capturar en el expediente (DJ-132) | Captura de datos faltante, no bug de matching | **Sí, entra — causó 1 de los 8 S1** (6640/704-2025: ADISON mencionaba el banco, el expediente no lo tenía capturado, así que nunca se activó el rescate por banco). Ver desglose completo arriba. |
+| El algoritmo no prueba el orden invertido de apellidos al comparar nombres | Cambio chico y acotado (agregar una comparación adicional en `PartesCoinciden`) | **Se difiere de la semana 1** — 0 de los 8 S1 vienen de ahí (confirmado con el desglose). Sigue siendo candidato real para la 1 Media que sí causó (acuerdo 4663), solo que no es parte del backlog de S1 actual. |
+| Palabras sueltas en la comparación de nombres (DJ-134) | — | **Se difiere** — 0 de los 8 S1, mismo motivo que apellidos invertidos (ninguno de los 8 tiene nombre de persona publicado). |
+| 4 expedientes con captura duplicada en la base | Limpieza de datos, no cambio de código | **Resuelto el 19-oct** — acuerdos fusionados, copias sobrantes marcadas `Cerrado`, sin pérdida de historial (ver sección de Duplicados). |
 | Expediente "Pausado" sigue en el grupo de matching activo (solo "Cerrado" se excluye) | Posible cambio de diseño | Documentado para decisión futura, fuera de alcance de esta historia (ver hallazgo del expediente 150/2023 original, no confundir con la colisión de número — son hallazgos distintos) |
 | Bugs de `JuzgadoCoincide` (Violencia de Género, Tribunal Unitario) | Ya corregidos | Ya resuelto, comiteado aparte (`80635a7`) por ser cambio de matching real, no observación. Sin impacto retroactivo medido en esta ventana. |
+| Acuerdos detectados correctamente pero cuya notificación nunca salió | Categoría nueva, medida el 18-19 de octubre (ver abajo) — 11 casos reales en 60 días | **Ya resuelto con un reintento mínimo** (`ReintentoNotificacionesService`), desplegado el 19-oct — ver sección propia. |
+
+---
+
+## Categoría medida el 18-19 de octubre: detectado pero nunca notificado
+
+El compañero señaló que esta categoría (acuerdos que el scraper matcheó correctamente pero cuyo correo nunca salió) cuenta como S1 para el criterio de salida aunque el matching haya acertado, y que no estaba medida. Se midió:
+
+Consulta: `Oculto=false AND NotificacionEnviada=false AND DescartadoManualmente=false`, 60 días. Dio 47 filas. De esas:
+- **33 eran de un backfill histórico del 1 de septiembre** (timestamps ~22:5X, no coinciden con el patrón `:05` del ciclo automático) — esperado, no es una falla.
+- **3 eran de los acuerdos que promovimos nosotros mismos con `notificar=false`** (5059, 4586, 3746) — intencional.
+- **11 eran casos reales sin explicación**, con timestamp de ciclo automático normal, repartidos del 20 de agosto al 8 de octubre: Ids 6503, 6394, 6272, 5961, 5958, 5812, 4712, 4441, 3564, 2686, 1701. El 6503 (363/2026, 8-oct) coincide exactamente con el reporte de Mario en [DJ-130](https://manueldjah.atlassian.net/browse/DJ-130) — los otros 10 nunca fueron reportados por nadie.
+
+No se pudo determinar la causa técnica exacta de cada uno — la bitácora de excepciones (`BitacoraDescarteItemizado.EtapaFalla='notificacion'`) se creó hasta el 15 de octubre como parte de DJ-139, y los logs de Railway ya no retienen nada de esas fechas (se confirmó vacío incluso para el caso más reciente, 8-oct). El patrón (esporádico en 7 semanas, no agrupado) es consistente con fallas transitorias de envío de correo que el sistema nunca reintentaba.
+
+### Fix: `ReintentoNotificacionesService` (desplegado el 19-oct)
+
+Nuevo `BackgroundService`, corre cada 60 min (configurable, `ReintentoNotificaciones:IntervaloMinutos`), empieza de inmediato al desplegar (resuelve el backlog de los 11 sin paso manual aparte). Por cada acuerdo visible sin notificar: reintenta el correo; si funciona, `NotificacionEnviada=true`; si vuelve a fallar, avisa una sola vez al equipo técnico (mismos destinatarios que el reporte diario de DJ-140) y deja de tocarlo (`AlertaReintentoEnviada=true`) — de ahí en adelante es decisión humana.
+
+Dos campos nuevos en `AcuerdoScrapeado`: `NotificacionOmitida` (para que esto nunca toque los silenciados a propósito vía `Promover?notificar=false` — la migración incluye el backfill de los 4 ya existentes) y `AlertaReintentoEnviada`.
+
+Dos fallas encontradas y corregidas antes de desplegar: (1) el guardado era por lote, no por acuerdo — si el aviso al equipo también fallaba, se perdía el progreso ya hecho y se duplicaban correos en el siguiente ciclo; (2) un expediente sin litigante asignado se contaba como "éxito" silencioso (`EnviarNotificacionAsync` no lanza excepción si no hay a quién mandarle) — ahora cuenta como falla real y dispara el aviso. 10 pruebas nuevas, suite completa en verde.
 
 ---
 
