@@ -12,7 +12,8 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 4 | Proceso de pull requests y ambientes | Sin decidir |
 | 5 | Identificación de nombres con apoyo externo (por decidir, para el SaaS) | Sin decidir |
 | 6 | Medir desde el inicio y definir cuándo se entrega (para el SaaS) | Sin decidir |
-| 7 | Dos huecos de resiliencia encontrados durante DJ-139 (scraper) | Pendiente — solo observación, sin investigar a fondo |
+| 7 | Dos huecos de resiliencia encontrados durante DJ-139 (scraper) | Pendiente — el hueco #2 (sin reintento de notificación) ya se resolvió en el cierre de DJ-141, ver sección 8; el #1 (contador de fallos HTTP) sigue sin investigar |
+| 8 | Lecciones del cierre: notificaciones, herramientas de recuperación y Jira (SaaS) | Lecciones técnicas ya aplicadas en DJ-141; decisiones de Jira del cierre sin tomar |
 
 ---
 
@@ -191,6 +192,24 @@ Resend falla), el acuerdo ya se guardó (`SaveChangesAsync` ya se ejecutó antes
 notifica) pero la línea que marca `NotificacionEnviada = true` nunca se alcanza — el acuerdo
 queda guardado y visible, pero sin notificación, sin que nada lo reintente ni lo señale.
 
+> **Resuelto en el cierre de DJ-141 (18 de octubre de 2026):** se midió esta categoría en
+> retrospectiva (11 casos reales en 60 días, sin rastro de la causa exacta porque la bitácora
+> de excepciones no existía todavía cuando pasaron) y se construyó `ReintentoNotificacionesService`
+> — reintento automático + alerta al equipo si vuelve a fallar. Ver sección 8 para las lecciones
+> de ese mismo cierre, incluyendo un incidente real que el reintento causó antes de corregirse.
+
 ---
 
-*Última actualización: 15 de octubre de 2026.*
+## 8. Lecciones del cierre: notificaciones, herramientas de recuperación y Jira (SaaS)
+
+**Estado: lecciones técnicas ya aplicadas en el cierre de DJ-141 (18 de octubre de 2026); decisiones de Jira del propio cierre sin tomar — ver última viñeta.**
+
+- Todo servicio que envíe correos de forma automática o por lotes debe tener desde el primer día: un tope de antigüedad, la exclusión explícita de lo que se dejó sin notificar a propósito, un tope de correos por corrida y por destinatario con alerta al equipo si se excede, y una corrida en modo de prueba que muestre cuántos correos saldrían antes de activarlo. Incidente (18 de octubre de 2026, Acedo e Hijos): el reintento de notificaciones envió 34 correos tardíos de un backfill histórico a dos litigantes porque no excluía ese backfill. Se corrigió con un tope de antigüedad y se avisó a los litigantes.
+- Las herramientas de recuperación manual (promover, sugerir, reintentar) deben decidir explícitamente si notifican, dejar rastro de quién las usó y probarse primero con dryRun.
+- Medir los errores con la misma definición que el criterio de salida. S1 incluye acuerdos ocultos y acuerdos detectados pero no notificados; contar solo los ocultos subestimó la tasa (3.4% frente a 8.1%).
+- Un dry-run debe revisar si el registro ya existe; uno que cuenta todo como nuevo infla las vistas previas.
+- Las decisiones de Jira (cambiar estatus, cerrar o crear tickets, asignar responsables) las toman las personas del equipo, no las herramientas de apoyo, salvo petición explícita. Decisiones pendientes de este cierre: pasar DJ-134 a diferido (0 de 8 S1), cerrar DJ-120 si el caso original quedó resuelto, crear tickets para el servicio de reintento y para los apellidos invertidos, y asignar un responsable de seguimiento a los 3 acuerdos sugeridos.
+
+---
+
+*Última actualización: 18 de octubre de 2026.*
