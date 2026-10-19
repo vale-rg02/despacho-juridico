@@ -303,6 +303,7 @@ function NuevoExpediente() {
                 parteActoraParticular={form.parteActoraParticular}
                 onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
                 disabled={cargandoCatalogos}
+                tipoJuicio={form.tipoJuicio}
               />
             </div>
 

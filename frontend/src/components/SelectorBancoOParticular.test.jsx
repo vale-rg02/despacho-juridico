@@ -67,4 +67,39 @@ describe('SelectorBancoOParticular', () => {
     render(<SelectorBancoOParticular {...propsBase} modo="particular" parteActoraParticular="María López" />)
     expect(screen.getByDisplayValue('María López')).toBeInTheDocument()
   })
+
+  // DJ-132: aviso no bloqueante para Hipotecario/Oral Mercantil sin banco ni
+  // particular -- nunca debe impedir guardar (este componente no tiene botón
+  // de guardar ni valida nada, solo informa).
+  const textoAviso = /normalmente involucra un banco/
+
+  it('muestra el aviso si el tipo de juicio es Hipotecario y no hay banco capturado', () => {
+    render(<SelectorBancoOParticular {...propsBase} tipoJuicio="Hipotecario" />)
+    expect(screen.getByText(textoAviso)).toBeInTheDocument()
+  })
+
+  it('muestra el aviso si el tipo de juicio es Oral Mercantil y no hay particular capturado', () => {
+    render(<SelectorBancoOParticular {...propsBase} modo="particular" tipoJuicio="Oral Mercantil" />)
+    expect(screen.getByText(textoAviso)).toBeInTheDocument()
+  })
+
+  it('no muestra el aviso si ya hay un banco elegido', () => {
+    render(<SelectorBancoOParticular {...propsBase} tipoJuicio="Hipotecario" banco="BBVA México" />)
+    expect(screen.queryByText(textoAviso)).not.toBeInTheDocument()
+  })
+
+  it('no muestra el aviso si ya hay una parte actora particular capturada', () => {
+    render(<SelectorBancoOParticular {...propsBase} modo="particular" tipoJuicio="Oral Mercantil" parteActoraParticular="María López" />)
+    expect(screen.queryByText(textoAviso)).not.toBeInTheDocument()
+  })
+
+  it('no muestra el aviso para un tipo de juicio que no es típicamente bancario', () => {
+    render(<SelectorBancoOParticular {...propsBase} tipoJuicio="Familiar" />)
+    expect(screen.queryByText(textoAviso)).not.toBeInTheDocument()
+  })
+
+  it('no muestra el aviso si no se pasa tipoJuicio (compatibilidad con llamadores que no lo manden)', () => {
+    render(<SelectorBancoOParticular {...propsBase} />)
+    expect(screen.queryByText(textoAviso)).not.toBeInTheDocument()
+  })
 })

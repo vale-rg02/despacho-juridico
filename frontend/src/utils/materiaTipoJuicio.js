@@ -20,6 +20,13 @@ export const TIPOS_JUICIO = [
   { valor: 'Arrendamiento', etiqueta: 'Arrendamiento' },
 ]
 
+// DJ-132: tipos de juicio donde, en los datos medidos, casi siempre hay un
+// banco de por medio (233 de 246 expedientes activos sin banco ni parte
+// actora particular eran de uno de estos dos -- 94.7%). Solo informativo: ver
+// SelectorBancoOParticular, que usa esto para un aviso NO bloqueante, nunca
+// para exigir el dato ni para tocar expedientes ya existentes.
+export const TIPOS_JUICIO_TIPICAMENTE_BANCARIOS = ['Hipotecario', 'Oral Mercantil']
+
 // Tipos de juicio válidos para cada materia (DJ-82): al elegir una Materia, el
 // dropdown de Tipo de juicio se filtra a solo estas opciones.
 const TIPOS_JUICIO_POR_MATERIA = {

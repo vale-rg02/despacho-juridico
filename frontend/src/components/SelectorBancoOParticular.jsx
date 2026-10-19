@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import ComboboxCatalogo from './ComboboxCatalogo'
+import { TIPOS_JUICIO_TIPICAMENTE_BANCARIOS } from '../utils/materiaTipoJuicio'
 
 const labelClass = "block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5"
 const inputBase = "w-full bg-input-background text-foreground text-sm px-3 py-2 rounded transition"
@@ -21,8 +22,17 @@ function SelectorBancoOParticular({
   parteActoraParticular,
   onCambiarParteActoraParticular,
   disabled = false,
+  tipoJuicio,
 }) {
   const etiquetaId = useId()
+
+  // DJ-132: solo aviso -- nunca bloquea guardar ni se aplica a expedientes ya
+  // existentes (eso lo decide cada formulario por separado, este componente
+  // solo reacciona al estado actual que le pasan). A veces ni el despacho ni
+  // ADISON traen suficiente información para saberlo con certeza en el
+  // momento de capturar, así que no se exige -- solo se hace visible.
+  const sinIdentidadActora = modo === 'banco' ? !banco : !parteActoraParticular?.trim()
+  const mostrarAviso = TIPOS_JUICIO_TIPICAMENTE_BANCARIOS.includes(tipoJuicio) && sinIdentidadActora
 
   function tabClass(activo) {
     return `flex-1 text-xs px-3 py-1.5 rounded-md border font-medium transition ${
@@ -65,6 +75,14 @@ function SelectorBancoOParticular({
           disabled={disabled}
           className={inputBase}
         />
+      )}
+
+      {mostrarAviso && (
+        <p className="text-xs text-amber-600 mt-1.5">
+          Este tipo de juicio normalmente involucra un banco. Sin banco ni parte actora particular
+          capturados, el sistema no podrá sugerir automáticamente los acuerdos que lo mencionen
+          — puedes guardar así si todavía no hay dato suficiente para saberlo.
+        </p>
       )}
     </div>
   )

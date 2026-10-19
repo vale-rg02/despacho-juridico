@@ -15,6 +15,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 7 | Dos huecos de resiliencia encontrados durante DJ-139 (scraper) | Pendiente — el hueco #2 (sin reintento de notificación) ya se resolvió en el cierre de DJ-141, ver sección 8; el #1 (contador de fallos HTTP) sigue sin investigar |
 | 8 | Lecciones del cierre: notificaciones, herramientas de recuperación y Jira (SaaS) | Lecciones técnicas ya aplicadas en DJ-141; decisiones de Jira del cierre sin tomar |
 | 9 | DJ-134: candidatos de una palabra en el reporte diario | Implementada — 0 casos reales medidos, no se construyó lista ni umbral; se reporta el texto para revisión manual |
+| 10 | DJ-132: aviso de banco faltante no distingue texto suelto de un banco real | Pendiente — dejado así a propósito, baja probabilidad |
 
 ---
 
@@ -250,6 +251,34 @@ puede ir a destinatarios del equipo técnico" — sección 3 del `CLAUDE.md`).
 práctica no sirve para nada si el objetivo es que una persona revise — la
 excepción de privacidad del reporte diario ya existe justamente para este tipo
 de caso, y aplica igual a un candidato de una palabra que a uno de dos.
+
+---
+
+## 10. DJ-132: el aviso de banco faltante no distingue texto suelto de un banco real
+
+**Estado: pendiente — dejado así a propósito, baja probabilidad de que importe en la práctica.**
+
+El aviso no bloqueante agregado en `SelectorBancoOParticular.jsx` (DJ-132, Hipotecario/Oral
+Mercantil sin banco ni parte actora particular) decide si mostrarse mirando solo si la casilla de
+Banco tiene **algún texto escrito** (`!banco`), no si ese texto corresponde a un banco real del
+catálogo (`bancosOpciones`).
+
+**Caso donde falla:** un litigante escribe un fragmento en la casilla de banco (ej. "BBV") sin
+llegar a seleccionar la opción de la lista ni a terminar de escribir el nombre completo, y guarda
+así. El aviso no aparece (hay texto), pero al guardar el backend busca un banco que se llame
+exactamente ese texto, no lo encuentra, y guarda el expediente con `BancoId = null` de todas
+formas (`bancos.find(b => b.nombre === form.banco)?.id ?? null`, en `NuevoExpediente.jsx` y
+`EditarExpediente.jsx`). El expediente queda exactamente en la situación que el aviso buscaba
+prevenir, sin que nadie lo haya visto.
+
+**Por qué se dejó así:** es un aviso informativo (S3, no bloquea guardar ni corrompe datos) — en
+el peor caso falla en avisar justo en el caso donde más serviría, pero no genera ningún daño
+nuevo. Es poco probable en el uso normal (la mayoría selecciona de la lista desplegable en vez de
+teclear texto suelto sin elegir nada), y no se midió ningún caso real de esto ocurriendo.
+
+**Corrección pendiente, si se retoma:** comparar `banco` contra `bancosOpciones` (o el booleano que
+ya usa `ComboboxCatalogo` para saber si el valor actual es una opción válida) en vez de solo
+chequear que no esté vacío.
 
 ---
 

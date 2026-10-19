@@ -341,6 +341,7 @@ function EditarExpediente() {
                 onAgregarBanco={() => setModalAgregar('banco')}
                 parteActoraParticular={form.parteActoraParticular}
                 onCambiarParteActoraParticular={valor => setForm(prev => ({ ...prev, parteActoraParticular: valor }))}
+                tipoJuicio={form.tipoJuicio}
               />
             </div>
 
