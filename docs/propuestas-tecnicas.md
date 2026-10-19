@@ -16,6 +16,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 8 | Lecciones del cierre: notificaciones, herramientas de recuperación y Jira (SaaS) | Lecciones técnicas ya aplicadas en DJ-141; decisiones de Jira del cierre sin tomar |
 | 9 | DJ-134: candidatos de una palabra en el reporte diario | Implementada — 0 casos reales medidos, no se construyó lista ni umbral; se reporta el texto para revisión manual |
 | 10 | DJ-132: aviso de banco faltante no distingue texto suelto de un banco real | Pendiente — dejado así a propósito, baja probabilidad |
+| 11 | DJ-132: criterio alterno de matching cuando falta banco (Opción D) | En pausa — requiere investigar rutas viables antes de decidir si se implementa |
 
 ---
 
@@ -279,6 +280,32 @@ teclear texto suelto sin elegir nada), y no se midió ningún caso real de esto 
 **Corrección pendiente, si se retoma:** comparar `banco` contra `bancosOpciones` (o el booleano que
 ya usa `ComboboxCatalogo` para saber si el valor actual es una opción válida) en vez de solo
 chequear que no esté vacío.
+
+---
+
+## 11. DJ-132: criterio alterno de matching cuando falta banco (Opción D)
+
+**Estado: en pausa — no decidida, no descartada. Requiere investigación antes de retomarla.**
+
+Del listado de 4 opciones que planteó DJ-132 para expedientes sin banco ni parte actora
+particular (ver sección 2 del ticket y la Fase 2 de su medición), la Opción D era la única que
+resolvía automáticamente los acuerdos ya afectados (ej. los 5 casos reales encontrados en la
+medición) sin esperar a que el despacho complete el dato: un criterio de matching alterno para
+cuando el expediente no tiene banco capturado.
+
+**Por qué no se implementó ni se investigó a fondo:** a diferencia de B y C (aviso no bloqueante,
+implementadas) y A (campaña de datos, no es tarea técnica), D sí es un cambio real de
+comportamiento de matching — exige su propio commit con casos reales (regla de la sección 6 del
+`CLAUDE.md`) y, sin saber a cuál banco específico pertenece el expediente, se parece
+estructuralmente al riesgo ya documentado en la sección 3 de este mismo documento (número de
+orden del juzgado reutilizado entre trámites ajenos): cualquier regla que confíe en "¿el acuerdo
+menciona algún banco del catálogo?" sin poder verificar contra el banco correcto de ese
+expediente específico corre el riesgo de confundir un caso ajeno con el caso real, sobre todo
+dado que BBVA México por sí solo ya es el 78% del portafolio activo (dato de DJ-122).
+
+**Decisión explícita:** no se prioriza ni se descarta — queda pendiente de una investigación
+previa (qué rutas de matching alterno son viables sin reintroducir ese riesgo) antes de decidir
+si entra siquiera como historia. No hay fecha ni compromiso de retomarla.
 
 ---
 
