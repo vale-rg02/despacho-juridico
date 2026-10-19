@@ -192,6 +192,7 @@ public class FrasesGenericasCandidatasService : BackgroundService
             Candidatos = calculo.CandidatosNuevos,
             ExcluidosPorJuzgadoNoValido = excluidosPorJuzgadoNoValido,
             ExcluidosPorPalabraUnica = calculo.ExcluidosPorPalabraUnica,
+            CandidatosPalabraUnica = calculo.CandidatosPalabraUnica,
             ExcluidosPorYaAprobada = calculo.ExcluidosPorYaAprobada,
             ExcluidosPorYaDescartado = calculo.ExcluidosPorYaDescartado
         };
@@ -211,8 +212,8 @@ public class FrasesGenericasCandidatasService : BackgroundService
         int? BancoId, string? NombreBanco);
 
     internal record ResultadoCalculoCandidatos(
-        List<CandidatoFraseGenerica> CandidatosNuevos, int ExcluidosPorPalabraUnica, int ExcluidosPorYaAprobada,
-        int ExcluidosPorYaDescartado);
+        List<CandidatoFraseGenerica> CandidatosNuevos, List<CandidatoFraseGenerica> CandidatosPalabraUnica,
+        int ExcluidosPorPalabraUnica, int ExcluidosPorYaAprobada, int ExcluidosPorYaDescartado);
 
     // Núcleo de la lógica de decisión -- sin EF, sin IO, 100% unit-testable.
     // Cuenta expedientes distintos como el par (NumeroExpediente, NombreJuzgado)
@@ -229,6 +230,7 @@ public class FrasesGenericasCandidatasService : BackgroundService
         var yaDescartados = (candidatosYaDescartados ?? Array.Empty<string>()).Select(NormalizarCandidato).ToHashSet();
 
         var candidatos = new List<CandidatoFraseGenerica>();
+        var candidatosPalabraUnica = new List<CandidatoFraseGenerica>();
         var excluidosPorPalabraUnica = 0;
         var excluidosPorYaAprobada = 0;
         var excluidosPorYaDescartado = 0;
@@ -262,12 +264,6 @@ public class FrasesGenericasCandidatasService : BackgroundService
                 continue;
             }
 
-            if (EsPalabraUnica(candidato))
-            {
-                excluidosPorPalabraUnica++;
-                continue;
-            }
-
             var bancosDistintos = grupo
                 .Where(f => f.BancoId.HasValue)
                 .Select(f => f.BancoId!.Value)
@@ -280,7 +276,7 @@ public class FrasesGenericasCandidatasService : BackgroundService
                 .Distinct()
                 .ToList();
 
-            candidatos.Add(new CandidatoFraseGenerica
+            var candidatoFrase = new CandidatoFraseGenerica
             {
                 Frase = candidato,
                 ExpedientesDistintos = expedientesDistintos.Count,
@@ -292,11 +288,25 @@ public class FrasesGenericasCandidatasService : BackgroundService
                 BancosDistintos = bancosDistintos.Count,
                 PosibleNombreDeBanco = bancosDistintos.Count == 1,
                 NombresBanco = nombresBanco
-            });
+            };
+
+            // DJ-134: una palabra suelta nunca pasa por el mismo nivel de
+            // filtro que un candidato de 2+ palabras (PartesTieneNombre no la
+            // reconoce como nombre sea jerga o apellido real) -- se reporta
+            // aparte para revisión manual, nunca se mezcla con CandidatosNuevos.
+            if (EsPalabraUnica(candidato))
+            {
+                excluidosPorPalabraUnica++;
+                candidatosPalabraUnica.Add(candidatoFrase);
+                continue;
+            }
+
+            candidatos.Add(candidatoFrase);
         }
 
         return new ResultadoCalculoCandidatos(
             candidatos.OrderByDescending(c => c.ExpedientesDistintos).ToList(),
+            candidatosPalabraUnica.OrderByDescending(c => c.ExpedientesDistintos).ToList(),
             excluidosPorPalabraUnica,
             excluidosPorYaAprobada,
             excluidosPorYaDescartado);

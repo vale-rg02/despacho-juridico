@@ -193,9 +193,12 @@ public class FrasesGenericasCandidatasServiceTests
     }
 
     [Fact]
-    public void CandidatoDeUnaSolaPalabra_SeExcluyeYSeCuenta()
+    public void CandidatoDeUnaSolaPalabra_SeExcluyeDeCandidatosNuevosYSeReportaAparte()
     {
-        // DJ-134 (fuera de esta historia): "GARANTIA" sola, sin más palabras.
+        // DJ-134: "GARANTIA" sola, sin más palabras -- nunca se mezcla con
+        // CandidatosNuevos (no pasó por el mismo filtro que un candidato de
+        // 2+ palabras), pero sí se reporta en CandidatosPalabraUnica para
+        // revisión manual del equipo técnico.
         var filas = new List<AcuerdoParaCandidato>
         {
             Fila("100/2026", "1ro Civil Hermosillo", "GARANTIA"),
@@ -207,6 +210,9 @@ public class FrasesGenericasCandidatasServiceTests
 
         Assert.Empty(resultado.CandidatosNuevos);
         Assert.Equal(1, resultado.ExcluidosPorPalabraUnica);
+        var candidato = Assert.Single(resultado.CandidatosPalabraUnica);
+        Assert.Equal("GARANTIA", candidato.Frase);
+        Assert.Equal(3, candidato.ExpedientesDistintos);
     }
 
     [Fact]
@@ -222,6 +228,31 @@ public class FrasesGenericasCandidatasServiceTests
         var resultado = CalcularCandidatos(filas, Array.Empty<string>(), umbralExpedientes: 3);
 
         Assert.Single(resultado.CandidatosNuevos);
+        Assert.Equal(0, resultado.ExcluidosPorPalabraUnica);
+        Assert.Empty(resultado.CandidatosPalabraUnica);
+    }
+
+    [Fact]
+    public void CandidatoDeUnaSolaPalabraYaDescartado_SeExcluyeDeAmbasListas()
+    {
+        // DJ-134 + DJ-137: una palabra suelta ya revisada y marcada "Descartado"
+        // (vía POST /api/scraper/frases-genericas/revisiones) no debe reaparecer
+        // en CandidatosPalabraUnica -- el chequeo de yaDescartados corre ANTES
+        // de la rama de EsPalabraUnica (ver CalcularCandidatos), así que ni
+        // siquiera debe sumar a ExcluidosPorPalabraUnica.
+        var filas = new List<AcuerdoParaCandidato>
+        {
+            Fila("100/2026", "1ro Civil Hermosillo", "GARANTIA"),
+            Fila("200/2026", "2do Civil Hermosillo", "GARANTIA"),
+            Fila("300/2026", "3ro Civil Hermosillo", "GARANTIA")
+        };
+
+        var resultado = CalcularCandidatos(
+            filas, Array.Empty<string>(), new[] { "GARANTIA" }, umbralExpedientes: 3);
+
+        Assert.Empty(resultado.CandidatosNuevos);
+        Assert.Empty(resultado.CandidatosPalabraUnica);
+        Assert.Equal(1, resultado.ExcluidosPorYaDescartado);
         Assert.Equal(0, resultado.ExcluidosPorPalabraUnica);
     }
 

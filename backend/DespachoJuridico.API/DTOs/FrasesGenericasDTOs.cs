@@ -15,8 +15,17 @@ public class ReporteCandidatosResponse
     public int ExcluidosPorJuzgadoNoValido { get; set; }
 
     // Candidatos que sí cruzan el umbral pero son de una sola palabra (ej.
-    // "GARANTIA") -- quedan fuera de esta historia, ver DJ-134.
+    // "GARANTIA") -- DJ-134: no se tratan automáticamente (no pueden distinguirse
+    // de un apellido real sin revisión humana), pero sí se reportan en
+    // CandidatosPalabraUnica para que el equipo técnico los revise.
     public int ExcluidosPorPalabraUnica { get; set; }
+
+    // DJ-134: mismo contenido que Candidatos, pero para los candidatos de una
+    // sola palabra -- nunca se agregan a Candidatos (no pasan por el mismo
+    // nivel de filtro que un candidato de 2+ palabras), se listan aparte para
+    // que quede claro que requieren revisión manual antes de decidir si es
+    // jerga o un nombre real.
+    public List<CandidatoFraseGenerica> CandidatosPalabraUnica { get; set; } = new();
 
     // Candidatos que ya están en FrasesGenericasConocidas -- no se repiten en
     // el reporte porque su historial nunca desaparece (ver sección 5.2 de la

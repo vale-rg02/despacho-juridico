@@ -14,6 +14,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 6 | Medir desde el inicio y definir cuándo se entrega (para el SaaS) | Sin decidir |
 | 7 | Dos huecos de resiliencia encontrados durante DJ-139 (scraper) | Pendiente — el hueco #2 (sin reintento de notificación) ya se resolvió en el cierre de DJ-141, ver sección 8; el #1 (contador de fallos HTTP) sigue sin investigar |
 | 8 | Lecciones del cierre: notificaciones, herramientas de recuperación y Jira (SaaS) | Lecciones técnicas ya aplicadas en DJ-141; decisiones de Jira del cierre sin tomar |
+| 9 | DJ-134: candidatos de una palabra en el reporte diario | Implementada — 0 casos reales medidos, no se construyó lista ni umbral; se reporta el texto para revisión manual |
 
 ---
 
@@ -208,8 +209,48 @@ queda guardado y visible, pero sin notificación, sin que nada lo reintente ni l
 - Las herramientas de recuperación manual (promover, sugerir, reintentar) deben decidir explícitamente si notifican, dejar rastro de quién las usó y probarse primero con dryRun.
 - Medir los errores con la misma definición que el criterio de salida. S1 incluye acuerdos ocultos y acuerdos detectados pero no notificados; contar solo los ocultos subestimó la tasa (3.4% frente a 8.1%).
 - Un dry-run debe revisar si el registro ya existe; uno que cuenta todo como nuevo infla las vistas previas.
-- Las decisiones de Jira (cambiar estatus, cerrar o crear tickets, asignar responsables) las toman las personas del equipo, no las herramientas de apoyo, salvo petición explícita. Decisiones pendientes de este cierre: pasar DJ-134 a diferido (0 de 8 S1), cerrar DJ-120 si el caso original quedó resuelto, crear tickets para el servicio de reintento y para los apellidos invertidos, y asignar un responsable de seguimiento a los 3 acuerdos sugeridos.
+- Las decisiones de Jira (cambiar estatus, cerrar o crear tickets, asignar responsables) las toman las personas del equipo, no las herramientas de apoyo, salvo petición explícita. Decisiones pendientes de este cierre: actualizar el estatus de DJ-134 con lo implementado (ver sección 9), cerrar DJ-120 si el caso original quedó resuelto, crear tickets para el servicio de reintento y para los apellidos invertidos, y asignar un responsable de seguimiento a los 3 acuerdos sugeridos.
 
 ---
 
-*Última actualización: 18 de octubre de 2026.*
+## 9. DJ-134: candidatos de una palabra en el reporte diario
+
+**Estado: implementada (19 de octubre de 2026).**
+
+Diagnóstico medido antes de decidir nada (consulta SQL replicando la lógica de
+`PartesTieneNombre`/`EsPalabraUnica` contra todo el histórico de Oculto=Baja de
+Hermosillo, sin aplicar el umbral de 3 expedientes): **0 candidatos de una sola
+palabra** en todo el histórico — consistente con el hallazgo independiente de
+DJ-137 (vista previa real de candidatos a frase genérica, 0 de cualquier tipo en
+el mismo periodo).
+
+Con 0 casos reales, ninguna de las opciones que construyen infraestructura de
+antemano (lista en configuración, umbral o exclusión especial de apellidos) tenía
+evidencia que la respaldara — hacerlo hoy habría sido exactamente lo que el
+congelamiento de alcance de la semana 1 prohíbe (sección 8 del `CLAUDE.md`: solo
+entra lo que causó un falso negativo real). Se descartó también diferir sin
+ningún cambio: el hueco real no era "falta una lista de apellidos", era que
+`EsPalabraUnica` (`FrasesGenericasCandidatasService.cs`) excluía estas palabras
+de raíz de la cola de candidatos — nunca llegaban a revisión humana por ningún
+camino, así que si el caso empezara a ocurrir mañana nadie se enteraría.
+
+**Decisión final:** no tratarlas automáticamente (siguen sin poder ocultarse,
+promoverse ni notificarse distinto por ser de una palabra), pero sí mostrarlas
+en el reporte diario de auditoría (`ReporteAuditoriaScraperService`) para que el
+equipo técnico decida caso por caso. Primer intento: solo un número
+("N excluidos por palabra suelta, revisar") — insuficiente, porque sin el texto
+nadie puede decidir si es jerga o un apellido real. Se corrigió a mostrar el
+texto completo, en una sección aparte y claramente marcada como revisión manual
+(nunca mezclada con los candidatos normales de 2+ palabras), bajo la misma
+excepción reconocida de privacidad que ya cubre a esos candidatos normales
+("el reporte diario de auditoría muestra el texto de los candidatos... solo
+puede ir a destinatarios del equipo técnico" — sección 3 del `CLAUDE.md`).
+
+**Lección:** un conteo sin texto parece la opción "más privada" pero en la
+práctica no sirve para nada si el objetivo es que una persona revise — la
+excepción de privacidad del reporte diario ya existe justamente para este tipo
+de caso, y aplica igual a un candidato de una palabra que a uno de dos.
+
+---
+
+*Última actualización: 19 de octubre de 2026.*

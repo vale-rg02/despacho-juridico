@@ -540,6 +540,15 @@ public class ReporteAuditoriaScraperService : BackgroundService
             : string.Join("\n", r.FrasesCandidatas.Candidatos.Select(c =>
                 $"<p>\"{System.Net.WebUtility.HtmlEncode(c.Frase)}\" ({c.ExpedientesDistintos} expedientes distintos)</p>"));
 
+        // DJ-134: una palabra suelta nunca pasó por el mismo filtro que un
+        // candidato de 2+ palabras (PartesTieneNombre no la reconoce como
+        // nombre, sea jerga o apellido real) -- se muestra aparte y marcada
+        // como revisión manual, nunca junto a ListaFrases().
+        string ListaPalabraUnica() => r.FrasesCandidatas.CandidatosPalabraUnica.Count == 0
+            ? "<p>Sin candidatos de una palabra hoy.</p>"
+            : string.Join("\n", r.FrasesCandidatas.CandidatosPalabraUnica.Select(c =>
+                $"<p>\"{System.Net.WebUtility.HtmlEncode(c.Frase)}\" ({c.ExpedientesDistintos} expedientes distintos)</p>"));
+
         string ListaAnomalias()
         {
             var partes = new List<string>();
@@ -595,6 +604,9 @@ public class ReporteAuditoriaScraperService : BackgroundService
     {ListaCola2b()}
     <h2>Frases candidatas nuevas</h2>
     {ListaFrases()}
+    <h2>Candidatos de una palabra (revisar manualmente)</h2>
+    <p>No pasan por el mismo filtro automático que las anteriores -- podrían ser jerga del trámite o un apellido real. No se agregue a FrasesGenericasConocidas sin confirmar.</p>
+    {ListaPalabraUnica()}
     <h2>Anomalías</h2>
     {ListaAnomalias()}
     <h2>Ventana de observación</h2>
