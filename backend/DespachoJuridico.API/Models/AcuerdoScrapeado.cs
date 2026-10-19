@@ -51,6 +51,20 @@ public class AcuerdoScrapeado
     // litigante; si lo confirma o descarta después, este campo ya no importa.
     public bool RecordatorioPendienteEnviado { get; set; } = false;
 
+    // DJ-141: true cuando NotificacionEnviada=false es intencional (Promover con
+    // notificar=false -- el litigante ya está al tanto por otro medio), no una
+    // falla. Distingue "a propósito" de "falló" para que ReintentoNotificacionesService
+    // nunca reintente -- ni mucho menos alerte -- sobre algo que se dejó así adrede.
+    public bool NotificacionOmitida { get; set; } = false;
+
+    // DJ-141: true cuando ReintentoNotificacionesService ya reintentó, volvió a
+    // fallar, y avisó por correo al equipo (Auditoria:Destinatarios) -- una sola
+    // alerta por acuerdo, nunca se repite en cada corrida del reintento mientras
+    // siga sin resolver (mismo criterio que RecordatorioPendienteEnviado). El
+    // equipo ya tiene visibilidad; de ahí en adelante se resuelve a mano (ej. con
+    // Promover?notificar=false después de avisarle al litigante directamente).
+    public bool AlertaReintentoEnviada { get; set; } = false;
+
     public Expediente Expediente { get; set; } = null!;
     public ICollection<AcuerdoVistoPorUsuario> VistosPor { get; set; } = new List<AcuerdoVistoPorUsuario>();
 }

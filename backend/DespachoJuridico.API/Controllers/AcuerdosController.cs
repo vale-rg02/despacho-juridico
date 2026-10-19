@@ -474,6 +474,14 @@ public class AcuerdosController : ControllerBase
                 _logger.LogError(ex, "No se pudo notificar al promover el acuerdo {Id} -- queda promovido igual", id);
             }
         }
+        else
+        {
+            // DJ-141: NotificacionEnviada se queda en false, pero marcado como
+            // intencional -- así ReintentoNotificacionesService nunca lo toca ni
+            // avisa de él como si fuera una falla.
+            acuerdo.NotificacionOmitida = true;
+            await _context.SaveChangesAsync();
+        }
 
         await RegistrarBitacora(acuerdo.ExpedienteId, usuarioIdActual, "acuerdo_promovido",
             notificar

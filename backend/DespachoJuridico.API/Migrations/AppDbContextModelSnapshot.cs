@@ -30,6 +30,9 @@ namespace DespachoJuridico.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AlertaReintentoEnviada")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("CiudadDestino")
                         .HasColumnType("text");
 
@@ -59,6 +62,9 @@ namespace DespachoJuridico.API.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("NotificacionEnviada")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotificacionOmitida")
                         .HasColumnType("boolean");
 
                     b.Property<string>("NumeroExpediente")

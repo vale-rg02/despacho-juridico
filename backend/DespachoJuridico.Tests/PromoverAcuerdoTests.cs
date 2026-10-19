@@ -242,6 +242,9 @@ public class PromoverAcuerdoTests
         Assert.False(actualizado!.Oculto);
         Assert.Equal("Alta", actualizado.Confianza);
         Assert.False(actualizado.NotificacionEnviada);
+        // DJ-141: marcado como intencional -- ReintentoNotificacionesService nunca
+        // debe tratar esto como una falla ni reintentar notificar.
+        Assert.True(actualizado.NotificacionOmitida);
     }
 
     [Fact]
