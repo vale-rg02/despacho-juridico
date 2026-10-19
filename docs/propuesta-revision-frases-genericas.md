@@ -1,6 +1,6 @@
 # Propuesta: cómo registrar que un candidato ya fue revisado (DJ-133, punto 5)
 
-**Estado: propuesta, sin aplicar.** Ninguna migración ni cambio de esquema está en el working tree — esto es solo la comparación pedida, para decidir antes de implementar.
+**Estado: implementada (DJ-137, 19 de octubre de 2026) — se eligió la Opción A', no la Opción B recomendada originalmente abajo.** Ver "Decisión final" al fondo del documento antes de leer la comparación original, que se conserva tal cual para contexto histórico.
 
 ## El problema
 
@@ -38,4 +38,22 @@ Una variable de entorno más, ej. `FrasesGenericas__CandidatosDescartados`, list
 - Vivir en código (no en una variable de entorno de runtime) significa que agregar un candidato descartado pasa por un cambio revisado por una persona (commit + code review), **igual que ya se exige para `FrasesGenericasConocidas`** — no se puede "descartar" un candidato sin que alguien lo revise y lo comitee, lo cual es justo la garantía que pide el punto 5 del prompt ("un candidato aprobado como genérico debería terminar en `FrasesGenericasConocidas` mediante un cambio de código revisado por una persona, no automáticamente" — el mismo principio aplica a descartar).
 - Si el volumen crece lo suficiente para que mantener dos listas en código se sienta pesado, migrar a la Opción A en ese momento — no antes.
 
-Nada de esto se implementó: es la comparación pedida por el punto 5, para que el equipo decida antes de que se escriba el código real.
+Nada de esto se implementó originalmente: era la comparación pedida por el punto 5, para que el equipo decida antes de que se escriba el código real.
+
+---
+
+## Decisión final (DJ-137, 19 de octubre de 2026)
+
+**Se implementó la Opción A' — tabla `RevisionCandidatoFraseGenerica` — no la Opción B recomendada arriba.** La recomendación original quedó invalidada por un motivo que no se había considerado al escribirla:
+
+**Un candidato descartado es, por definición, un nombre real de persona o una razón social** (la propia descripción de DJ-137 lo dice: "revisado y confirmado como nombre real que coincidió por casualidad"). La Opción B (constante `FrasesDescartadasConocidas` en `ScraperAcuerdosService.cs`) habría puesto ese nombre real directo en un archivo de C# comiteado a git — permanente en el historial del repositorio, sin relación con quién tiene acceso a la base de datos de producción. Esto nunca se señaló en la comparación original porque el enfoque estaba en el volumen (bajo, no justifica una tabla) y en la garantía de revisión humana (que ambas opciones cumplen) — no en que el contenido mismo de una Opción B es sensible de una forma que el de `FrasesGenericasConocidas` (jerga, nunca nombres) no es.
+
+Con esto corregido, el volumen bajo deja de ser el criterio decisivo: una tabla pequeña y aditiva (sin texto en código, con rastro de quién/cuándo/por qué) gana sobre cualquier variante de la Opción B, incluyendo una basada en hash (sin texto en git, pero tampoco nadie puede leer después por qué se descartó algo).
+
+**Implementación real:** tabla `RevisionCandidatoFraseGenerica` (`CandidatoNormalizado` único, `Decision` Aprobado/Descartado, `Motivo` corto, `RevisadoEn`, `RevisadoPorId`), endpoint solo-admin `POST/GET /api/scraper/frases-genericas/revisiones`. `CalcularCandidatos` excluye los descartados con su propio contador `ExcluidosPorYaDescartado`, afectando tanto la vista previa como el correo diario de DJ-140. `FrasesGenericasConocidas` sigue sin cambios — "Aprobado" vía el endpoint es solo rastro informativo, nunca reemplaza el commit revisado que sigue haciendo falta para que una frase cuente de verdad como jerga conocida.
+
+**Procedimiento para el manual de operación (DJ-142 — sin archivo propio en este repo todavía, se deja listo para mover cuando exista):**
+
+- **Para aprobar una frase como jerga conocida:** agregar la frase a `FrasesGenericasConocidas` en `ScraperAcuerdosService.cs`, vía un cambio de código revisado por la otra persona del equipo (Valeria o Manuel) — nunca automáticamente. Opcionalmente, registrar también la decisión "Aprobado" en `POST /api/scraper/frases-genericas/revisiones` para dejar rastro de quién la revisó y cuándo, aunque ese registro no tiene efecto por sí solo.
+- **Para descartar un candidato que resultó ser un nombre real:** `POST /api/scraper/frases-genericas/revisiones` con `Decision="Descartado"` — ningún commit, ningún deploy, efecto inmediato en el siguiente reporte.
+- **Quién decide:** cualquier persona con acceso admin puede registrar la decisión de descarte (es una corrección de datos, no un cambio de comportamiento del matching); agregar algo a `FrasesGenericasConocidas` requiere que la otra persona del equipo revise el código antes de fusionar, igual que cualquier otro cambio al matching.
