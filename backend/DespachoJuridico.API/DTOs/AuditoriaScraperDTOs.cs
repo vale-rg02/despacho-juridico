@@ -60,8 +60,8 @@ public class AcuerdoOcultoCandidato
 
 public class ColisionJuzgadoCandidato
 {
-    // DJ-140: Id de la fila BitacoraDescarteItemizado que originó este
-    // candidato -- se usa para pedir su recuperación vía
+    // DJ-140: Id de la fila BitacoraDescarteItemizado más reciente del grupo
+    // (ver TotalCoincidencias) -- se usa para pedir su recuperación vía
     // POST /scraper/colisiones-juzgado/{id}/reintentar, una vez corregida la
     // causa real (el acuerdo nunca se guardó, no hay nada más que referenciar).
     public int Id { get; set; }
@@ -69,6 +69,13 @@ public class ColisionJuzgadoCandidato
     public string NombreJuzgadoAdison { get; set; } = string.Empty;
     public string NombreJuzgadoExpediente { get; set; } = string.Empty;
     public double PuntajeSimilitudJuzgado { get; set; }
+
+    // DJ-140 (ajuste, 20 oct 2026): el scraper vuelve a loguear el mismo
+    // descarte en cada ciclo mientras la causa no se corrija -- este campo
+    // cuenta cuántas filas de BitacoraDescarteItemizado se agruparon en este
+    // mismo candidato (mismo NumeroExpediente + NombreJuzgadoAdison), para no
+    // repetir la misma línea una vez por ciclo en el correo diario.
+    public int TotalCoincidencias { get; set; } = 1;
 }
 
 public class AnomaliaUnidadEnCero

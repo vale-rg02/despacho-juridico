@@ -182,13 +182,24 @@ public class ReporteAuditoriaScraperService : BackgroundService
             .Where(d => d.Razon == "NUMERO_COINCIDE_JUZGADO_NO" && d.FechaHoraCorrida > marcaDeAgua)
             .ToListAsync(ct);
 
-        foreach (var item in colisiones)
+        // DJ-140 (ajuste, 20 oct 2026): sin esto, el correo mostraba una línea
+        // por CADA ciclo del scraper que repite el mismo descarte mientras la
+        // causa no se corrija -- medido en producción: 135 filas para solo 39
+        // pares (NumeroExpediente, NombreJuzgadoAdison) realmente distintos.
+        // El puntaje no cambia entre repeticiones del mismo expediente
+        // (depende solo de NumeroExpediente + expedientes activos), así que
+        // agrupar no pierde información real, solo dejar de repetir la misma
+        // fila. Cola2bColisionesSinIndicio pasa a contar PARES distintos sin
+        // indicio, no filas -- mismo criterio de deduplicación.
+        foreach (var grupo in colisiones.GroupBy(d => (d.NumeroExpediente, d.NombreJuzgado)))
         {
+            var masReciente = grupo.OrderByDescending(d => d.FechaHoraCorrida).First();
+
             var coincidentes = expedientesActivos.Where(e =>
-                ScraperAcuerdosService.NormalizarNumero(e.NumeroExpediente) == ScraperAcuerdosService.NormalizarNumero(item.NumeroExpediente));
+                ScraperAcuerdosService.NormalizarNumero(e.NumeroExpediente) == ScraperAcuerdosService.NormalizarNumero(grupo.Key.NumeroExpediente));
 
             var puntajeMax = coincidentes
-                .Select(e => ScraperAcuerdosService.Similitud(e.Juzgado ?? "", item.NombreJuzgado))
+                .Select(e => ScraperAcuerdosService.Similitud(e.Juzgado ?? "", grupo.Key.NombreJuzgado))
                 .DefaultIfEmpty(0.0)
                 .Max();
 
@@ -197,11 +208,12 @@ public class ReporteAuditoriaScraperService : BackgroundService
                 var expedienteCoincidente = coincidentes.FirstOrDefault();
                 reporte.Cola2bColisionesConIndicio.Add(new ColisionJuzgadoCandidato
                 {
-                    Id = item.Id,
-                    NumeroExpediente = item.NumeroExpediente,
-                    NombreJuzgadoAdison = item.NombreJuzgado,
+                    Id = masReciente.Id,
+                    NumeroExpediente = grupo.Key.NumeroExpediente,
+                    NombreJuzgadoAdison = grupo.Key.NombreJuzgado,
                     NombreJuzgadoExpediente = expedienteCoincidente?.Juzgado ?? "",
-                    PuntajeSimilitudJuzgado = puntajeMax
+                    PuntajeSimilitudJuzgado = puntajeMax,
+                    TotalCoincidencias = grupo.Count()
                 });
             }
             else
@@ -209,8 +221,13 @@ public class ReporteAuditoriaScraperService : BackgroundService
                 reporte.Cola2bColisionesSinIndicio++;
             }
         }
+        // Prioridad por volumen (pedido del equipo, 20 oct 2026): el expediente
+        // que más se repite primero, no el de mayor puntaje -- un caso con 50
+        // coincidencias importa más que uno con 2, aunque su puntaje sea menor.
         reporte.Cola2bColisionesConIndicio = reporte.Cola2bColisionesConIndicio
-            .OrderByDescending(c => c.PuntajeSimilitudJuzgado).ToList();
+            .OrderByDescending(c => c.TotalCoincidencias)
+            .ThenByDescending(c => c.PuntajeSimilitudJuzgado)
+            .ToList();
 
         // ── Elemento 3: frases candidatas (DJ-133), sin duplicar lógica ──
         reporte.FrasesCandidatas = await _frasesGenericas.GenerarReporteAsync(null, ct);
@@ -529,11 +546,31 @@ public class ReporteAuditoriaScraperService : BackgroundService
             : string.Join("\n", r.Cola2ForaneosParecidos.Select(c =>
                 $"<p>{System.Net.WebUtility.HtmlEncode(c.NumeroExpediente)} — {System.Net.WebUtility.HtmlEncode(c.NombreJuzgado)} (puntaje {c.PuntajeSimilitud:F2})</p>"));
 
-        string ListaCola2b() => r.Cola2bColisionesConIndicio.Count == 0
-            ? $"<p>Sin indicios hoy ({r.Cola2bColisionesSinIndicio} colisiones de número sin indicio de bug).</p>"
-            : string.Join("\n", r.Cola2bColisionesConIndicio.Select(c =>
-                $"<p>{System.Net.WebUtility.HtmlEncode(c.NumeroExpediente)}: \"{System.Net.WebUtility.HtmlEncode(c.NombreJuzgadoExpediente)}\" vs \"{System.Net.WebUtility.HtmlEncode(c.NombreJuzgadoAdison)}\" (puntaje {c.PuntajeSimilitudJuzgado:F2})</p>"))
-              + $"<p>({r.Cola2bColisionesSinIndicio} colisiones adicionales sin indicio, no itemizadas)</p>";
+        // DJ-140 (ajuste, 20 oct 2026): sin esto, un expediente que se repite
+        // en cada ciclo del scraper producía una línea idéntica por cada
+        // repetición -- el correo se volvía larguísimo sin aportar nada nuevo.
+        // Ya viene agrupado y ordenado por volumen (ver GenerarReporteAsync);
+        // aquí solo se decide qué tan detallado mostrar cada grupo: los de más
+        // de 10 coincidencias se itemizan (son los que más vale la pena
+        // revisar), los de 10 o menos solo se cuentan, sin listar cada uno.
+        string ListaCola2b()
+        {
+            if (r.Cola2bColisionesConIndicio.Count == 0)
+                return $"<p>Sin indicios hoy ({r.Cola2bColisionesSinIndicio} colisiones de número sin indicio de bug).</p>";
+
+            var grandes = r.Cola2bColisionesConIndicio.Where(c => c.TotalCoincidencias > 10).ToList();
+            var chicas = r.Cola2bColisionesConIndicio.Where(c => c.TotalCoincidencias <= 10).ToList();
+
+            var lineas = string.Join("\n", grandes.Select(c =>
+                $"<p>{System.Net.WebUtility.HtmlEncode(c.NumeroExpediente)}: \"{System.Net.WebUtility.HtmlEncode(c.NombreJuzgadoExpediente)}\" vs \"{System.Net.WebUtility.HtmlEncode(c.NombreJuzgadoAdison)}\" (puntaje {c.PuntajeSimilitudJuzgado:F2}, {c.TotalCoincidencias} coincidencias)</p>"));
+
+            var resumenChicas = chicas.Count > 0
+                ? $"<p>{chicas.Count} casos con 10 coincidencias o menos (no itemizados).</p>"
+                : "";
+
+            return lineas + resumenChicas
+                + $"<p>({r.Cola2bColisionesSinIndicio} colisiones adicionales sin indicio, no itemizadas)</p>";
+        }
 
         string ListaFrases() => r.FrasesCandidatas.Candidatos.Count == 0
             ? "<p>Sin frases candidatas nuevas.</p>"

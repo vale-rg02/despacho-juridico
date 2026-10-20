@@ -177,6 +177,52 @@ public class ReporteAuditoriaScraperIntegracionTests
         Assert.Equal(1, reporte.Cola2bColisionesSinIndicio);
     }
 
+    // DJ-140 (ajuste, 20 oct 2026): el scraper repite el mismo descarte en
+    // cada ciclo mientras la causa no se corrija -- sin agrupar, el correo
+    // mostraba una línea por repetición (medido en producción: 135 filas para
+    // solo 39 pares reales). Se agrupa por (NumeroExpediente, NombreJuzgado de
+    // ADISON) y se ordena por volumen, no por puntaje.
+    [Fact]
+    public async Task Cola2b_AgrupaRepeticionesDelMismoExpedienteYOrdenaPorVolumen()
+    {
+        var nombreBD = nameof(Cola2b_AgrupaRepeticionesDelMismoExpedienteYOrdenaPorVolumen);
+        var (context, servicio, _) = CrearEscenario(nombreBD);
+
+        context.Expedientes.Add(NuevoExpediente("500/2026", "2do Civil Hermosillo"));
+        context.Expedientes.Add(NuevoExpediente("601/2026", "2do Civil Hermosillo"));
+        await context.SaveChangesAsync();
+
+        // 500/2026: el mismo descarte repetido en 3 ciclos distintos del scraper.
+        for (var i = 0; i < 3; i++)
+        {
+            context.BitacoraDescarteItemizado.Add(new BitacoraDescarteItemizado
+            {
+                CorridaId = Guid.NewGuid(), FechaHoraCorrida = DateTime.UtcNow.AddMinutes(i), IdUnidad = IdUnidad2doCivilHermosillo,
+                NombreJuzgado = "2do Civl Hermosillo", NumeroExpediente = "500/2026", Razon = "NUMERO_COINCIDE_JUZGADO_NO"
+            });
+        }
+        // 601/2026: solo una vez -- menor puntaje que 500/2026 pero con un solo ciclo.
+        context.BitacoraDescarteItemizado.Add(new BitacoraDescarteItemizado
+        {
+            CorridaId = Guid.NewGuid(), FechaHoraCorrida = DateTime.UtcNow, IdUnidad = IdUnidad2doCivilHermosillo,
+            NombreJuzgado = "2do Civil Hermosilo", NumeroExpediente = "601/2026", Razon = "NUMERO_COINCIDE_JUZGADO_NO"
+        });
+        await context.SaveChangesAsync();
+
+        var reporte = await servicio.GenerarReporteAsync(new DateOnly(2026, 10, 16), avanzarMarcaDeAgua: false, CancellationToken.None);
+
+        Assert.Equal(2, reporte.Cola2bColisionesConIndicio.Count);
+        Assert.Equal(0, reporte.Cola2bColisionesSinIndicio);
+
+        var primero = reporte.Cola2bColisionesConIndicio[0];
+        Assert.Equal("500/2026", primero.NumeroExpediente);
+        Assert.Equal(3, primero.TotalCoincidencias);
+
+        var segundo = reporte.Cola2bColisionesConIndicio[1];
+        Assert.Equal("601/2026", segundo.NumeroExpediente);
+        Assert.Equal(1, segundo.TotalCoincidencias);
+    }
+
     [Fact]
     public async Task MarcaDeAgua_LoYaReportadoNoSeRepite_YLaVistaPreviaNoLaAvanza()
     {
