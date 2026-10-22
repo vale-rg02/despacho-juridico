@@ -17,6 +17,7 @@ Documento vivo para mejoras de arquitectura identificadas durante el trabajo nor
 | 9 | DJ-134: candidatos de una palabra en el reporte diario | Implementada — 0 casos reales medidos, no se construyó lista ni umbral; se reporta el texto para revisión manual |
 | 10 | DJ-132: aviso de banco faltante no distingue texto suelto de un banco real | Pendiente — dejado así a propósito, baja probabilidad |
 | 11 | DJ-132: criterio alterno de matching cuando falta banco (Opción D) | En pausa — requiere investigar rutas viables antes de decidir si se implementa |
+| 12 | DJ-106: índices, candado centralizado del scraper y horarios fijos de 4 BackgroundServices | Implementada (22 de octubre de 2026) |
 
 ---
 
@@ -309,4 +310,30 @@ si entra siquiera como historia. No hay fecha ni compromiso de retomarla.
 
 ---
 
-*Última actualización: 19 de octubre de 2026.*
+## 12. DJ-106: índices, candado centralizado del scraper y horarios fijos de 4 BackgroundServices
+
+**Estado: implementada (22 de octubre de 2026), versión ligera con tope de un día, per plan de cierre.**
+
+Diagnóstico (solo lectura, `EXPLAIN` contra producción + carga local con SQLite y datos sintéticos, nunca contra producción) en tres áreas: costo del polling de `/no-vistos`, consultas del reporte diario, y solapamiento de tareas programadas. Ninguna de las tres mostró un riesgo urgente al volumen actual (~5,248 acuerdos) — todas las consultas medidas en sub-2ms — pero se encontraron 4 huecos estructurales de bajo riesgo, aprobados para corregir ya:
+
+1. **Índice compuesto en `AcuerdosScrapeados` (`Oculto`, `Confianza`, `FechaDetectado`).** Ninguna de las tres tablas clave del scraper tenía índice secundario — todas las consultas hacían *seq scan* completo. Barato hoy, pero `AcuerdosScrapeados` es la única de las tres sin retención (a diferencia de `BitacoraEvaluacionScraper`, 180 días, y `BitacoraDescarteItemizado`, 60 días) — crece sin tope. Un solo índice compuesto cubre tanto `/no-vistos` (solo filtra por `Oculto`, usa el prefijo izquierdo) como el reporte diario (filtra por los tres campos). Migración aditiva.
+
+2. **Candado centralizado del scraper.** El `SemaphoreSlim` que evita que el ciclo automático y una corrida manual le peguen a ADISON a la vez cubría solo 2 de 5 rutas reales — `/api/scraper/ejecutar`, `/ejecutar-rango` y `/colisiones-juzgado/{id}/reintentar` llamaban a `EjecutarScrapingAsync` directo, sin candado. Se agregó `EjecutarScrapingConCandadoAsync` como único punto de entrada real (los 5 llamadores de producción ahora pasan por ahí) — `EjecutarScrapingAsync` sigue público porque 5 archivos de prueba lo llaman directo (sin concurrencia real en pruebas, no hay riesgo).
+
+3. **Margen del reporte diario vs. ciclo del scraper.** 18:30 (solo 25 min después de que cierra la ventana del scraper a las 18:05) ampliado a 19:00 (55 min de colchón), por si un ciclo se alarga por reintentos/timeouts.
+
+4. **4 BackgroundServices anclados a la hora de arranque de la app, no a hora fija.** `ReintentoNotificacionesService`, `RecordatorioAcuerdosPendientesService`, `RevisionFechasService` y `RecordatorioCitasService` usaban `do/while(timer.WaitForNextTickAsync())` — su horario real dependía de a qué minuto exacto arrancó/redesplegó la app, no de un horario elegido. Dos de los cuatro (`RevisionFechasService`, `RecordatorioCitasService`) envían correo real a litigantes, así que el riesgo no era solo "podría coincidir con el scraper" sino "podría tocarle correo real a las 3am" según cuándo cayera el último deploy. Horarios fijos Hermosillo, elegidos para no coincidir entre sí ni con el scraper (00:05–18:05) ni con el reporte (19:00):
+   - `RecordatorioAcuerdosPendientesService`: 19:00 (decisión explícita del equipo, mismo bloque que el reporte)
+   - `RevisionFechasService`: 08:00 (envía correo real — horario laboral)
+   - `RecordatorioCitasService`: 08:15 (envía correo real — horario laboral)
+   - `ReintentoNotificacionesService`: sigue cada hora (no se cambia a una vez al día — su propósito es reintentar rápido), pero ahora anclado a la hora en punto (`ProximaCorridaAlineada`) en vez de arrastrar el offset del deploy. El primer intento inmediato al arrancar se conserva a propósito (documentado en el propio código: resuelve de inmediato cualquier backlog tras un deploy).
+
+**Hallazgo colateral, no parte de esta historia:** al revisar por qué el correo del reporte diario seguía mostrando Cola 2b sin agrupar (el fix de la sección de arriba, DJ-140, ya estaba comiteado y pusheado desde el 20 de octubre), se confirmó que el último deploy de producción (19 de octubre, 16:46 MST) es **anterior** a ese commit — nada de lo pusheado desde entonces (DJ-132, DJ-140, y esta misma historia) está corriendo en producción todavía. No es un bug de código; es que el despliegue automático no se disparó o se pausó. Pendiente de que el equipo redespliegue manualmente.
+
+**Pruebas:** 536 → 539 (3 nuevas para `ProximaCorridaAlineada`), sin regresión. Migración `DJ106_IndiceAcuerdosOcultoConfianzaFecha` generada y revisada (puramente aditiva).
+
+**Qué NO cubre:** no se midió con tráfico concurrente real contra producción (prohibido para esta tarea); no se investigó el costo de un futuro canal push/websocket; la observabilidad del scraper (bitácora/purga) se revisó a fondo y se confirmó que ya está correctamente aislada — no requirió cambios.
+
+---
+
+*Última actualización: 22 de octubre de 2026.*
