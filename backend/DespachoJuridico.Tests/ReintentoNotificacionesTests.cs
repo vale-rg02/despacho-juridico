@@ -368,3 +368,37 @@ public class ReintentoNotificacionesTests
         Assert.True(actualizado.AlertaReintentoEnviada);
     }
 }
+
+// DJ-106: antes el ciclo dependía de la hora exacta de arranque de la app
+// (PeriodicTimer anclado al deploy) -- esto prueba que, sin importar a qué
+// minuto arrancó, la siguiente corrida cae siempre en un múltiplo exacto del
+// intervalo contado desde medianoche.
+public class ProximaCorridaAlineadaTests
+{
+    [Fact]
+    public void ConIntervaloDeUnaHora_CaeEnLaProximaHoraEnPunto()
+    {
+        var ahora = new DateTime(2026, 10, 22, 14, 23, 7);
+        var resultado = ReintentoNotificacionesService.ProximaCorridaAlineada(ahora, TimeSpan.FromMinutes(60));
+
+        Assert.Equal(new DateTime(2026, 10, 22, 15, 0, 0), resultado);
+    }
+
+    [Fact]
+    public void JustoEnPunto_ProgramaLaSiguiente_NoLaMisma()
+    {
+        var ahora = new DateTime(2026, 10, 22, 15, 0, 0);
+        var resultado = ReintentoNotificacionesService.ProximaCorridaAlineada(ahora, TimeSpan.FromMinutes(60));
+
+        Assert.Equal(new DateTime(2026, 10, 22, 16, 0, 0), resultado);
+    }
+
+    [Fact]
+    public void ConIntervaloDeMediaHora_CaeEnElSiguienteMultiploDeslaMedianoche()
+    {
+        var ahora = new DateTime(2026, 10, 22, 14, 23, 7);
+        var resultado = ReintentoNotificacionesService.ProximaCorridaAlineada(ahora, TimeSpan.FromMinutes(30));
+
+        Assert.Equal(new DateTime(2026, 10, 22, 14, 30, 0), resultado);
+    }
+}

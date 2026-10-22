@@ -22,8 +22,8 @@ namespace DespachoJuridico.API.Services;
 public class RecordatorioAcuerdosPendientesService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConfiguration _config;
     private readonly ILogger<RecordatorioAcuerdosPendientesService> _logger;
-    private readonly TimeSpan _intervalo;
     private readonly int _diasUmbral;
 
     public RecordatorioAcuerdosPendientesService(
@@ -32,28 +32,57 @@ public class RecordatorioAcuerdosPendientesService : BackgroundService
         IConfiguration config)
     {
         _scopeFactory = scopeFactory;
+        _config = config;
         _logger = logger;
 
-        var minutos = config.GetValue<int?>("RecordatorioAcuerdosPendientes:IntervaloMinutos") ?? 1440;
-        _intervalo = TimeSpan.FromMinutes(minutos);
         _diasUmbral = config.GetValue<int?>("RecordatorioAcuerdosPendientes:DiasUmbral") ?? 3;
     }
 
+    // DJ-106: antes dependía de la hora exacta en que arrancó la app
+    // (PeriodicTimer anclado al deploy) -- dos despliegues en horas distintas
+    // corrían este servicio a horas distintas, pudiendo coincidir por
+    // casualidad con el scraper o el reporte diario. Ahora corre a una hora
+    // fija Hermosillo (mismo patrón que ReporteAuditoriaScraperService),
+    // después del reporte diario (19:00) y fuera de la ventana del scraper
+    // (00:05-18:05).
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(_intervalo);
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var horaEjecucion = TimeOnly.TryParse(_config["RecordatorioAcuerdosPendientes:HoraLocal"], out var h) ? h : new TimeOnly(19, 0);
 
-        do
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria);
+            var proximaLocal = ReporteAuditoriaScraperService.ProximoEnvioProgramado(ahoraLocal, horaEjecucion);
+            var proximaUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(proximaLocal, DateTimeKind.Unspecified), zonaHoraria);
+            var espera = proximaUtc - DateTime.UtcNow;
+
+            if (espera > TimeSpan.Zero)
+            {
+                try
+                {
+                    await Task.Delay(espera, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
             try
             {
                 await RevisarPendientesAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error durante la revisión de acuerdos Media pendientes de confirmar/descartar");
             }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
     }
 
     // Un acuerdo "Media" sin resolver hace >= diasUmbral días desde que se detectó:

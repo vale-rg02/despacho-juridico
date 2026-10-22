@@ -41,7 +41,11 @@ public class ReporteAuditoriaScraperService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
-        var horaEnvio = TimeOnly.TryParse(_config["Auditoria:HoraEnvioLocal"], out var h) ? h : new TimeOnly(18, 30);
+        // DJ-106: antes 18:30 (solo 25 min después de que cierra la ventana del
+        // scraper a las 18:05) -- ampliado a 19:00 (55 min de colchón) para que un
+        // ciclo que se alargue por reintentos/timeouts no termine coincidiendo con
+        // el envío del reporte.
+        var horaEnvio = TimeOnly.TryParse(_config["Auditoria:HoraEnvioLocal"], out var h) ? h : new TimeOnly(19, 0);
 
         while (!stoppingToken.IsCancellationRequested)
         {

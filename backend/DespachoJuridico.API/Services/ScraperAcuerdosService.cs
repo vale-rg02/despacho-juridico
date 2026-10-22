@@ -223,15 +223,7 @@ public class ScraperAcuerdosService : BackgroundService
 
             try
             {
-                await _scrapingLock.WaitAsync(stoppingToken);
-                try
-                {
-                    await EjecutarScrapingAsync(esCicloAutomaticoProgramado: true);
-                }
-                finally
-                {
-                    _scrapingLock.Release();
-                }
+                await EjecutarScrapingConCandadoAsync(esCicloAutomaticoProgramado: true, ct: stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -283,6 +275,29 @@ public class ScraperAcuerdosService : BackgroundService
     // de DJ-139 en Jira). Default false: ningún endpoint/controller existente
     // cambia de comportamiento, solo cambia qué Origen queda escrito cuando un
     // admin fuerza una corrida completa a mano.
+    // DJ-106: punto de entrada único que SIEMPRE adquiere _scrapingLock antes de
+    // llamar a EjecutarScrapingAsync. Antes del candado estaba duplicado a mano en
+    // los 2 sitios que sí lo respetaban (el ciclo automático y "actualizar mis
+    // expedientes") y ausente en otros 3 (/ejecutar, /ejecutar-rango,
+    // /colisiones-juzgado/{id}/reintentar), que podían pegarle a ADISON al mismo
+    // tiempo que el ciclo automático. Todo llamador nuevo debe usar este método,
+    // nunca EjecutarScrapingAsync directo.
+    public async Task<ResultadoScrapingResponse> EjecutarScrapingConCandadoAsync(
+        DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null,
+        bool notificar = true, IReadOnlySet<int>? expedienteIdsFiltro = null, bool esCicloAutomaticoProgramado = false,
+        CancellationToken ct = default)
+    {
+        await _scrapingLock.WaitAsync(ct);
+        try
+        {
+            return await EjecutarScrapingAsync(fechaConsulta, dryRun, idsUnidad, notificar, expedienteIdsFiltro, esCicloAutomaticoProgramado);
+        }
+        finally
+        {
+            _scrapingLock.Release();
+        }
+    }
+
     public async Task<ResultadoScrapingResponse> EjecutarScrapingAsync(DateOnly? fechaConsulta = null, bool dryRun = false, IReadOnlySet<int>? idsUnidad = null, bool notificar = true, IReadOnlySet<int>? expedienteIdsFiltro = null, bool esCicloAutomaticoProgramado = false)
     {
         var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
@@ -981,16 +996,8 @@ public class ScraperAcuerdosService : BackgroundService
             var expedienteIds = expedientesPropios.Select(e => e.Id).ToHashSet();
             var idsUnidad = DerivarIdsUnidadParaJuzgados(expedientesPropios.Select(e => e.Juzgado));
 
-            await _scrapingLock.WaitAsync(ct);
-            try
-            {
-                if (idsUnidad.Count > 0)
-                    await EjecutarScrapingAsync(null, false, idsUnidad, true, expedienteIds);
-            }
-            finally
-            {
-                _scrapingLock.Release();
-            }
+            if (idsUnidad.Count > 0)
+                await EjecutarScrapingConCandadoAsync(null, false, idsUnidad, true, expedienteIds, ct: ct);
 
             var usuario = await context.Usuarios.FindAsync(usuarioId);
             if (usuario != null)

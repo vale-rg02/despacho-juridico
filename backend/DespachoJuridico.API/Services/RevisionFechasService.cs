@@ -8,8 +8,8 @@ namespace DespachoJuridico.API.Services;
 public class RevisionFechasService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConfiguration _config;
     private readonly ILogger<RevisionFechasService> _logger;
-    private readonly TimeSpan _intervalo;
 
     // Umbrales de notificación en días, separados por canal
     private static readonly int[] UmbralesSistema = { 15, 7, 3, 1 };
@@ -21,27 +21,52 @@ public class RevisionFechasService : BackgroundService
         IConfiguration config)
     {
         _scopeFactory = scopeFactory;
+        _config = config;
         _logger = logger;
-
-        var minutos = config.GetValue<int?>("RevisionFechas:IntervaloMinutos") ?? 1440;
-        _intervalo = TimeSpan.FromMinutes(minutos);
     }
 
+    // DJ-106: antes dependía de la hora de arranque de la app -- este servicio
+    // SÍ envía correo real a litigantes (etapa a 1 día de vencer), así que la
+    // hora fija importa: 08:00 Hermosillo, dentro de horario laboral (no la
+    // madrugada que tocaría por casualidad según cuándo se haya redesplegado).
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(_intervalo);
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var horaEjecucion = TimeOnly.TryParse(_config["RevisionFechas:HoraLocal"], out var h) ? h : new TimeOnly(8, 0);
 
-        do
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria);
+            var proximaLocal = ReporteAuditoriaScraperService.ProximoEnvioProgramado(ahoraLocal, horaEjecucion);
+            var proximaUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(proximaLocal, DateTimeKind.Unspecified), zonaHoraria);
+            var espera = proximaUtc - DateTime.UtcNow;
+
+            if (espera > TimeSpan.Zero)
+            {
+                try
+                {
+                    await Task.Delay(espera, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
             try
             {
                 await RevisarFechasAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error durante la revisión de fechas próximas");
             }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
     }
 
     private async Task RevisarFechasAsync(CancellationToken ct)

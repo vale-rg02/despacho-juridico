@@ -48,10 +48,16 @@ public class ReintentoNotificacionesService : BackgroundService
         _antiguedadMaximaDias = config.GetValue<int?>("ReintentoNotificaciones:AntiguedadMaximaDias") ?? 7;
     }
 
+    // DJ-106: el primer intento sigue siendo inmediato al arrancar (ver
+    // comentario de clase -- resuelve el backlog de inmediato tras un deploy),
+    // pero las corridas siguientes antes dependían de la hora exacta de arranque
+    // (PeriodicTimer anclado al deploy) y podían terminar coincidiendo con el
+    // scraper o el reporte diario por pura casualidad. Ahora cada corrida
+    // siguiente se ancla a la próxima hora en punto (o el múltiplo de
+    // _intervalo que corresponda), sin importar a qué minuto exacto arrancó
+    // la app.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(_intervalo);
-
         do
         {
             try
@@ -62,7 +68,30 @@ public class ReintentoNotificacionesService : BackgroundService
             {
                 _logger.LogError(ex, "Error durante el reintento de notificaciones fallidas");
             }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+
+            var ahoraUtc = DateTime.UtcNow;
+            var proximaUtc = ProximaCorridaAlineada(ahoraUtc, _intervalo);
+            try
+            {
+                await Task.Delay(proximaUtc - ahoraUtc, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        } while (!stoppingToken.IsCancellationRequested);
+    }
+
+    // Alinea a la rejilla de _intervalo contada desde medianoche UTC (ej. con
+    // 60 min, siempre cae en HH:00 -- con 30 min, en HH:00 y HH:30). Hermosillo
+    // no tiene horario de verano, así que una hora en punto en UTC es la misma
+    // hora en punto en Hermosillo -- no hace falta convertir zona horaria aquí.
+    internal static DateTime ProximaCorridaAlineada(DateTime ahora, TimeSpan intervalo)
+    {
+        var minutosDesdeMedianoche = (ahora - ahora.Date).TotalMinutes;
+        var pasos = Math.Ceiling(minutosDesdeMedianoche / intervalo.TotalMinutes);
+        var candidato = ahora.Date.AddMinutes(pasos * intervalo.TotalMinutes);
+        return candidato > ahora ? candidato : candidato.AddMinutes(intervalo.TotalMinutes);
     }
 
     // Un acuerdo elegible para reintento: visible (no oculto), nunca se notificó,

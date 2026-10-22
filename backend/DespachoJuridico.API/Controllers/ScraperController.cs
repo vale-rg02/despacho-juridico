@@ -106,7 +106,7 @@ public class ScraperController : ControllerBase
     [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> Ejecutar([FromQuery] DateOnly? fecha, [FromQuery] bool dryRun = false, [FromQuery] string? idsUnidad = null, [FromQuery] bool notificar = true)
     {
-        var resultado = await _scraper.EjecutarScrapingAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad), notificar);
+        var resultado = await _scraper.EjecutarScrapingConCandadoAsync(fecha, dryRun, ParseIdsUnidad(idsUnidad), notificar);
         return Ok(resultado);
     }
 
@@ -150,7 +150,7 @@ public class ScraperController : ControllerBase
 
         foreach (var dia in diasHabiles)
         {
-            var resultado = await _scraper.EjecutarScrapingAsync(dia, dryRun, idsUnidadSet);
+            var resultado = await _scraper.EjecutarScrapingConCandadoAsync(dia, dryRun, idsUnidadSet);
             resultados.Add(new
             {
                 fecha = dia.ToString("yyyy-MM-dd"),
@@ -426,7 +426,7 @@ public class ScraperController : ControllerBase
             "Reintentar colisión de juzgado: descarte {DescarteId} (IdUnidad {IdUnidad}, fecha {Fecha}) solicitado por usuario {UsuarioId}, dryRun={DryRun}",
             id, descarte.IdUnidad, corrida.FechaConsultada, usuarioIdActual, dryRun);
 
-        var resultado = await _scraper.EjecutarScrapingAsync(
+        var resultado = await _scraper.EjecutarScrapingConCandadoAsync(
             corrida.FechaConsultada, dryRun, new HashSet<int> { descarte.IdUnidad });
 
         return Ok(resultado);

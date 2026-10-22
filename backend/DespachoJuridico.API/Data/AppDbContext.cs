@@ -79,6 +79,15 @@ public class AppDbContext : DbContext
             .HasIndex(a => new { a.ExpedienteId, a.FechaAcuerdo, a.Sintesis })
             .IsUnique();
 
+        // DJ-106: sin esto, /no-vistos (polling cada 60s) y las colas del reporte
+        // diario (Oculto+Confianza+FechaDetectado) hacían seq scan completo de la
+        // tabla -- barato hoy (~5,200 filas), pero esta tabla no tiene retención y
+        // crece sin tope. Un índice compuesto cubre ambos consumidores: /no-vistos
+        // solo filtra por Oculto (prefijo izquierdo del índice), el reporte filtra
+        // por los tres campos juntos.
+        modelBuilder.Entity<AcuerdoScrapeado>()
+            .HasIndex(a => new { a.Oculto, a.Confianza, a.FechaDetectado });
+
         // DJ-137: un candidato solo puede tener una revisión vigente -- evita el
         // estado de "aprobado y descartado a la vez" a nivel de BD, no solo en el
         // endpoint.

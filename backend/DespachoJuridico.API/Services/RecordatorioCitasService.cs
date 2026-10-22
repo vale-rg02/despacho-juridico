@@ -6,8 +6,8 @@ namespace DespachoJuridico.API.Services;
 public class RecordatorioCitasService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConfiguration _config;
     private readonly ILogger<RecordatorioCitasService> _logger;
-    private readonly TimeSpan _intervalo;
 
     public RecordatorioCitasService(
         IServiceScopeFactory scopeFactory,
@@ -15,27 +15,51 @@ public class RecordatorioCitasService : BackgroundService
         IConfiguration config)
     {
         _scopeFactory = scopeFactory;
+        _config = config;
         _logger = logger;
-
-        var minutos = config.GetValue<int?>("RecordatorioCitas:IntervaloMinutos") ?? 1440;
-        _intervalo = TimeSpan.FromMinutes(minutos);
     }
 
+    // DJ-106: antes dependía de la hora de arranque de la app -- este servicio
+    // SÍ envía correo real a litigantes (recordatorio de cita de mañana), así
+    // que la hora fija importa: 08:15 Hermosillo, dentro de horario laboral.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(_intervalo);
+        var zonaHoraria = TimeZoneInfo.FindSystemTimeZoneById("America/Hermosillo");
+        var horaEjecucion = TimeOnly.TryParse(_config["RecordatorioCitas:HoraLocal"], out var h) ? h : new TimeOnly(8, 15);
 
-        do
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaHoraria);
+            var proximaLocal = ReporteAuditoriaScraperService.ProximoEnvioProgramado(ahoraLocal, horaEjecucion);
+            var proximaUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(proximaLocal, DateTimeKind.Unspecified), zonaHoraria);
+            var espera = proximaUtc - DateTime.UtcNow;
+
+            if (espera > TimeSpan.Zero)
+            {
+                try
+                {
+                    await Task.Delay(espera, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
             try
             {
                 await EnviarRecordatoriosAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error durante el envío de recordatorios de citas");
             }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
     }
 
     private async Task EnviarRecordatoriosAsync(CancellationToken ct)

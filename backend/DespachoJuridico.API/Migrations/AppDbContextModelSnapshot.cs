@@ -96,6 +96,8 @@ namespace DespachoJuridico.API.Migrations
                     b.HasIndex("ExpedienteId", "FechaAcuerdo", "Sintesis")
                         .IsUnique();
 
+                    b.HasIndex("Oculto", "Confianza", "FechaDetectado");
+
                     b.ToTable("AcuerdosScrapeados");
                 });
 
