@@ -354,4 +354,19 @@ Pendiente desde el cierre de DJ-141 (sección 8, "crear tickets... para los apel
 
 ---
 
-*Última actualización: 22 de octubre de 2026.*
+## 14. Investigado y descartado por ahora: cola de revisión para "falta 1 palabra + orden distinto"
+
+**Estado: investigado, sin evidencia real — no se implementó. Pendiente para si aparece un caso real.**
+
+Al cerrar DJ-144 quedó documentado que el fix no cubre el caso compuesto: apellidos invertidos Y además falta una palabra completa del nombre (ej. se omitió un segundo nombre). La propuesta evaluada era una regla de "N-1 de N palabras, cualquier orden" que, en vez de auto-aceptar el match (riesgo real de falso positivo con nombres compuestos comunes en México, ej. "Juan Carlos"/"María Fernanda" coincidiendo por casualidad entre personas distintas), solo agregaría el caso a una cola de revisión del reporte diario de auditoría — mismo espíritu que la Cola 2b de DJ-140, sin tocar `Oculto`/`Confianza`/notificación.
+
+**Medición antes de construir nada** (regla de la sección 7 del `CLAUDE.md`: verificar la premisa antes de actuar): se corrió la misma lógica (límite de palabra real, no `Contains` crudo — la misma corrección de DJ-144) contra **todo el histórico real** de `AcuerdosScrapeados` con `Oculto=true AND Confianza='Baja'`, sin acotar a Hermosillo (5,218 acuerdos):
+
+- 5,085 de 5,218 se excluyen por `JuzgadoCoincide=false` (juzgado del acuerdo distinto al del expediente — casos ajenos de otro juzgado, ni comparables).
+- De los 71 restantes (mismo juzgado, nombre evaluable): **0% con todas las palabras presentes, 0% con exactamente 1 palabra faltante, 100% con 2+ palabras faltantes**.
+
+**Decisión:** no construir la cola de revisión ahora — 0 casos reales en todo el sistema (no solo Hermosillo) no justifica la infraestructura nueva, mismo criterio que ya se aplicó en DJ-134 (sección 9: 0 candidatos de una palabra, no se construyó nada). Si en el futuro aparece un caso real de este patrón compuesto, retomar esta medición como punto de partida.
+
+---
+
+*Última actualización: 23 de octubre de 2026.*
