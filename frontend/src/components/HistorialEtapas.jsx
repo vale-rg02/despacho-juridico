@@ -24,6 +24,32 @@ function formatearFechaConHora(fechaStr) {
   return `${soloFecha}, ${hora}`
 }
 
+// nota.creadoEn NO sigue el patrón de arriba -- es un timestamp real
+// (DateTime.UtcNow en el backend, NotaEtapa.cs), no una fecha de calendario
+// sin hora, así que aquí sí hace falta la conversión de zona horaria real
+// (de UTC a la hora local del navegador). Única excepción: las notas
+// migradas del campo legado (DbSeeder.MigrarNotasEtapaLegadoAsync) heredaron
+// la fecha de la etapa a medianoche UTC literal, sin hora real que convertir
+// -- se detectan por los dígitos UTC en 00:00 y se muestran solo con fecha,
+// igual que antes, para no desfasar el día al "convertir" una medianoche que
+// nunca fue una hora real.
+function formatearNotaFechaHora(fechaStr) {
+  if (!fechaStr) return '—'
+  const match = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (!match) return '—'
+  const [, anio, mes, dia, horasUtc, minutosUtc] = match
+
+  if (horasUtc === '00' && minutosUtc === '00') {
+    const fecha = new Date(Number(anio), Number(mes) - 1, Number(dia))
+    return fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  const fecha = new Date(fechaStr)
+  const soloFecha = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  const hora = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return `${soloFecha}, ${hora}`
+}
+
 function diasRestantes(fechaLimite) {
   if (!fechaLimite) return null
   const hoy = new Date()
@@ -178,7 +204,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                   <div className="bg-accent/10 border-l-2 border-l-accent rounded px-2.5 py-1.5">
                     <p className="text-sm text-foreground">{ultima.texto}</p>
                     <p className="text-xs text-accent-strong mt-0.5 font-medium">
-                      {ultima.creadoPorNombre} — {formatearFechaConHora(ultima.creadoEn)}
+                      {ultima.creadoPorNombre} — {formatearNotaFechaHora(ultima.creadoEn)}
                     </p>
                   </div>
 
@@ -201,7 +227,7 @@ function HistorialEtapas({ expedienteId, etapas, onCompletar, onRevertir, onEdit
                         <div key={nota.id} className="bg-secondary/30 rounded px-2.5 py-1.5">
                           <p className="text-sm text-foreground/80">{nota.texto}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {nota.creadoPorNombre} — {formatearFechaConHora(nota.creadoEn)}
+                            {nota.creadoPorNombre} — {formatearNotaFechaHora(nota.creadoEn)}
                           </p>
                         </div>
                       ))}
