@@ -336,4 +336,22 @@ Diagnóstico (solo lectura, `EXPLAIN` contra producción + carga local con SQLit
 
 ---
 
+## 13. DJ-144: PartesCoinciden fallaba con apellidos invertidos
+
+**Estado: implementada (22 de octubre de 2026).**
+
+Pendiente desde el cierre de DJ-141 (sección 8, "crear tickets... para los apellidos invertidos"). El propio código ya tenía, sin conectar, una función que resolvía esto (`CoincidenMismasPalabrasOrdenDistinto`, comentada como "PROPUESTA DJ-apellidos-invertidos" desde antes de este ticket) con un caso real documentado ahí mismo: exp. 43/2024, "Pedro Nuñez Mendez" vs "PEDRO MENDEZ NUÑEZ" — similitud 0.6667 contra el umbral 0.8 de `PartesCoinciden`, que compara el nombre completo como una sola cadena contigua y por eso es sensible al orden.
+
+**Medición antes de decidir** (nombres inventados, ninguno real): 9 casos sintéticos corriendo `PartesCoinciden` (la función real) y la propuesta sin conectar, vía reflection contra el ensamblado real. Los 3 casos de apellidos invertidos puros fallaban con la función real y pasaban con la propuesta; los 2 controles negativos (personas distintas) daban `False` en ambas, sin diferencia.
+
+**Hallazgo al wirear la propuesta:** romper la suite expuso un bug latente en `CoincidenMismasPalabrasOrdenDistinto` que nunca se había detectado porque nunca corrió contra datos reales — usaba `Contains` de subcadena cruda en vez de límite de palabra, así que "CORONA" contaba como presente dentro de "CORONADO" (son personas distintas; cuando sí son la misma, esa variación de ortografía ya la cubre `SimilitudMaximaSubcadena` con su propio umbral). Esto rompió 2 pruebas existentes (`VariacionDeOrtografia_DaPuntajeAltoSinSerUno`, `PartesCoinciden_UmbralMasAlto_YaNoAceptaLaVariacionDeOrtografia`) — la segunda porque el nuevo criterio ignoraba `umbralSimilitud` por completo. Se corrigió a exigir límite de palabra (`\b...\b`) antes de wirear nada a producción.
+
+**Cambio:** `CoincidenMismasPalabrasOrdenDistinto` ahora se llama dentro de `NombreIndividualCoincide` (en `PartesCoinciden`) y de `PuntajeIndividual` (en `PuntajeMaximoSimilitud`, para que el reporte de Cola 2b de DJ-140 no marque como "casi coincide" algo que ya cuenta como match real).
+
+**Qué NO cubre:** el caso compuesto donde ADEMÁS de invertir los apellidos falta una palabra completa del nombre (ej. se omitió un segundo nombre) — `CoincidenMismasPalabrasOrdenDistinto` exige el conjunto completo de palabras, así que esto sigue dando `False`. Es un problema distinto (nombre incompleto, no solo orden); si se decide atacar, va en un ticket aparte.
+
+**Pruebas:** 540 → 547 (7 nuevas), sin regresión.
+
+---
+
 *Última actualización: 22 de octubre de 2026.*

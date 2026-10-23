@@ -89,6 +89,26 @@ public class NotaEtapaTests
         Assert.Equal("Segunda nota", todas[1].Texto);
     }
 
+    // Hallazgo 22 oct 2026: al mover el flujo de notas a su propia tabla
+    // (NotaEtapa), el endpoint nunca quedó conectado a RegistrarBitacora -- a
+    // diferencia del flujo viejo (EditarEtapa, "Notas actualizadas"), agregar
+    // una nota dejó de aparecer en el panel de actividad del expediente.
+    [Fact]
+    public async Task AgregarNota_RegistraEnBitacoraDeActividad()
+    {
+        using var context = CrearContextoEnMemoria(nameof(AgregarNota_RegistraEnBitacoraDeActividad));
+        var (titular, expediente, _, etapa) = await SembrarEtapaAsync(context);
+        var controller = CrearControllerComoUsuario(context, titular.Id);
+
+        await controller.AgregarNotaEtapa(expediente.Id, etapa.Id, new AgregarNotaEtapaRequest { Texto = "Nota de prueba" });
+
+        var bitacora = await context.BitacoraCambios.Where(b => b.ExpedienteId == expediente.Id).ToListAsync();
+        var registro = Assert.Single(bitacora);
+        Assert.Equal("nota_agregada", registro.Accion);
+        // Privacidad: el detalle nunca incluye el texto real de la nota, solo que se agregó una.
+        Assert.DoesNotContain("Nota de prueba", registro.Detalle);
+    }
+
     [Fact]
     public async Task RegistrarEtapa_ConNotaInicial_CreaLaPrimeraNotaEtapa()
     {

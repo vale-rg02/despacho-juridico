@@ -585,6 +585,7 @@ public class ExpedientesController : ControllerBase
 
         var historial = await _context.HistorialEtapas
             .Include(h => h.Expediente)
+            .Include(h => h.EtapaCatalogo)
             .FirstOrDefaultAsync(h => h.Id == etapaId && h.ExpedienteId == id);
 
         if (historial == null || !await _acceso.TieneAccesoAsync(ObtenerUsuarioId(), historial.Expediente.UsuarioAsignadoId, id))
@@ -599,6 +600,14 @@ public class ExpedientesController : ControllerBase
         };
         _context.NotasEtapa.Add(nota);
         await _context.SaveChangesAsync();
+
+        // DJ-pendiente (hallazgo 22 oct 2026): el flujo viejo de notas (EditarEtapa,
+        // una sola nota sobreescrita) sí dejaba rastro en el panel de actividad
+        // ("Notas actualizadas"); al moverse a historial de notas (commit 8d8e27e)
+        // este endpoint nuevo nunca se conectó a RegistrarBitacora -- sin texto de
+        // la nota, mismo criterio de privacidad que ya usaba "Notas actualizadas".
+        await RegistrarBitacora(id, usuarioId, "nota_agregada",
+            $"Nota agregada a la etapa '{historial.EtapaCatalogo?.Nombre ?? "Etapa"}'");
 
         var usuario = await _context.Usuarios.FindAsync(usuarioId);
 

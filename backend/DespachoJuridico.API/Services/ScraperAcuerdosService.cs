@@ -1654,6 +1654,12 @@ public class ScraperAcuerdosService : BackgroundService
             var patronNormalizado = NormalizarTexto(nombre);
             if (textoNormalizado.Contains(patronNormalizado)) return true;
 
+            // DJ-144: mismas palabras, orden distinto (ADISON a veces publica los
+            // apellidos antes del nombre) -- antes de caer a la tolerancia de
+            // ortografía, que compara el nombre como una sola cadena contigua y por
+            // eso es sensible al orden.
+            if (CoincidenMismasPalabrasOrdenDistinto(patronNormalizado, textoNormalizado)) return true;
+
             // La coincidencia exacta por substring falló — antes de descartar el
             // match, probar tolerancia a variaciones de ortografía entre cómo el
             // despacho captura la parte y cómo la publica el juzgado (ej. "Corona"
@@ -1695,6 +1701,9 @@ public class ScraperAcuerdosService : BackgroundService
         {
             var patronNormalizado = NormalizarTexto(nombre);
             if (textoNormalizado.Contains(patronNormalizado)) return 1.0;
+            // DJ-144: mismo criterio de orden distinto que PartesCoinciden, para que
+            // este reporte no marque como "casi coincide" algo que ya cuenta como match.
+            if (CoincidenMismasPalabrasOrdenDistinto(patronNormalizado, textoNormalizado)) return 1.0;
             return SimilitudMaximaSubcadena(patronNormalizado, textoNormalizado);
         }
 
@@ -1714,6 +1723,41 @@ public class ScraperAcuerdosService : BackgroundService
 
     private static bool EsNombreConfiable(string nombre) =>
         nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 2;
+
+    // DJ-144: SimilitudMaximaSubcadena compara el nombre completo como UNA sola
+    // cadena contra una ventana contigua del texto -- si ADISON publica las
+    // mismas palabras en otro orden (caso real confirmado: exp. 43/2024, "Pedro
+    // Nuñez Mendez" vs "PEDRO MENDEZ NUÑEZ", puntaje medido 0.6667 contra el
+    // umbral 0.8), la distancia de edición crece aunque sea la misma persona.
+    // Esto exige que TODAS las palabras de 4+ letras del patrón aparezcan como
+    // subcadena en el texto, sin importar el orden -- más estricto que un
+    // fragmento suelto (debe estar el conjunto completo, no basta una sola
+    // palabra), así que no reabre el riesgo ya documentado de "ANA" en "LILIANA"
+    // o apellidos comunes sueltos (EsNombreConfiable ya exige 2+ palabras antes
+    // de llegar aquí, y esto exige 2+ palabras de 4+ letras en particular).
+    // No resuelve el caso donde además falta una palabra completa del nombre
+    // (ej. se omitió un segundo nombre) -- eso es un problema distinto, fuera
+    // de alcance de DJ-144.
+    internal static bool CoincidenMismasPalabrasOrdenDistinto(string patronNormalizado, string textoNormalizado)
+    {
+        var palabras = System.Text.RegularExpressions.Regex
+            .Matches(patronNormalizado, @"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}")
+            .Select(m => m.Value)
+            .Distinct()
+            .ToList();
+
+        if (palabras.Count < 2) return false;
+
+        // Límite de palabra, no subcadena cruda -- Contains() simple haría que
+        // "CORONA" cuente como presente dentro de "CORONADO" (son personas
+        // distintas, o cuando sí lo son la variante de ortografía ya la cubre
+        // SimilitudMaximaSubcadena con su propio umbral). Encontrado al wirear
+        // este método a PartesCoinciden (DJ-144): rompía
+        // PartesCoinciden_UmbralMasAlto_YaNoAceptaLaVariacionDeOrtografia porque
+        // ignoraba el umbral por completo en ese caso.
+        return palabras.All(p =>
+            System.Text.RegularExpressions.Regex.IsMatch(textoNormalizado, $@"\b{System.Text.RegularExpressions.Regex.Escape(p)}\b"));
+    }
 
     // Busca, dentro de "texto", la subcadena (de CUALQUIER longitud, no solo la
     // de "patron") que más se le parezca — a diferencia de comparar ventanas de

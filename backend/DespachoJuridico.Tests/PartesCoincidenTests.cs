@@ -636,4 +636,85 @@ public class PartesCoincidenTests
         var partesPublicadas = "En cuadernillo formado con motivo del exhorto 719/2026. Se devuelve diligenciado.";
         Assert.False(ScraperAcuerdosService.PartesCoinciden("Alguna Parte Demandada Real", partesPublicadas));
     }
+
+    // ── DJ-144: apellidos invertidos (ADISON publica los mismos apellidos antes
+    // del nombre) -- nombres inventados, ninguno es un cliente real. Antes de
+    // este cambio, PartesCoinciden comparaba el nombre completo como una sola
+    // cadena contigua y por eso era sensible al orden (caso real que motivó el
+    // fix, documentado en CoincidenMismasPalabrasOrdenDistinto: exp. 43/2024,
+    // "Pedro Nuñez Mendez" vs "PEDRO MENDEZ NUÑEZ", puntaje 0.6667 < umbral 0.8).
+
+    [Fact]
+    public void PartesCoinciden_DJ144_ApellidosInvertidos_RegresaTrue()
+    {
+        var partes = "ORAL MERCANTIL - ACCIÓN PAGO DE PESOS.- BBVA MEXICO, S.A. VS RAMIREZ LOPEZ JUAN";
+
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Juan Ramirez Lopez", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ144_SoloLosDosApellidosInvertidosEntreSi_RegresaTrue()
+    {
+        // Paterno y materno intercambiados, el nombre de pila se mantiene al frente.
+        var partes = "DIVORCIO INCAUSADO.- MARIA FERNANDA BELTRAN TORRES VS OTRA PARTE";
+
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Maria Fernanda Torres Beltran", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ144_ApellidosInvertidosConSufijoYOtra_RegresaTrue()
+    {
+        // Combina el sufijo genérico "Y OTRA" (QuitarSufijoOtroDemandado) con el
+        // reordenamiento de apellidos -- las dos correcciones deben componer bien.
+        var partes = "EJECUTIVO MERCANTIL.- RIVAS LUNA PEDRO VS INFONAVIT";
+
+        Assert.True(ScraperAcuerdosService.PartesCoinciden("Pedro Luna Rivas Y OTRA", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ144_FaltaSegundoNombreYApellidosInvertidos_SigueRegresandoFalse()
+    {
+        // Límite documentado de este fix: si ADEMÁS de invertir los apellidos
+        // ADISON omite un nombre completo (aquí "Eduardo"), ya no quedan todas
+        // las palabras del patrón presentes -- CoincidenMismasPalabrasOrdenDistinto
+        // exige el conjunto completo, así que esto NO se resuelve con DJ-144. Es
+        // un problema distinto (nombre incompleto, no solo orden), fuera de alcance.
+        var partes = "ORAL MERCANTIL.- SANCHEZ GOMEZ CARLOS VS BANCO";
+
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Carlos Eduardo Gomez Sanchez", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ144_ApellidoRealmenteFaltante_NoEsApellidosInvertidos_SigueRegresandoFalse()
+    {
+        // Control negativo: no basta con que falte una sola palabra para que el
+        // nuevo criterio de orden distinto lo acepte -- exige que TODAS las
+        // palabras de 4+ letras estén presentes, solo que en cualquier orden.
+        var partes = "SUCESORIO INTESTAMENTARIO.- ANA LUCIA BELTRAN";
+
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("Ana Lucia Beltran Nunez", partes));
+    }
+
+    [Fact]
+    public void PartesCoinciden_DJ144_ApellidosComunesSueltosDeOtroExpediente_SigueRegresandoFalse()
+    {
+        // No-regresión del riesgo ya documentado arriba (IBARRA/OCHOA, caso real
+        // del 20 de agosto 2026): el nuevo criterio exige 2+ palabras de 4+ letras
+        // del MISMO fragmento confiable, así que palabras sueltas de personas
+        // distintas en el texto no deben combinarse para simular un match.
+        var partes = "DIVORCIO INCAUSADO.- EMILIA CUEVAS IBARRA VS JOSE ANGEL OCHOA ESQUER";
+
+        Assert.False(ScraperAcuerdosService.PartesCoinciden("RICARDO IBARRA OCHOA", partes, umbralSimilitud: 0.8));
+    }
+
+    [Fact]
+    public void PuntajeMaximoSimilitud_DJ144_ApellidosInvertidos_DaUno()
+    {
+        // Consistencia con PartesCoinciden: si ya cuenta como match real, el
+        // reporte de Cola 2b (DJ-140) no debe seguir marcándolo como "casi
+        // coincide" por debajo del umbral.
+        var partes = "ORAL MERCANTIL.- RAMIREZ LOPEZ JUAN VS BBVA MEXICO";
+
+        Assert.Equal(1.0, ScraperAcuerdosService.PuntajeMaximoSimilitud("Juan Ramirez Lopez", partes));
+    }
 }
