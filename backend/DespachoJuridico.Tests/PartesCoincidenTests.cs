@@ -620,6 +620,23 @@ public class PartesCoincidenTests
     }
 
     [Fact]
+    public void PartesTieneNombre_AccionEjecucionDeGarantia_YaNoCuentaComoNombre()
+    {
+        // Caso real del 23 de octubre de 2026: exp. 2336/2026, dos acuerdos
+        // distintos (1ro y 4to Mercantil Hermosillo) quedaron ocultos con
+        // Confianza=Baja porque "ACCIÓN EJECUCIÓN DE GARANTÍA" (3 palabras
+        // largas, no listada -- solo estaba "JUICIO DE GARANTIA") se confundía
+        // con un nombre real. Al no haber ningún nombre que comparar, Hermosillo
+        // debería seguir confiando en número+juzgado como siempre (ver
+        // comentario en PartesCoinciden) -- en vez de eso, PartesTieneNombre
+        // decía que sí había nombre, PartesCoinciden fallaba contra él, y el
+        // acuerdo se ocultaba por error.
+        var partes = "ESPECIAL MERCANTIL - ACCIÓN EJECUCIÓN DE GARANTÍA.-";
+
+        Assert.False(ScraperAcuerdosService.PartesTieneNombre(partes));
+    }
+
+    [Fact]
     public void EsSerieAuxiliar_CasoReal476_2026_ConfirmaTipoAsuntoExhorto()
     {
         // Caso real del 28 de agosto de 2026: el acuerdo "476/2026" del Juzgado Oral

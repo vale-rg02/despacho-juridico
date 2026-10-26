@@ -1564,6 +1564,7 @@ public class ScraperAcuerdosService : BackgroundService
         "DIVORCIO INCAUSADO",
         "ACCION CAMBIARIA DIRECTA",
         "JUICIO DE GARANTIA",
+        "ACCION EJECUCION DE GARANTIA",
         "ACCION PAGO DE PESOS",
         "ORAL MERCANTIL",
         "EJECUTIVO MERCANTIL",
