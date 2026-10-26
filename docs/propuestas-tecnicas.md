@@ -369,4 +369,18 @@ Al cerrar DJ-144 quedó documentado que el fix no cubre el caso compuesto: apell
 
 ---
 
+## 15. Pendiente: `DetectarCaidasBruscas` suma las re-consultas horarias del día en vez de tomar la última
+
+**Estado: encontrado al investigar las anomalías del reporte del 22 de octubre — documentado, no corregido todavía.**
+
+Al investigar las 2 "caídas bruscas" del reporte del 22 de octubre (`ReporteAuditoriaScraperService.DetectarCaidasBruscas`), confirmé con datos reales que el ciclo automático re-consulta "la fecha de hoy" para cada juzgado muchas veces al día (cada hora, de las 00:05 a las 18:05 hora de Hermosillo) y que `Devueltos` es un contador que crece durante el día a medida que ADISON publica más (ej. IdUnidad 233 el 22 de octubre: 0 toda la mañana, salta a 3 a las 11:04 am hora de Hermosillo y se queda ahí el resto del día).
+
+El problema: `DetectarCaidasBruscas` agrupa por `FechaConsultada` y hace `g.Sum(f => f.Devueltos)` sobre todas esas ~19 re-consultas del mismo día, en vez de tomar la última (el valor real de cuántos se publicaron ese día). Esto infla el número según **a qué hora del día se publicó**, no según **cuánto se publicó** — si un juzgado publica temprano, su conteo se suma muchas veces más que uno que publica tarde, aunque ambos hayan publicado la misma cantidad real.
+
+**Por qué no se corrigió ya:** verificado con el método corregido (tomar el último valor del día en vez de la suma) contra las mismas 2 caídas del 22 de octubre — ambas se confirman igual o más fuertes (Guaymas: 3 vs mediana 55; Álamos: 3 vs mediana 15), así que el bug no cambió la conclusión de ese día. Sin un caso real donde el bug sí haya alterado una decisión (un falso positivo o falso negativo de "caída brusca" causado específicamente por esto), corregirlo ahora sería infraestructura sin evidencia — mismo criterio de las secciones 9 y 14. Queda documentado para cuando se decida atacarlo, o si aparece un caso real donde sí importe.
+
+**Corrección pendiente, si se retoma:** en `DetectarCaidasBruscas` (`ReporteAuditoriaScraperService.cs`), cambiar `porFecha = grupo.GroupBy(f => f.FechaConsultada).ToDictionary(g => g.Key, g => g.Sum(f => f.Devueltos))` por tomar el `Devueltos` de la fila con `FechaHoraCorrida` más reciente de cada día, no la suma.
+
+---
+
 *Última actualización: 23 de octubre de 2026.*
