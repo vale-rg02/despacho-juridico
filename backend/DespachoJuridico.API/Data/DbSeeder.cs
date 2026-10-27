@@ -146,6 +146,13 @@ public static class DbSeeder
 
             // Oral Mercantil
             new EtapaCatalogo { Nombre = "Demanda", TipoJuicio = "Oral Mercantil", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
+            // Solicitud de Carlos (27 oct 2026): pueden pedirse antes o durante el
+            // juicio, no en un punto fijo de la secuencia -- mismo criterio que
+            // Incidente (DJ-119): comparte Orden con la etapa más temprana en vez
+            // de forzar una posición. Sin plazo: no se encontró una base clara
+            // para uno específico (a diferencia de Radicación/Emplazamiento, que
+            // sí tienen uno medido).
+            new EtapaCatalogo { Nombre = "Providencias Precautorias", TipoJuicio = "Oral Mercantil", Orden = 1, TerminoDias = null, EsDiasHabiles = true },
             new EtapaCatalogo { Nombre = "Radicación", TipoJuicio = "Oral Mercantil", Orden = 2, TerminoDias = 7, EsDiasHabiles = true },
             // DJ-78: ver comentario en la versión de Hipotecario, arriba.
             new EtapaCatalogo { Nombre = "Término", TipoJuicio = "Oral Mercantil", Orden = 3, TerminoDias = null, EsDiasHabiles = true },
