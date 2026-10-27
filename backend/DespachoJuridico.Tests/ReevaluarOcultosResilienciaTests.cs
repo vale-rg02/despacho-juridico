@@ -2,6 +2,7 @@ using DespachoJuridico.API.Data;
 using DespachoJuridico.API.Models;
 using DespachoJuridico.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -62,16 +63,25 @@ public class ReevaluarOcultosResilienciaTests
         return expediente;
     }
 
-    private static ScraperAcuerdosService CrearScraperConEmailService(string nombreBD, IEmailService emailService)
+    private static ScraperAcuerdosService CrearScraperConEmailService(
+        string nombreBD, IEmailService emailService, int? topeReevaluacionPorCorrida = null)
     {
         var servicios = new ServiceCollection();
         servicios.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(nombreBD));
         servicios.AddSingleton(emailService);
         var proveedor = servicios.BuildServiceProvider();
+
+        var configBuilder = new ConfigurationBuilder();
+        if (topeReevaluacionPorCorrida.HasValue)
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ScraperAcuerdos:TopeReevaluacionPorCorrida"] = topeReevaluacionPorCorrida.Value.ToString()
+            });
+
         return new ScraperAcuerdosService(
             proveedor.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<ScraperAcuerdosService>.Instance,
-            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+            configBuilder.Build());
     }
 
     [Fact]
@@ -128,6 +138,38 @@ public class ReevaluarOcultosResilienciaTests
             // lanza) -- lo que importa es que AMBOS quedaron procesados
             // (Oculto/Confianza guardados), no solo el primero.
             Assert.False(a.NotificacionEnviada);
+        });
+    }
+
+    [Fact]
+    public async Task TopeExcedido_NoGuardaNiNotificaNada()
+    {
+        // 27 oct 2026: si dryRun=false pero el total de candidatos supera el
+        // tope (acotado aquí a 1 para no tener que sembrar 11 acuerdos), la
+        // función debe comportarse como si hubiera sido dryRun=true -- nada se
+        // guarda, nada se notifica -- y marcar TopeExcedido para que quien lo
+        // llame sepa por qué no se aplicó nada.
+        var nombreBD = nameof(TopeExcedido_NoGuardaNiNotificaNada);
+        using var context = CrearContextoEnMemoria(nombreBD);
+        await SembrarExpedienteConAcuerdoOcultoAsync(context, "503/2026", "Rosa Delia Figueroa", "ORAL MERCANTIL.- ROSA DELIA FIGUEROA VS BANCO");
+        await SembrarExpedienteConAcuerdoOcultoAsync(context, "504/2026", "Gilberto Nava Ruiz", "ORAL MERCANTIL.- GILBERTO NAVA RUIZ VS BANCO");
+
+        var fakeEmail = new FakeEmailService();
+        var scraper = CrearScraperConEmailService(nombreBD, fakeEmail, topeReevaluacionPorCorrida: 1);
+
+        var resultado = await scraper.ReevaluarOcultosAsync(dryRun: false, notificar: true);
+
+        Assert.True(resultado.TopeExcedido);
+        Assert.Equal(1, resultado.Tope);
+        Assert.Equal(2, resultado.RegistrosDesocultados.Count); // sí informa qué habría cambiado
+        Assert.Empty(fakeEmail.Enviados);
+
+        using var contextVerificacion = CrearContextoEnMemoria(nombreBD);
+        var acuerdos = await contextVerificacion.AcuerdosScrapeados.ToListAsync();
+        Assert.All(acuerdos, a =>
+        {
+            Assert.True(a.Oculto);
+            Assert.Equal("Baja", a.Confianza);
         });
     }
 }

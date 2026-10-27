@@ -122,6 +122,15 @@ public class ResultadoReevaluacionResponse
     // la sugerencia "Media" (banco + juzgado/número ya confirmados) — separados de
     // RegistrosDesocultados porque suben a Media, no a Alta.
     public List<AcuerdoDetectadoResumen> RegistrosSugeridos { get; set; } = new();
+
+    // 27 oct 2026: si dryRun=false pero RegistrosDesocultados+RegistrosSugeridos
+    // excede el tope (ScraperAcuerdos:TopeReevaluacionPorCorrida), no se guarda ni
+    // se notifica nada -- se comporta como si hubiera sido dryRun=true, pero
+    // dejando explícito por qué (un volumen muy por encima de lo histórico puede
+    // significar que el supuesto detrás de alguna regla ya no aplica, y conviene
+    // que alguien lo revise antes de mandar correos reales en masa).
+    public bool TopeExcedido { get; set; }
+    public int Tope { get; set; }
 }
 
 // Un registro real de AcuerdosScrapeados (visible u oculto) para el endpoint de

@@ -1105,6 +1105,11 @@ public class ScraperAcuerdosService : BackgroundService
             RegistrosEvaluados = candidatos.Count
         };
 
+        // Primera pasada: decide qué cambia, sin guardar ni notificar todavía --
+        // así se puede conocer el total antes de comprometerse a aplicar nada
+        // (ver tope más abajo). "pendientes" son los que sí hay que guardar.
+        var pendientes = new List<(AcuerdoScrapeado Acuerdo, Expediente Expediente, string NuevaConfianza)>();
+
         foreach (var acuerdo in candidatos)
         {
             var expediente = acuerdo.Expediente;
@@ -1180,8 +1185,34 @@ public class ScraperAcuerdosService : BackgroundService
             else
                 resultado.RegistrosSugeridos.Add(resumen);
 
-            if (dryRun) continue;
+            pendientes.Add((acuerdo, expediente, nuevaConfianza));
+        }
 
+        if (dryRun) return resultado;
+
+        // 27 oct 2026: tope de seguridad -- sin esto, un supuesto equivocado en
+        // alguna de las reglas de arriba (ej. una frase genérica nueva no
+        // listada, afectando muchos más acuerdos de los que midió quien hizo el
+        // cambio) se aplicaría y notificaría de golpe, sin ningún punto donde
+        // alguien lo revise antes de mandar correos reales en masa. El máximo
+        // histórico real de esta función en un solo cierre retroactivo fue 3
+        // (DJ-122, 14 sep 2026); el tope por default (10) deja margen holgado
+        // para una corrida normal sin dejar pasar un volumen fuera de lo común
+        // sin revisión.
+        var tope = _config.GetValue<int?>("ScraperAcuerdos:TopeReevaluacionPorCorrida") ?? 10;
+        var totalCambios = resultado.RegistrosDesocultados.Count + resultado.RegistrosSugeridos.Count;
+        if (totalCambios > tope)
+        {
+            resultado.TopeExcedido = true;
+            resultado.Tope = tope;
+            _logger.LogWarning(
+                "Reevaluación: se pidió aplicar de verdad pero {Total} candidatos superan el tope de {Tope} -- no se guardó ni se notificó nada, revisar con dryRun=true primero.",
+                totalCambios, tope);
+            return resultado;
+        }
+
+        foreach (var (acuerdo, expediente, nuevaConfianza) in pendientes)
+        {
             acuerdo.Confianza = nuevaConfianza;
             acuerdo.Oculto = false;
             await context.SaveChangesAsync();

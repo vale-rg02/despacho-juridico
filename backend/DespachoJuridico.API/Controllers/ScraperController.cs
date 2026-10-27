@@ -187,6 +187,10 @@ public class ScraperController : ControllerBase
     // defecto dryRun=true: solo lista qué se desocultaría, sin tocar la BD ni enviar
     // correos. notificar=true por defecto (mismo criterio que Promover) -- en false
     // no envía correo, por si se prefiere revisar antes de avisar al litigante.
+    // 27 oct 2026: si dryRun=false y el total de candidatos supera el tope
+    // (ScraperAcuerdos:TopeReevaluacionPorCorrida, default 10), no se guarda ni
+    // se notifica nada -- la respuesta trae TopeExcedido=true y sigue mostrando
+    // qué habría cambiado, para revisar antes de forzarlo con un tope mayor.
     [HttpPost("reevaluar-ocultos")]
     [Authorize(Policy = "AccesoAdmin")]
     public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true, [FromQuery] bool notificar = true)
