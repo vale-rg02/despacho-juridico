@@ -383,4 +383,21 @@ El problema: `DetectarCaidasBruscas` agrupa por `FechaConsultada` y hace `g.Sum(
 
 ---
 
-*Última actualización: 23 de octubre de 2026.*
+## 16. "Providencias Precautorias" en el catálogo de Oral Mercantil — y dos observaciones preexistentes del seeder
+
+**Estado: implementado (27 de octubre de 2026). Solicitud de Carlos.**
+
+Se agregó `"Providencias Precautorias"` a `EtapasCatalogoAsync` (`DbSeeder.cs`), solo para `TipoJuicio = "Oral Mercantil"`, `Orden = 1` (comparte con "Demanda" porque puede pedirse antes o durante el juicio, no en un punto fijo — mismo criterio ya usado para "Incidente" en DJ-119), sin plazo (`TerminoDias = null`, sin base clara para uno específico). Cambio aditivo e idempotente (mismo mecanismo de revisión por `(Nombre, TipoJuicio)` que ya usan DJ-68/69, DJ-76, DJ-119, DJ-121). Confirmado con datos reales que no toca Especial ni Ordinario Mercantil (0 filas de catálogo en esos dos tipos hoy) ni ningún expediente/HistorialEtapa existente. Pruebas: 556 → 570 (14 nuevas), sin regresión.
+
+**Hallazgo de premisa, fuera de alcance de esta tarea:** el comentario de DJ-119 decía "Especial/Ordinario Mercantil... cero expedientes activos reales" — ya no es cierto (hoy: 19 y 2 expedientes abiertos respectivamente, sin ningún catálogo de etapas). No se corrigió porque Carlos no lo pidió y el plan de cierre tiene el alcance congelado — queda anotado para cuando se revise.
+
+**Dos observaciones del diseño del seeder, preexistentes (no introducidas por este cambio, solo encontradas al revisarlo):**
+
+1. **El orden de aparición entre etapas que comparten `Orden` no está garantizado.** `EtapasCatalogoController.GetAll` hace `.OrderBy(e => e.Orden)` sin ningún criterio de desempate — entre dos filas con el mismo `Orden` (ahora "Demanda"/"Providencias Precautorias", y ya antes "Término"/"Emplazamiento" e "Incidente"/"Audiencia Preliminar"), Postgres/EF no garantiza cuál aparece primero en el dropdown; podría variar entre despliegues. Cosmético, no funcional — ninguna opción deja de aparecer.
+2. **No hay un índice único en `EtapasCatalogo` para `(Nombre, TipoJuicio)`.** La idempotencia del seeder depende solo de la revisión en C# (`existentes.Any(...)`), no de una restricción de la base. Si el seeder corriera dos veces en paralelo (dos instancias arrancando a la vez durante un deploy), hay una ventana teórica de carrera que podría duplicar una fila. Revisado: no hay evidencia de que `despacho-juridico` corra con más de una réplica en Railway hoy, así que es un riesgo teórico, no observado. Aplica por igual a las 24 etapas de Oral Mercantil que ya existían desde antes, no solo a la nueva.
+
+Ninguna de las dos observaciones se corrigió — no hay evidencia de que hayan causado un problema real, y agregar el índice único o un segundo criterio de orden sería un cambio de esquema/comportamiento fuera del alcance pedido (solo catálogo de una etapa nueva). Quedan documentadas para si se decide atacarlas.
+
+---
+
+*Última actualización: 27 de octubre de 2026.*
