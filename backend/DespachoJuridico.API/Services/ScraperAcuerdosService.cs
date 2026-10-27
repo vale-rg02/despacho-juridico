@@ -1077,7 +1077,15 @@ public class ScraperAcuerdosService : BackgroundService
     // sugerencia "Media" (casos reales confirmados 14 sep 2026: exp. 898/2026,
     // 883/2026, 1354/2025, los tres en juzgados de Hermosillo). Por eso este método
     // también reintenta el criterio de Media, no solo el de Alta.
-    public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true)
+    // 26 oct 2026: agregado el parámetro "notificar" (mismo patrón que Promover,
+    // ver PATCH /acuerdos/{id}/promover) y try/catch alrededor del envío --
+    // antes, con la extensión Hermosillo-sin-nombre, una corrida podía desocultar
+    // varios acuerdos de golpe sin forma de revisar/aprobar el envío caso por
+    // caso, y si UN correo fallaba (ej. error transitorio de Resend), la excepción
+    // abortaba la función completa: los acuerdos ya guardados como visibles antes
+    // del fallo se quedaban así (el SaveChangesAsync ya corrió), pero ningún
+    // candidato restante del lote llegaba siquiera a evaluarse.
+    public async Task<ResultadoReevaluacionResponse> ReevaluarOcultosAsync(bool dryRun = true, bool notificar = true)
     {
         var umbralSimilitudPartes = _config.GetValue<double>("ScraperAcuerdos:UmbralSimilitudPartes", 0.8);
 
@@ -1103,6 +1111,8 @@ public class ScraperAcuerdosService : BackgroundService
             if (expediente == null) continue;
 
             var esJurisdiccionVoluntaria = EsJurisdiccionVoluntaria(expediente.TipoJuicio);
+            var esForaneo = !JuzgadosHermosillo.Contains(acuerdo.IdUnidad);
+            var esSerieAuxiliar = EsSerieAuxiliar(acuerdo.TipoAsunto);
 
             // Jurisdicción Voluntaria se reevalúa con su propio criterio (parte O banco,
             // ver EvaluarJurisdiccionVoluntaria) — el resto sigue comparando solo contra
@@ -1123,8 +1133,6 @@ public class ScraperAcuerdosService : BackgroundService
                 // el registrado en el expediente; Hermosillo ya lo exige como precondición
                 // para haber llegado a Confianza="Baja" en primer lugar. Los Exh./Cuad.
                 // (esSerieAuxiliar) nunca califican para Media, igual que en vivo.
-                var esForaneo = !JuzgadosHermosillo.Contains(acuerdo.IdUnidad);
-                var esSerieAuxiliar = EsSerieAuxiliar(acuerdo.TipoAsunto);
                 var mencionaBanco = MencionaBancoOAlias(expediente.Banco.Nombre, acuerdo.Partes, umbralSimilitudPartes);
 
                 var ahoraMedia = esSerieAuxiliar
@@ -1134,6 +1142,27 @@ public class ScraperAcuerdosService : BackgroundService
                         : mencionaBanco;
 
                 if (ahoraMedia) nuevaConfianza = "Media";
+            }
+
+            // Hermosillo-exacto sin ningún nombre que verificar (ej. "ESPECIAL
+            // MERCANTIL - ACCIÓN EJECUCIÓN DE GARANTÍA.-", exp. 2336/2026 y
+            // 2335/2026, 22-26 oct 2026): mismo criterio que la rama "sin nombre"
+            // de EjecutarScrapingAsync -- si ADISON no publicó nada que
+            // contradiga, no hay nada que verificar y se confía en número+juzgado
+            // igual que un acuerdo nuevo. Acotado a Hermosillo a propósito: los
+            // foráneos (y los Exh./Cuad., tratados como foráneos aquí) SÍ tienen
+            // el riesgo ya documentado de número de orden reutilizado entre
+            // juzgados distintos (ver JuzgadosHermosillo), así que ahí "sin
+            // nombre" nunca debe bastar por sí solo. Vuelve a exigir
+            // JuzgadoCoincide explícitamente -- a diferencia de EjecutarScrapingAsync,
+            // aquí no es una precondición garantizada por un filtro previo: el
+            // acuerdo pudo guardarse hace tiempo y el Juzgado del expediente
+            // pudo editarse desde entonces.
+            if (nuevaConfianza == null && !esJurisdiccionVoluntaria && !esForaneo && !esSerieAuxiliar
+                && JuzgadoCoincide(expediente.Juzgado ?? "", acuerdo.NombreJuzgado)
+                && !PartesTieneNombre(acuerdo.Partes))
+            {
+                nuevaConfianza = "Alta";
             }
 
             if (nuevaConfianza == null) continue;
@@ -1157,13 +1186,38 @@ public class ScraperAcuerdosService : BackgroundService
             acuerdo.Oculto = false;
             await context.SaveChangesAsync();
 
-            await EnviarNotificacionAsync(emailService, expediente, acuerdo);
-            acuerdo.NotificacionEnviada = true;
-            await context.SaveChangesAsync();
+            if (notificar)
+            {
+                try
+                {
+                    await EnviarNotificacionAsync(emailService, expediente, acuerdo);
+                    acuerdo.NotificacionEnviada = true;
+                    _logger.LogInformation(
+                        "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza {Confianza}) y se notificó",
+                        acuerdo.NumeroExpediente, acuerdo.NombreJuzgado, nuevaConfianza);
+                }
+                catch (Exception ex)
+                {
+                    // Mismo criterio que Promover: si falla el correo, el acuerdo queda
+                    // visible igual -- no se aborta el resto del lote por un fallo
+                    // transitorio de un solo envío.
+                    _logger.LogError(ex,
+                        "Reevaluación: Exp {Numero} en {Juzgado} pasó a visible (Confianza {Confianza}) pero no se pudo notificar",
+                        acuerdo.NumeroExpediente, acuerdo.NombreJuzgado, nuevaConfianza);
+                }
+            }
+            else
+            {
+                // DJ-141 (mismo criterio que Promover con notificar=false):
+                // NotificacionEnviada se queda en false, pero marcado como
+                // intencional -- así ReintentoNotificacionesService nunca lo toca.
+                acuerdo.NotificacionOmitida = true;
+                _logger.LogInformation(
+                    "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza {Confianza}) sin notificar",
+                    acuerdo.NumeroExpediente, acuerdo.NombreJuzgado, nuevaConfianza);
+            }
 
-            _logger.LogInformation(
-                "Reevaluación: Exp {Numero} en {Juzgado} pasó de oculto a visible (Confianza {Confianza}) y se notificó",
-                acuerdo.NumeroExpediente, acuerdo.NombreJuzgado, nuevaConfianza);
+            await context.SaveChangesAsync();
         }
 
         return resultado;

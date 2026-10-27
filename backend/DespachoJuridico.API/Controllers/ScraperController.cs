@@ -176,18 +176,22 @@ public class ScraperController : ControllerBase
 
     // POST /api/scraper/reevaluar-ocultos
     // POST /api/scraper/reevaluar-ocultos?dryRun=false — aplica los cambios y envía las notificaciones pendientes
+    // POST /api/scraper/reevaluar-ocultos?dryRun=false&notificar=false — aplica los cambios sin enviar correo
     // Vuelve a correr PartesCoinciden y el criterio de Media (DJ-122) con el umbral/
     // algoritmo ACTUALES sobre los acuerdos ya guardados con Confianza=Baja y
     // Oculto=true (falsos negativos reales de cuando el criterio era más estricto,
     // o de antes de que DJ-122 se desplegara). Los que ahora sí coinciden por nombre
     // se desocultan a Confianza=Alta; los que solo coinciden por banco se desocultan
-    // a Confianza=Media — ambos se notifican. Por defecto dryRun=true: solo lista
-    // qué se desocultaría, sin tocar la BD ni enviar correos.
+    // a Confianza=Media; desde el 26 de octubre de 2026 también cubre Hermosillo-exacto
+    // sin ningún nombre que verificar (ver comentario en ReevaluarOcultosAsync). Por
+    // defecto dryRun=true: solo lista qué se desocultaría, sin tocar la BD ni enviar
+    // correos. notificar=true por defecto (mismo criterio que Promover) -- en false
+    // no envía correo, por si se prefiere revisar antes de avisar al litigante.
     [HttpPost("reevaluar-ocultos")]
     [Authorize(Policy = "AccesoAdmin")]
-    public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true)
+    public async Task<IActionResult> ReevaluarOcultos([FromQuery] bool dryRun = true, [FromQuery] bool notificar = true)
     {
-        var resultado = await _scraper.ReevaluarOcultosAsync(dryRun);
+        var resultado = await _scraper.ReevaluarOcultosAsync(dryRun, notificar);
         return Ok(resultado);
     }
 
